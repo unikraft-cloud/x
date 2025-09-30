@@ -5,6 +5,7 @@ go 1.24.0
 use (
 	./colors
 	./guesstermwidth
+	./kingkong
 	./limiter
 	./log
 	./middleware
