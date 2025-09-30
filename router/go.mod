@@ -3,7 +3,7 @@ module unikraft.com/x/router
 go 1.24.0
 
 require (
-	codeberg.org/gruf/go-bytesize v1.0.3
+	codeberg.org/gruf/go-bytesize v1.0.4
 	github.com/a-h/templ v0.3.898
 	github.com/gin-gonic/gin v1.10.1
 	unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9
