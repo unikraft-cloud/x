@@ -3,7 +3,7 @@ module unikraft.com/x/log
 go 1.24.0
 
 require (
-	github.com/getsentry/sentry-go v0.33.0
+	github.com/getsentry/sentry-go v0.35.3
 	github.com/getsentry/sentry-go/zerolog v0.33.0
 	github.com/rs/zerolog v1.34.0
 )
