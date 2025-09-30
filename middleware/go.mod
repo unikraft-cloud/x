@@ -9,7 +9,7 @@ require (
 	github.com/getsentry/sentry-go/gin v0.33.0
 	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-gonic/gin v1.10.1
-	unikraft.com/x/log v0.0.0-20250615200551-e85ee5f72ffa
+	unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9
 )
 
 require (

@@ -98,8 +98,6 @@ github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
-unikraft.com/x/log v0.0.0-20250615200551-e85ee5f72ffa h1:xL1I31JR30aU9lF6W4uIMNWCuAAJbInj5atgu42x2Wg=
-unikraft.com/x/log v0.0.0-20250615200551-e85ee5f72ffa/go.mod h1:xkhkCN4Z4kkwAu5rLdpKTLaBCq8uuVFE8dJkjg8Ruc0=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 golang.org/x/arch v0.15.0 h1:QtOrQd0bTUnhNVNndMpLHNWrDmYzZ2KDqSrEymqInZw=
@@ -124,3 +122,5 @@ gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 nullprogram.com/x/optparse v1.0.0/go.mod h1:KdyPE+Igbe0jQUrVfMqDMeJQIJZEuyV7pjYmp6pbG50=
+unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9 h1:ULUrCUpiOCRwz91H1U/qACNUFiT7kUX4uJOfa9jR3Z0=
+unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9/go.mod h1:RRY1ETLbJBOGxPXSF8EfsKailj+C/mhr7CEMYqirn4k=
