@@ -6,7 +6,7 @@
 //go:build (!appengine && linux) || freebsd || darwin || dragonfly || netbsd || openbsd
 // +build !appengine,linux freebsd darwin dragonfly netbsd openbsd
 
-package utils
+package guesstermwidth
 
 import (
 	"io"
