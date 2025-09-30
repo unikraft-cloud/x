@@ -6,7 +6,7 @@ require (
 	codeberg.org/gruf/go-bytesize v1.0.3
 	github.com/a-h/templ v0.3.898
 	github.com/gin-gonic/gin v1.10.1
-	unikraft.com/x/log v0.0.0-20250613230055-8c382c210a99
+	unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9
 )
 
 require (
