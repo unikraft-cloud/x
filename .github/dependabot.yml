@@ -47,6 +47,13 @@ updates:
     time: '09:00'
 
 - package-ecosystem: gomod
+  directory: /version
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
   directory: /tools/protoc-gen-go-gin
   schedule:
     interval: weekly
