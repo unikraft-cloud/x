@@ -5,6 +5,13 @@ updates:
 # which have external dependencies directly into the Dependabot list.  See [0].
 # [0]: https://github.com/dependabot/dependabot-core/issues/6012
 - package-ecosystem: gomod
+  directory: /colors
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
   directory: /log
   schedule:
     interval: weekly
