@@ -3,6 +3,7 @@ go 1.24.0
 // Common modules.
 // This list is alphabetical and should not be reordered.
 use (
+	./colors
 	./limiter
 	./log
 	./middleware
