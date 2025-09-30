@@ -13,6 +13,7 @@ use (
 	./router
 	./startstopper
 	./text
+	./version
 )
 
 // Common tools.
