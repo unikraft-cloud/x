@@ -19,6 +19,13 @@ updates:
     time: '09:00'
 
 - package-ecosystem: gomod
+  directory: /kingkong
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
   directory: /log
   schedule:
     interval: weekly
