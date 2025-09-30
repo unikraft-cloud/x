@@ -1,0 +1,66 @@
+name: check/static
+
+on:
+  pull_request:
+    branches: [prod-staging]
+    paths:
+      - '**'
+      - '!.github/**'
+      - .github/workflows/check-static.yaml
+
+# Automatically cancel in-progress actions on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request_target' && github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.24.0
+          cache: false
+
+      - name: Set Go variables
+        id: goenv
+        run: |
+          {
+            echo "cache=$(go env GOCACHE)"
+            echo "modcache=$(go env GOMODCACHE)"
+            echo "mod=$(go env GOMOD)"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Go caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.goenv.outputs.cache }}
+            ${{ steps.goenv.outputs.modcache }}
+          key: ${{ github.job }}-${{ runner.os }}-go-${{ hashFiles(steps.goenv.outputs.mod) }}
+          restore-keys: |
+            ${{ github.job }}-${{ runner.os }}-go-
+
+      - name: Check that go.work is tidy
+        shell: bash
+        run: |
+          FILES=$(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/go.mod") + map_values(. + "/go.sum") | sort | . + ["./go.mod", "./go.sum"] | .[]')
+          go work sync
+          git diff --exit-code -- "${FILES}"
+
+      - name: gofumpt
+        if: success() || failure()  # run this step even if the previous one failed
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --no-config --timeout=5m --disable-all --enable=gofumpt --out-format=colored-line-number -- $(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/...")[]')
+          skip-cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --out-format=colored-line-number -- $(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/...")[]')
+          skip-cache: true

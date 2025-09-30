@@ -1,0 +1,9 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - unparam
+    - misspell
+    - gofumpt
+    - stylecheck

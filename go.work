@@ -1,0 +1,21 @@
+go 1.24.0
+
+// Common modules.
+// This list is alphabetical and should not be reordered.
+use (
+	./limiter
+	./log
+	./middleware
+	./ptr
+	./ringbuffer
+	./router
+	./startstopper
+	./text
+)
+
+// Common tools.
+// This list is alphabetical and should not be reordered.
+use (
+	./tools/protoc-gen-go-gin
+	./tools/protoc-gen-go-struct
+)

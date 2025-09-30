@@ -1,0 +1,26 @@
+name: actionlint
+
+on:
+  pull_request:
+    branches: [prod-staging]
+    paths:
+      - '.github/workflows/**'
+
+# Automatically cancel in-progress actions on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request_target' && github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install action linter
+        run: |
+          mkdir -p "$HOME"/.local/bin
+          curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest "$HOME"/.local/bin
+
+      - name: Check that all workflows are valid
+        run: actionlint -verbose

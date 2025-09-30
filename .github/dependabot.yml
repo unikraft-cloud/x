@@ -1,0 +1,54 @@
+version: 2
+
+updates:
+# TODO(nderjung): Until Dependabot supports Go workspace, place all modules
+# which have external dependencies directly into the Dependabot list.  See [0].
+# [0]: https://github.com/dependabot/dependabot-core/issues/6012
+- package-ecosystem: gomod
+  directory: /log
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
+  directory: /middleware
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
+  directory: /router
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
+  directory: /text
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
+  directory: /tools/protoc-gen-go-gin
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
+  directory: /tools/protoc-gen-go-struct
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'

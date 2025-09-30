@@ -1,0 +1,65 @@
+name: tools
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [prod-staging]
+    paths:
+      - 'tools/**'
+      - 'Makefile'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - tool: protoc-gen-go-gin
+        - tool: protoc-gen-go-struct
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    # Login is necessary in order to let individual sub-modules of this
+    # repository to be able to cross-reference each other.
+    - name: Login to GitHub
+      shell: bash
+      run: |
+        git config --global url."https://${{ secrets.GH_PAT }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version: 1.24.0
+        cache: false
+
+    - name: Set Go variables
+      id: goenv
+      run: |
+        cd tools/${{ matrix.tool }}
+        {
+          echo "mod=$(go env GOMOD)"
+          echo "cache=$(go env GOCACHE)"
+          echo "modcache=$(go env GOMODCACHE)"
+        } >>"$GITHUB_OUTPUT"
+
+    - name: Set go.mod hash variable
+      id: gomod
+      run: echo "modhash=${{ hashFiles(steps.goenv.outputs.mod) }}" >>"$GITHUB_OUTPUT"
+
+    - name: Go caches
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ steps.goenv.outputs.cache }}
+          ${{ steps.goenv.outputs.modcache }}
+        key: ${{ github.job }}-${{ runner.os }}-go-${{ steps.gomod.outputs.modhash }}
+        restore-keys: |
+          ${{ github.job }}-${{ runner.os }}-go-
+
+    - name: Build ${{ matrix.tool }}
+      shell: bash
+      run: make ${{ matrix.tool }}
