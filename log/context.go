@@ -64,37 +64,36 @@ func New(sink io.Writer, typ Type, level Level) *Logger {
 
 // NewWithSentry attaches a multi writer which incorporates the provided sink
 // and Sentry log writer.
-func NewWithSentry(sink io.Writer, typ Type, level Level, sentryDsn string) *Logger {
+func NewWithSentry(sink io.Writer, typ Type, level Level, sentryCfg sentry.ClientOptions) *Logger {
 	logger := New(sink, typ, level)
 
-	if sentryDsn != "" {
-		sentryWriter, err := sentryzerolog.New(sentryzerolog.Config{
-			ClientOptions: sentry.ClientOptions{
-				Dsn: sentryDsn,
+	sentryWriter, err := sentryzerolog.New(sentryzerolog.Config{
+		ClientOptions: sentryCfg,
+		Options: sentryzerolog.Options{
+			Levels: []zerolog.Level{
+				zerolog.ErrorLevel,
+				zerolog.FatalLevel,
+				zerolog.PanicLevel,
 			},
-			Options: sentryzerolog.Options{
-				Levels: []zerolog.Level{
-					zerolog.ErrorLevel,
-					zerolog.FatalLevel,
-					zerolog.PanicLevel,
-				},
-				WithBreadcrumbs: true,
-				FlushTimeout:    3 * time.Second,
-			},
-		})
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to create Sentry writer")
-		} else {
-			wrapper := zerologlog.Output(zerolog.MultiLevelWriter(logger, sentryWriter))
+			WithBreadcrumbs: true,
+			FlushTimeout:    3 * time.Second,
+		},
+	})
+	if err != nil {
+		logger.
+			Error().
+			Err(err).
+			Msg("failed to create Sentry writer")
+	} else {
+		wrapper := zerologlog.Output(zerolog.MultiLevelWriter(logger, sentryWriter))
 
-			// Add a cleanup function to close the Sentry writer when the application
-			// exits (in lieu of not having a `defer` statement here).
-			_ = runtime.AddCleanup(logger, func(sentryWriter *sentryzerolog.Writer) {
-				sentryWriter.Close()
-			}, sentryWriter)
+		// Add a cleanup function to close the Sentry writer when the application
+		// exits (in lieu of not having a `defer` statement here).
+		_ = runtime.AddCleanup(logger, func(sentryWriter *sentryzerolog.Writer) {
+			sentryWriter.Close()
+		}, sentryWriter)
 
-			logger = &wrapper
-		}
+		logger = &wrapper
 	}
 
 	return logger
