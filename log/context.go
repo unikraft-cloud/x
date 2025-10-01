@@ -18,7 +18,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	sentryzerolog "github.com/getsentry/sentry-go/zerolog"
 	"github.com/rs/zerolog"
-	zerologlog "github.com/rs/zerolog/log"
 )
 
 // G is a shorthand for FromContextOrDefault.
@@ -36,7 +35,7 @@ func FromContextOrDefault(ctx context.Context) *Logger {
 		return v
 	}
 
-	return New(os.Stdout, "pretty", InfoLevel)
+	return New(os.Stdout, "text", InfoLevel)
 }
 
 // WithLogger returns a new Context, derived from ctx, which carries the
@@ -64,38 +63,67 @@ func New(sink io.Writer, typ Type, level Level) *Logger {
 
 // NewWithSentry attaches a multi writer which incorporates the provided sink
 // and Sentry log writer.
-func NewWithSentry(sink io.Writer, typ Type, level Level, sentryDsn string) *Logger {
-	logger := New(sink, typ, level)
+func NewWithSentry(sink io.Writer, typ Type, level Level, sentryCfg sentry.ClientOptions) *Logger {
+	var consoleWriter io.Writer
 
-	if sentryDsn != "" {
-		sentryWriter, err := sentryzerolog.New(sentryzerolog.Config{
-			ClientOptions: sentry.ClientOptions{
-				Dsn: sentryDsn,
-			},
-			Options: sentryzerolog.Options{
-				Levels: []zerolog.Level{
-					zerolog.ErrorLevel,
-					zerolog.FatalLevel,
-					zerolog.PanicLevel,
-				},
-				WithBreadcrumbs: true,
-				FlushTimeout:    3 * time.Second,
-			},
-		})
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to create Sentry writer")
-		} else {
-			wrapper := zerologlog.Output(zerolog.MultiLevelWriter(logger, sentryWriter))
+	switch typ {
+	case JSONType:
+		consoleWriter = sink
+	case TextType:
+		fallthrough
+	default:
+		consoleWriter = zerolog.ConsoleWriter{Out: sink}
+	}
 
-			// Add a cleanup function to close the Sentry writer when the application
-			// exits (in lieu of not having a `defer` statement here).
-			_ = runtime.AddCleanup(logger, func(sentryWriter *sentryzerolog.Writer) {
-				sentryWriter.Close()
-			}, sentryWriter)
-
-			logger = &wrapper
+	var levels []zerolog.Level
+	if level != Disabled && level != NoLevel {
+		if level <= TraceLevel {
+			levels = append(levels, zerolog.TraceLevel)
+		}
+		if level <= DebugLevel {
+			levels = append(levels, zerolog.DebugLevel)
+		}
+		if level <= InfoLevel {
+			levels = append(levels, zerolog.InfoLevel)
+		}
+		if level <= WarnLevel {
+			levels = append(levels, zerolog.WarnLevel)
+		}
+		if level <= ErrorLevel {
+			levels = append(levels, zerolog.ErrorLevel)
+		}
+		if level <= FatalLevel {
+			levels = append(levels, zerolog.FatalLevel)
+		}
+		if level <= PanicLevel {
+			levels = append(levels, zerolog.PanicLevel)
 		}
 	}
 
-	return logger
+	sentryWriter, err := sentryzerolog.New(sentryzerolog.Config{
+		ClientOptions: sentryCfg,
+		Options: sentryzerolog.Options{
+			Levels:          levels,
+			WithBreadcrumbs: true,
+			FlushTimeout:    3 * time.Second,
+		},
+	})
+	if err != nil {
+		logger := New(sink, typ, level)
+		logger.
+			Error().
+			Err(err).
+			Msg("failed to create Sentry writer")
+		return logger
+	}
+
+	logger := zerolog.New(zerolog.MultiLevelWriter(consoleWriter, sentryWriter)).With().Timestamp().Logger()
+
+	// Add a cleanup function to close the Sentry writer when the application
+	// exits (in lieu of not having a `defer` statement here).
+	_ = runtime.AddCleanup(&logger, func(sentryWriter *sentryzerolog.Writer) {
+		sentryWriter.Close()
+	}, sentryWriter)
+
+	return &logger
 }
