@@ -18,7 +18,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	sentryzerolog "github.com/getsentry/sentry-go/zerolog"
 	"github.com/rs/zerolog"
-	zerologlog "github.com/rs/zerolog/log"
 )
 
 // G is a shorthand for FromContextOrDefault.
@@ -36,7 +35,7 @@ func FromContextOrDefault(ctx context.Context) *Logger {
 		return v
 	}
 
-	return New(os.Stdout, "pretty", InfoLevel)
+	return New(os.Stdout, "text", InfoLevel)
 }
 
 // WithLogger returns a new Context, derived from ctx, which carries the
@@ -65,7 +64,16 @@ func New(sink io.Writer, typ Type, level Level) *Logger {
 // NewWithSentry attaches a multi writer which incorporates the provided sink
 // and Sentry log writer.
 func NewWithSentry(sink io.Writer, typ Type, level Level, sentryCfg sentry.ClientOptions) *Logger {
-	logger := New(sink, typ, level)
+	var consoleWriter io.Writer
+
+	switch typ {
+	case JSONType:
+		consoleWriter = sink
+	case TextType:
+		fallthrough
+	default:
+		consoleWriter = zerolog.ConsoleWriter{Out: sink}
+	}
 
 	sentryWriter, err := sentryzerolog.New(sentryzerolog.Config{
 		ClientOptions: sentryCfg,
@@ -80,21 +88,21 @@ func NewWithSentry(sink io.Writer, typ Type, level Level, sentryCfg sentry.Clien
 		},
 	})
 	if err != nil {
+		logger := New(sink, typ, level)
 		logger.
 			Error().
 			Err(err).
 			Msg("failed to create Sentry writer")
-	} else {
-		wrapper := zerologlog.Output(zerolog.MultiLevelWriter(logger, sentryWriter))
-
-		// Add a cleanup function to close the Sentry writer when the application
-		// exits (in lieu of not having a `defer` statement here).
-		_ = runtime.AddCleanup(logger, func(sentryWriter *sentryzerolog.Writer) {
-			sentryWriter.Close()
-		}, sentryWriter)
-
-		logger = &wrapper
+		return logger
 	}
 
-	return logger
+	logger := zerolog.New(zerolog.MultiLevelWriter(consoleWriter, sentryWriter)).With().Timestamp().Logger()
+
+	// Add a cleanup function to close the Sentry writer when the application
+	// exits (in lieu of not having a `defer` statement here).
+	_ = runtime.AddCleanup(&logger, func(sentryWriter *sentryzerolog.Writer) {
+		sentryWriter.Close()
+	}, sentryWriter)
+
+	return &logger
 }
