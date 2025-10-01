@@ -75,14 +75,35 @@ func NewWithSentry(sink io.Writer, typ Type, level Level, sentryCfg sentry.Clien
 		consoleWriter = zerolog.ConsoleWriter{Out: sink}
 	}
 
+	var levels []zerolog.Level
+	if level != Disabled && level != NoLevel {
+		if level <= TraceLevel {
+			levels = append(levels, zerolog.TraceLevel)
+		}
+		if level <= DebugLevel {
+			levels = append(levels, zerolog.DebugLevel)
+		}
+		if level <= InfoLevel {
+			levels = append(levels, zerolog.InfoLevel)
+		}
+		if level <= WarnLevel {
+			levels = append(levels, zerolog.WarnLevel)
+		}
+		if level <= ErrorLevel {
+			levels = append(levels, zerolog.ErrorLevel)
+		}
+		if level <= FatalLevel {
+			levels = append(levels, zerolog.FatalLevel)
+		}
+		if level <= PanicLevel {
+			levels = append(levels, zerolog.PanicLevel)
+		}
+	}
+
 	sentryWriter, err := sentryzerolog.New(sentryzerolog.Config{
 		ClientOptions: sentryCfg,
 		Options: sentryzerolog.Options{
-			Levels: []zerolog.Level{
-				zerolog.ErrorLevel,
-				zerolog.FatalLevel,
-				zerolog.PanicLevel,
-			},
+			Levels:          levels,
 			WithBreadcrumbs: true,
 			FlushTimeout:    3 * time.Second,
 		},
