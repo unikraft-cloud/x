@@ -240,16 +240,18 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 				f.Type = "[]byte"
 			}
 
+			var encodedName string
+
 			if field.Desc.HasJSONName() {
-				f.Tags = "json:\"" + field.Desc.JSONName()
+				encodedName = field.Desc.JSONName()
 			} else {
-				f.Tags = "json:\"" + strcase.ToSnake(field.GoName) + "\""
+				encodedName = strcase.ToSnake(field.GoName)
 			}
 			if field.Desc.HasOptionalKeyword() || field.Desc.IsList() || field.Desc.IsMap() {
-				f.Tags += ",omitempty\""
-			} else {
-				f.Tags += "\""
+				encodedName += ",omitempty"
 			}
+
+			f.Tags = "json:\"" + encodedName + "\" yaml:\"" + encodedName + "\""
 
 			if field.Desc.IsList() {
 				f.Type = "[]" + f.Type
