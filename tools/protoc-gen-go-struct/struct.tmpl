@@ -3,6 +3,8 @@
 package {{.Package}}
 
 import (
+	"time"
+
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 {{- range $alias, $path := .Imports }}
@@ -12,6 +14,7 @@ import (
 
 // Suppress "imported and not used" errors.
 var (
+	_ time.Time
 	_ emptypb.Empty
 	_ timestamppb.Timestamp
 )

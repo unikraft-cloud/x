@@ -24,6 +24,7 @@ const pluginName = "unikraft.com/x/tools/protoc-gen-go-struct"
 type TemplateData struct {
 	PluginName  string
 	BasePackage string
+	NativeTime  bool
 	Version     string
 	Package     string
 	Imports     map[string]string // package alias -> import path
@@ -62,6 +63,7 @@ var tmpl embed.FS
 func main() {
 	var flags flag.FlagSet
 	basePackage := flags.String("base_package", "", "Base package to prefix imports")
+	nativeTime := flags.Bool("native_time", false, "Use time.Time instead of timestamppb.Timestamp")
 
 	protogen.Options{
 		ParamFunc: flags.Set,
@@ -70,7 +72,9 @@ func main() {
 			if !file.Generate {
 				continue
 			}
-			if err := generateFile(plugin, file, *basePackage); err != nil {
+
+			err := generateFile(plugin, file, *basePackage, *nativeTime)
+			if err != nil {
 				return err
 			}
 		}
@@ -79,10 +83,11 @@ func main() {
 	})
 }
 
-func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage string) error {
+func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage string, nativeTime bool) error {
 	templateData := &TemplateData{
 		PluginName:  pluginName,
 		BasePackage: basePackage,
+		NativeTime:  nativeTime,
 		Package:     string(file.GoPackageName),
 		Imports:     make(map[string]string),
 	}
@@ -175,6 +180,10 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 				switch field.Desc.Message().FullName() {
 				case "google.protobuf.Timestamp":
 					f.Type = "timestamppb.Timestamp"
+					if td.NativeTime {
+						f.Type = "time.Time"
+					}
+
 					if field.Desc.HasOptionalKeyword() {
 						f.Type = "*" + f.Type
 					}
