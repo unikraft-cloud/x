@@ -88,6 +88,14 @@ func New(ctx context.Context, addr string, opts ...RouterOption) (*Router, error
 		}
 	}
 
+	// Unconditionally make the json decoder fail on unknown fields.
+	// We generally use protobufs to define and generate the Go types, that
+	// are used by clients, which makes this safe to do.
+	// For external clients, this makes the API stricter and therefore
+	// easier for the server to implement, since we can skip this
+	// validation step.
+	gin.EnableJsonDecoderDisallowUnknownFields()
+
 	return &router, nil
 }
 
