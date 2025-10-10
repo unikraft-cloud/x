@@ -260,23 +260,9 @@ func (w *Writer) WriteLevel(level zerolog.Level, p []byte) (int, error) {
 		return n, nil
 	}
 
-	// Send to new Logs API if logger is available
+	// Send to new Logs API if logger is available with structured data
 	if w.logger != nil {
-		// Map the sentry level to the appropriate log method
-		switch event.Level {
-		case sentry.LevelDebug:
-			w.logger.Debug().Emit(event.Message)
-		case sentry.LevelInfo:
-			w.logger.Info().Emit(event.Message)
-		case sentry.LevelWarning:
-			w.logger.Warn().Emit(event.Message)
-		case sentry.LevelError:
-			w.logger.Error().Emit(event.Message)
-		case sentry.LevelFatal:
-			w.logger.Fatal().Emit(event.Message)
-		default:
-			w.logger.Info().Emit(event.Message)
-		}
+		w.emitLogWithStructuredData(event, p)
 	}
 
 	// Also send as Event for backward compatibility (Issues)
@@ -288,6 +274,71 @@ func (w *Writer) WriteLevel(level zerolog.Level, p []byte) (int, error) {
 	}
 
 	return n, nil
+}
+
+func (w *Writer) emitLogWithStructuredData(event *sentry.Event, jsonData []byte) {
+	// Log level
+	var logEntry sentry.LogEntry
+	switch event.Level {
+	case sentry.LevelDebug:
+		logEntry = w.logger.Debug()
+	case sentry.LevelInfo:
+		logEntry = w.logger.Info()
+	case sentry.LevelWarning:
+		logEntry = w.logger.Warn()
+	case sentry.LevelError:
+		logEntry = w.logger.Error()
+	case sentry.LevelFatal:
+		logEntry = w.logger.Fatal()
+	default:
+		logEntry = w.logger.Info()
+	}
+
+	// HACK(kristoffn): This has to be refactored quite a lot, but it works for now.
+	// It manually extracts the fields from the []byte formatted json and writes
+	// the field values into the logEntry variable.
+	_ = jsonparser.ObjectEach(jsonData, func(key, value []byte, dataType jsonparser.ValueType, _ int) error {
+		k := string(key)
+
+		// No internal fields
+		switch k {
+		case zerolog.MessageFieldName, zerolog.LevelFieldName, zerolog.TimestampFieldName:
+			return nil
+		case FieldGoVersion, FieldMaxProcs:
+			return nil
+		}
+
+		switch dataType {
+		case jsonparser.String:
+			if k == zerolog.ErrorFieldName {
+				strVal, _ := jsonparser.ParseString(value)
+				logEntry = logEntry.String("error", strVal)
+			} else {
+				strVal, _ := jsonparser.ParseString(value)
+				logEntry = logEntry.String(k, strVal)
+			}
+		case jsonparser.Number:
+			if floatVal, err := jsonparser.ParseFloat(value); err == nil {
+				if floatVal == float64(int64(floatVal)) {
+					logEntry = logEntry.Int64(k, int64(floatVal))
+				} else {
+					logEntry = logEntry.Float64(k, floatVal)
+				}
+			}
+		case jsonparser.Boolean:
+			if boolVal, err := jsonparser.ParseBoolean(value); err == nil {
+				logEntry = logEntry.Bool(k, boolVal)
+			}
+		case jsonparser.Object, jsonparser.Array:
+			logEntry = logEntry.String(k, string(value))
+		case jsonparser.Null:
+			logEntry = logEntry.String(k, "null")
+		}
+
+		return nil
+	})
+
+	logEntry.Emit(event.Message)
 }
 
 // Close forces client to flush all pending events.
