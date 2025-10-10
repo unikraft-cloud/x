@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	sentryzerolog "github.com/getsentry/sentry-go/zerolog"
 	"github.com/rs/zerolog"
 )
 
@@ -99,10 +98,15 @@ func NewWithSentry(sink io.Writer, typ Type, level Level, sentryCfg sentry.Clien
 			levels = append(levels, zerolog.PanicLevel)
 		}
 	}
+	// HACK(kristoffn): This is a workaround at the moment to pass context
+	// to the NewSentry function without breaking the signature of the
+	// NewWithSentry function. This context object should be passed to
+	// NewWithSentry as a parameter.
+	ctx := context.Background()
 
-	sentryWriter, err := sentryzerolog.New(sentryzerolog.Config{
+	sentryWriter, err := NewSentry(ctx, Config{
 		ClientOptions: sentryCfg,
-		Options: sentryzerolog.Options{
+		Options: Options{
 			Levels:          levels,
 			WithBreadcrumbs: true,
 			FlushTimeout:    3 * time.Second,
@@ -117,11 +121,11 @@ func NewWithSentry(sink io.Writer, typ Type, level Level, sentryCfg sentry.Clien
 		return logger
 	}
 
-	logger := zerolog.New(zerolog.MultiLevelWriter(consoleWriter, sentryWriter)).With().Timestamp().Logger()
+	logger := zerolog.New(zerolog.MultiLevelWriter(consoleWriter, sentryWriter)).Level(level).With().Timestamp().Logger()
 
 	// Add a cleanup function to close the Sentry writer when the application
 	// exits (in lieu of not having a `defer` statement here).
-	_ = runtime.AddCleanup(&logger, func(sentryWriter *sentryzerolog.Writer) {
+	_ = runtime.AddCleanup(&logger, func(sentryWriter *Writer) {
 		sentryWriter.Close()
 	}, sentryWriter)
 

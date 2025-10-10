@@ -22,9 +22,10 @@
 //
 // Source: https://github.com/getsentry/sentry-go/blob/zerolog/v0.35.3/zerolog/sentryzerolog.go
 
-package sentryzerolog
+package log
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -122,7 +123,13 @@ func (o *Options) SetDefaults() {
 }
 
 // New creates writer with provided DSN and options.
-func New(cfg Config) (*Writer, error) {
+func NewSentry(ctx context.Context, cfg Config) (*Writer, error) {
+	// Initialize Sentry globally for the Logs API
+	if err := sentry.Init(cfg.ClientOptions); err != nil {
+		return nil, err
+	}
+
+	// Create a client for the Events API (Issues)
 	client, err := sentry.NewClient(cfg.ClientOptions)
 	if err != nil {
 		return nil, err
@@ -139,6 +146,7 @@ func New(cfg Config) (*Writer, error) {
 
 	return &Writer{
 		hub:             sentry.NewHub(client, sentry.NewScope()),
+		logger:          sentry.NewLogger(ctx),
 		levels:          levels,
 		flushTimeout:    cfg.FlushTimeout,
 		withBreadcrumbs: cfg.WithBreadcrumbs,
@@ -146,7 +154,7 @@ func New(cfg Config) (*Writer, error) {
 }
 
 // NewWithHub creates a writer using an existing sentry Hub and options.
-func NewWithHub(hub *sentry.Hub, opts Options) (*Writer, error) {
+func NewWithHub(ctx context.Context, hub *sentry.Hub, opts Options) (*Writer, error) {
 	if hub == nil {
 		return nil, errors.New("hub cannot be nil")
 	}
@@ -160,6 +168,7 @@ func NewWithHub(hub *sentry.Hub, opts Options) (*Writer, error) {
 
 	return &Writer{
 		hub:             hub,
+		logger:          sentry.NewLogger(ctx),
 		levels:          levels,
 		flushTimeout:    opts.FlushTimeout,
 		withBreadcrumbs: opts.WithBreadcrumbs,
@@ -169,6 +178,7 @@ func NewWithHub(hub *sentry.Hub, opts Options) (*Writer, error) {
 // Writer is a sentry events writer with std io.Writer interface.
 type Writer struct {
 	hub             *sentry.Hub
+	logger          sentry.Logger
 	levels          map[zerolog.Level]struct{}
 	flushTimeout    time.Duration
 	withBreadcrumbs bool
@@ -250,7 +260,28 @@ func (w *Writer) WriteLevel(level zerolog.Level, p []byte) (int, error) {
 		return n, nil
 	}
 
+	// Send to new Logs API if logger is available
+	if w.logger != nil {
+		// Map the sentry level to the appropriate log method
+		switch event.Level {
+		case sentry.LevelDebug:
+			w.logger.Debug().Emit(event.Message)
+		case sentry.LevelInfo:
+			w.logger.Info().Emit(event.Message)
+		case sentry.LevelWarning:
+			w.logger.Warn().Emit(event.Message)
+		case sentry.LevelError:
+			w.logger.Error().Emit(event.Message)
+		case sentry.LevelFatal:
+			w.logger.Fatal().Emit(event.Message)
+		default:
+			w.logger.Info().Emit(event.Message)
+		}
+	}
+
+	// Also send as Event for backward compatibility (Issues)
 	w.hub.CaptureEvent(event)
+
 	// should flush before os.Exit
 	if event.Level == sentry.LevelFatal {
 		w.hub.Flush(w.flushTimeout)
