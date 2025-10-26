@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	codeberg.org/gruf/go-byteutil v1.3.0
 	codeberg.org/gruf/go-fastcopy v1.1.3
-	github.com/getsentry/sentry-go v0.35.3
+	github.com/getsentry/sentry-go v0.36.1
 	github.com/getsentry/sentry-go/gin v0.35.3
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.11.0
