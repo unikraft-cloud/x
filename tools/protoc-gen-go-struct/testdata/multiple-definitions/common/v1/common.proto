@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package api.example.common.v1;
+
+option go_package = "common/v1;commonv1";
+
+// The error response message for an API request.
+message ResponseError {
+  // The HTTP status code of the error.
+  uint64 status = 1 [
+    json_name = "status"
+  ];
+}

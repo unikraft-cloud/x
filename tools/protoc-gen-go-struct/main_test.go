@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"golang.org/x/tools/go/packages"
@@ -26,6 +27,11 @@ func TestBufGenerate(t *testing.T) {
 			name:          "simple",
 			bufDir:        "testdata/simple/",
 			generationDir: "dist/simple",
+		},
+		{
+			name:          "multiple-definitions",
+			bufDir:        "testdata/multiple-definitions/",
+			generationDir: "dist/multiple-definitions",
 		},
 	}
 
@@ -52,18 +58,18 @@ func TestBufGenerate(t *testing.T) {
 				t.Fatalf("buf generate(%s) failed. error(%v). \nout(%s)", args, err, string(b))
 			}
 
-			typeCheck(t, tt.generationDir)
+			typeCheck(t, tt.bufDir, tt.generationDir)
 		})
 	}
 }
 
-// typeCheck verifies that the generated code is sound golang code.
-func typeCheck(t *testing.T, dir string) {
+// typeCheck verifies that the generated code is sound golang.
+func typeCheck(t *testing.T, bufDir, generationDir string) {
 	t.Helper()
 
-	absDir, err := filepath.Abs(dir)
+	absDir, err := filepath.Abs(generationDir)
 	if err != nil {
-		t.Fatalf("failed to get absolute path for %q: %v", dir, err)
+		t.Fatalf("failed to get absolute path for %q: %v", generationDir, err)
 	}
 
 	cfg := &packages.Config{
@@ -77,13 +83,35 @@ func typeCheck(t *testing.T, dir string) {
 		t.Fatalf("Failed to load package: %v", err)
 	}
 
+	errs := []packages.Error{}
 	for _, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
-			t.Logf("package(%s) has errors:", pkg.PkgPath)
 			for _, e := range pkg.Errors {
-				t.Log(e)
+				if containsAny(t, e.Error(), []string{"no required module provides package", "could not import"}) {
+					// The generated code does not have a go.mod file; ignore package errors.
+					continue
+				}
+				errs = append(errs, e)
 			}
-			t.Fatalf("typeCheck failed for: %v", dir)
 		}
 	}
+
+	if len(errs) > 0 {
+		t.Logf("directory(%s) has errors: ", bufDir)
+		for _, e := range errs {
+			t.Log(e)
+		}
+		t.Fatalf("typeCheck failed for: %v", generationDir)
+	}
+}
+
+func containsAny(t *testing.T, s string, subs []string) bool {
+	t.Helper()
+
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
 }
