@@ -1,0 +1,15 @@
+version: v2
+managed:
+  enabled: false
+
+# buf --config testdata/simple/buf.yaml generate --template testdata/simple/buf.gen.yaml
+inputs:
+  - directory: testdata/simple
+
+plugins:
+- local: ["go", "run", "main.go"]
+  types:
+  - "protoc.gen.go.struct.api.AuthResponse"
+  out: dist/simple
+  opt:
+  - base_package=github.com/example/project/api
