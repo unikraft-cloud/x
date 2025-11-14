@@ -68,17 +68,32 @@ var (
 
 	Primary     = lipgloss.AdaptiveColor{Light: string(Blue500), Dark: string(Blue500)}
 	PrimaryFg   = lipgloss.NewStyle().Foreground(Primary).Render
-	PrimaryFgBg = lipgloss.NewStyle().Background(Primary).Foreground(Primary).Render
+	PrimaryFgBg = lipgloss.NewStyle().
+			Background(lipgloss.AdaptiveColor{Light: string(Blue100), Dark: string(Blue900)}).
+			Foreground(lipgloss.AdaptiveColor{Light: string(Blue900), Dark: string(Blue100)}).
+			Render
 	Success     = lipgloss.AdaptiveColor{Light: string(Emerald500), Dark: string(Emerald500)}
 	SuccessFg   = lipgloss.NewStyle().Foreground(Success).Render
-	SuccessFgBg = lipgloss.NewStyle().Background(Success).Foreground(Success).Render
+	SuccessFgBg = lipgloss.NewStyle().
+			Background(lipgloss.AdaptiveColor{Light: string(Emerald100), Dark: string(Emerald900)}).
+			Foreground(lipgloss.AdaptiveColor{Light: string(Emerald900), Dark: string(Emerald100)}).
+			Render
 	Warning     = lipgloss.AdaptiveColor{Light: string(Orange500), Dark: string(Orange500)}
 	WarningFg   = lipgloss.NewStyle().Foreground(Warning).Render
-	WarningFgBg = lipgloss.NewStyle().Background(Warning).Foreground(Warning).Render
-	Error       = lipgloss.AdaptiveColor{Light: string(Rose600), Dark: string(Rose600)}
-	ErrorFg     = lipgloss.NewStyle().Foreground(Error).Render
-	ErrorFgBg   = lipgloss.NewStyle().Background(Error).Foreground(Error).Render
-	Info        = lipgloss.AdaptiveColor{Light: string(Slate400), Dark: string(Slate400)}
-	InfoFg      = lipgloss.NewStyle().Foreground(Info).Render
-	InfoFgBg    = lipgloss.NewStyle().Background(Info).Foreground(Info).Render
+	WarningFgBg = lipgloss.NewStyle().
+			Background(lipgloss.AdaptiveColor{Light: string(Orange100), Dark: string(Orange900)}).
+			Foreground(lipgloss.AdaptiveColor{Light: string(Orange900), Dark: string(Orange100)}).
+			Render
+	Error     = lipgloss.AdaptiveColor{Light: string(Rose600), Dark: string(Rose600)}
+	ErrorFg   = lipgloss.NewStyle().Foreground(Error).Render
+	ErrorFgBg = lipgloss.NewStyle().
+			Background(lipgloss.AdaptiveColor{Light: string(Rose100), Dark: string(Rose900)}).
+			Foreground(lipgloss.AdaptiveColor{Light: string(Rose900), Dark: string(Rose100)}).
+			Render
+	Info     = lipgloss.AdaptiveColor{Light: string(Slate400), Dark: string(Slate400)}
+	InfoFg   = lipgloss.NewStyle().Foreground(Info).Render
+	InfoFgBg = lipgloss.NewStyle().
+			Background(lipgloss.AdaptiveColor{Light: string(Slate100), Dark: string(Slate900)}).
+			Foreground(lipgloss.AdaptiveColor{Light: string(Slate900), Dark: string(Slate100)}).
+			Render
 )
