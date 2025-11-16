@@ -3,7 +3,7 @@ module unikraft.com/x/kingkong
 go 1.24.0
 
 require (
-	github.com/alecthomas/kong v1.12.1
+	github.com/alecthomas/kong v1.13.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.10.2
 	unikraft.com/x/colors v0.0.0-20250930161345-a5384b9cf774
