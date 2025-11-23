@@ -16,10 +16,10 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/gabriel-vasile/mimetype v1.4.9 h1:5k+WDwEsD9eTLL8Tz3L0VnmVh9QxGjRmjBvAG7U/oYY=
 github.com/gabriel-vasile/mimetype v1.4.9/go.mod h1:WnSQhFKJuBlRyLiKohA/2DtIlPFAbguNaG7QCHcyGok=
-github.com/getsentry/sentry-go v0.36.2 h1:uhuxRPTrUy0dnSzTd0LrYXlBYygLkKY0hhlG5LXarzM=
-github.com/getsentry/sentry-go v0.36.2/go.mod h1:p5Im24mJBeruET8Q4bbcMfCQ+F+Iadc4L48tB1apo2c=
-github.com/getsentry/sentry-go/gin v0.36.2 h1:HXd9B/oGW1Pzld431pYg4h3wQnCuusodhB9QT4lEsk8=
-github.com/getsentry/sentry-go/gin v0.36.2/go.mod h1:uiQvFjBrO1omB9maB1WqTeCPSZ3q7TFpj5vnwDi1hjE=
+github.com/getsentry/sentry-go v0.38.0 h1:S8Xui7gLeAvXINVLMOaX94HnsDf1GexnfXGSNC4+KQs=
+github.com/getsentry/sentry-go v0.38.0/go.mod h1:eRXCoh3uvmjQLY6qu63BjUZnaBu5L5WhMV1RwYO8W5s=
+github.com/getsentry/sentry-go/gin v0.38.0 h1:WXa/QBAELRrKuzLBw24eclacdK09ENI4dwlkFY8FDK8=
+github.com/getsentry/sentry-go/gin v0.38.0/go.mod h1:Rq00J7sw83ctRE21/VGDYaS/1lzHwqiLubXaPjm8qes=
 github.com/getsentry/sentry-go/zerolog v0.33.0 h1:WCi0/WrFKled95xWeSDhFIEbt3H8GmfpA70N/4DIbOQ=
 github.com/getsentry/sentry-go/zerolog v0.33.0/go.mod h1:oBCfKYCms/pqtF7UKDIhDdkYoqCgrhKVBhRrerm1ZnY=
 github.com/gin-contrib/cors v1.7.6 h1:3gQ8GMzs1Ylpf70y8bMw4fVpycXIeX1ZemuSQIsnQQY=
