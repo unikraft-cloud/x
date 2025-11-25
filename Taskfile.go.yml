@@ -1,0 +1,158 @@
+# https://taskfile.dev
+version: 3
+
+vars:
+  # go vars
+  go_bin:
+    ref: .go_bin | default "go"
+  go_tags:
+    ref: .go_tags | default ""
+  go_debug:
+    # allow setting go_debug via debug=true on cli (which is parsed as a string
+    # and when setting go_debug in the including taskfile (which passes a bool)
+    ref: .go_debug | default (eq "true" (printf "%v" .debug))
+
+  # tool vars
+  goreleaser_version:
+    ref: .goreleaser_version | default "v2.1.0"
+  goreleaser_bin: "{{.go_bin}} run github.com/goreleaser/goreleaser/v2@{{.goreleaser_version}}"
+
+  buf_version:
+    ref: .buf_version | default "v1.54.0"
+  buf_bin: "{{.go_bin}} run github.com/bufbuild/buf/cmd/buf@{{.buf_version}}"
+
+  golangci_version:
+    ref: .golangci_version | default "v2.5.0"
+  golangci_bin: "{{.go_bin}} run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.golangci_version}}"
+
+  gotestsum_version:
+    ref: .gotestsum_version | default "latest"
+  gotestsum_bin: "{{.go_bin}} run gotest.tools/gotestsum@{{.gotestsum_version}}"
+
+tasks:
+  generate:
+    requires:
+      vars:
+      - package
+    cmd: >-
+      {{.go_bin}} generate {{.package}}
+
+  buf: >-
+    {{.buf_bin}} generate --clean
+
+  build:
+    # deps:
+    # - generate
+    requires:
+      vars:
+      - go_module
+      - package
+    vars:
+      bin:
+        # when bin is unset, use the last part of the package path
+        ref: .bin | default (regexFind "[^/.]+$" .package)
+
+      # version vars
+      hash_commit: HEAD
+      hash:
+        sh: git update-index -q --refresh && git describe --tags
+      dirty:
+        sh: >-
+          {{- if eq .hash_commit "HEAD" }}
+          git update-index -q --refresh &&
+          git diff-index --quiet HEAD -- . || echo "-dirty"
+          {{- else -}}
+          printf "" # can't be dirty by definition
+          {{- end -}}
+      version: '{{.hash}}{{.dirty}}'
+      git_sha:
+        sh: git update-index -q --refresh && git rev-parse --short HEAD
+
+      go_gcflags: >-
+        {{- ternary "-N -l" "" .go_debug }}
+      go_ldflags: >-
+        {{- ternary "" "-s -w -linkmode external -extldflags -static-pie" .go_debug }}
+        -X "{{.go_module}}/internal/version.Version={{.version}}"
+        -X "{{.go_module}}/internal/version.Commit={{.git_sha}}"
+        -X "{{.go_module}}/internal/version.BuildTime={{now}}"
+    cmd: >-
+      {{.go_bin}} build -v {{.CLI_ARGS}}
+      -buildmode=pie
+      -gcflags=all='{{.go_gcflags}}'
+      -ldflags='{{.go_ldflags}}'
+      -tags='{{.go_tags}}'
+      -o './dist/{{.bin}}'
+      {{.package}}
+
+  test:
+    requires:
+      vars:
+      - package
+    vars:
+      package:
+        ref: .package | default "./..."
+    cmd: >-
+      {{.gotestsum_bin}} --format=testname {{.gotestsum_args}} -- -tags='{{.go_tags}}' {{.CLI_ARGS}} {{.package}}
+
+  static-check:
+  - task: tidy?
+  - task: fmt
+  - task: lint
+
+  tidy?:
+    cmds:
+    - "{{.go_bin}} mod tidy -diff"
+
+  tidy:
+    cmd: >-
+      {{.go_bin}} mod tidy
+
+  # XXX(robertgzr): figure out a solution for workspaces
+  # https://github.com/golangci/golangci-lint/issues/2654#issuecomment-1606439587
+  lint:
+    requires:
+      vars:
+      - package
+    vars:
+      disable_auto:
+      - containedctx
+      - cyclop
+      - exhaustive
+      - exhaustruct
+      - funlen
+      - gocognit
+      - godox
+      - nestif
+      - perfsprint
+      - prealloc
+      - staticcheck
+      - tagalign
+      - varnamelen
+      - wrapcheck
+      - wsl
+      disable:
+        ref: ternary (.disable | default .disable_auto) "" (not .disable)
+      package:
+        ref: .package | default "./..."
+    cmd: >-
+      {{.golangci_bin}} run
+      --build-tags='{{.go_tags}}'
+      --timeout=10m
+      --show-stats=false
+      --output.text.path=stderr
+      {{ with join "," .disable }}
+      --disable='{{.}}'
+      {{ end }}
+      {{.CLI_ARGS}}
+      {{.package}}
+
+  fmt:
+    cmd: >-
+      {{.golangci_bin}} fmt
+      --no-config
+      --enable=gofumpt
+      {{.CLI_ARGS}}
+
+  snapshot:
+  - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
+  - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
