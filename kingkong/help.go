@@ -429,16 +429,13 @@ func helpValueFormatter(value *kong.Value) string {
 	var buf strings.Builder
 
 	// Remove trailing period from help text.
-	buf.WriteString(DimmedColor(strings.TrimSuffix(value.Help, ".") + "."))
+	buf.WriteString(DimmedColor(strings.TrimSuffix(value.Help, ".")))
 
 	if len(value.Tag.Envs) > 0 {
 		buf.WriteString(" (" + formatEnvs(value.Tag.Envs) + ")")
 	}
 
-	if len(value.Default) == 0 && len(value.Tag.Enum) == 0 {
-		buf.WriteString(DimmedColor("."))
-	}
-
+	buf.WriteString(DimmedColor("."))
 	buf.WriteString("\n")
 
 	if len(value.Default) > 0 {
