@@ -22,9 +22,10 @@ import (
 const pluginName = "unikraft.com/x/tools/protoc-gen-go-gin"
 
 type TemplateData struct {
-	PluginName string
-	Package    string
-	Services   []Service
+	PluginName      string
+	Package         string
+	Services        []Service
+	StreamKeepalive bool
 }
 
 type Service struct {
@@ -49,6 +50,7 @@ var ginTmpl string
 
 func main() {
 	var flags flag.FlagSet
+	streamKeepalive := flags.Bool("stream_keepalive", true, "Send a regular keep-alive with a timestamp in streaming responses")
 
 	protogen.Options{
 		ParamFunc: flags.Set,
@@ -57,7 +59,7 @@ func main() {
 			if !file.Generate {
 				continue
 			}
-			if err := generateFile(plugin, file); err != nil {
+			if err := generateFile(plugin, file, *streamKeepalive); err != nil {
 				return err
 			}
 		}
@@ -66,7 +68,7 @@ func main() {
 	})
 }
 
-func generateFile(plugin *protogen.Plugin, file *protogen.File) error {
+func generateFile(plugin *protogen.Plugin, file *protogen.File, streamKeepalive bool) error {
 	services := getHTTPServices(file.Services)
 
 	// No service has http option.
@@ -75,9 +77,10 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File) error {
 	}
 
 	templateData := TemplateData{
-		PluginName: pluginName,
-		Package:    string(file.GoPackageName),
-		Services:   services,
+		PluginName:      pluginName,
+		Package:         string(file.GoPackageName),
+		Services:        services,
+		StreamKeepalive: streamKeepalive,
 	}
 
 	tmpl, err := template.

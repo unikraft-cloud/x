@@ -120,6 +120,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	g.Header("Connection", "keep-alive")
 	g.Header("X-Accel-Buffering", "no") // UKC's proxy is based on NGINX.
 
+	{{ if $.StreamKeepalive -}}
 	// Send an initial keep-alive comment to establish the connection.
 	if _, err := fmt.Fprintf(g.Writer, ": keepalive %s\n\n", time.Now().Format(time.RFC3339)); err != nil {
 		log.G(g.Request.Context()).
@@ -127,6 +128,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 			Err(err).
 			Msg("failed to send keepalive")
 	}
+	{{- end }}
 
 	// Flush headers immediately
 	g.Writer.Flush()
@@ -150,9 +152,11 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	{{- end -}}
 	)
 
+	{{ if $.StreamKeepalive -}}
 	// Set up a heartbeat to keep the connection alive
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+	{{- end }}
 
 	// Create a notification channel for client disconnection
 	clientGone := g.Request.Context().Done()
@@ -169,6 +173,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 			// Context was cancelled or deadline exceeded
 			return
 
+	{{ if $.StreamKeepalive -}}
 		case <-ticker.C:
 			// Send a comment as a keepalive
 			if _, err := fmt.Fprintf(g.Writer, ": keepalive %s\n\n", time.Now().Format(time.RFC3339)); err != nil {
@@ -179,6 +184,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 				return
 			}
 			g.Writer.Flush()
+	{{ end }}
 
 		case data, ok := <-dataCh:
 			if !ok {
