@@ -203,7 +203,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 			}
 
 			// Send the event
-			if _, err := fmt.Fprintf(g.Writer, "data: %s\n\n", jsonData); err != nil {
+			if _, err := fmt.Fprintf(g.Writer, "{{ if ne $.StreamDataPrefix "" }}{{ $.StreamDataPrefix }}: {{end}}%s\n\n", jsonData); err != nil {
 				log.G(g.Request.Context()).
 					Warn().
 					Err(err).
