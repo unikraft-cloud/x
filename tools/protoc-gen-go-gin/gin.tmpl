@@ -122,7 +122,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 
 	{{ if $.StreamKeepalive -}}
 	// Send an initial keep-alive comment to establish the connection.
-	if _, err := fmt.Fprintf(g.Writer, ": keepalive %s\n\n", time.Now().Format(time.RFC3339)); err != nil {
+	if _, err := fmt.Fprintf(g.Writer, ": keepalive %s\n", time.Now().Format(time.RFC3339)); err != nil {
 		log.G(g.Request.Context()).
 			Warn().
 			Err(err).
@@ -176,7 +176,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	{{ if $.StreamKeepalive -}}
 		case <-ticker.C:
 			// Send a comment as a keepalive
-			if _, err := fmt.Fprintf(g.Writer, ": keepalive %s\n\n", time.Now().Format(time.RFC3339)); err != nil {
+			if _, err := fmt.Fprintf(g.Writer, ": keepalive %s\n", time.Now().Format(time.RFC3339)); err != nil {
 				log.G(g.Request.Context()).
 					Warn().
 					Err(err).
@@ -203,7 +203,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 			}
 
 			// Send the event
-			if _, err := fmt.Fprintf(g.Writer, "{{ if ne $.StreamDataPrefix "" }}{{ $.StreamDataPrefix }}: {{end}}%s\n\n", jsonData); err != nil {
+			if _, err := fmt.Fprintf(g.Writer, "{{ if ne $.StreamDataPrefix "" }}{{ $.StreamDataPrefix }}: {{end}}%s\n", jsonData); err != nil {
 				log.G(g.Request.Context()).
 					Warn().
 					Err(err).
