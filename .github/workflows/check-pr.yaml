@@ -5,74 +5,52 @@ on:
     types: [opened, synchronize, reopened]
     branches: [prod-staging]
 
+  workflow_call:
+
 jobs:
-  commits:
+  commitlint:
     runs-on: ubuntu-latest
     steps:
-      - name: format
-        if: always()
-        uses: taskmedia/action-conventional-commits@v1.1.23
+      - uses: actions/checkout@v4
         with:
-          types: "build|ci|docs|feat|fix|perf|refactor|style|test|revert|gomod|chore"
-          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
 
-      - name: length
-        if: ${{ github.actor != 'dependabot' && github.actor != 'dependabot[bot]' }}
-        uses: gsactions/commit-message-checker@v2
-        with:
-          pattern: '((^(?=(?:.|\n)*(?:^|\n)\[\d\]: .{69,}(?:$|\n)(?:.|\n)*)(?:.|\n)*$)|(^(?!(?:.|\n)*(?:^|\n).{74,}(?:$|\n)(?:.|\n)*)(?:.|\n)*$))'
-          flags: ''
-          error: 'The maximum line length of 74 characters is exceeded.'
-          excludeDescription: 'true'
-          excludeTitle: 'true'
-          checkAllCommitMessages: 'true'
-          accessToken: ${{ secrets.GH_PAT }}
+      - name: Fetch commitlint config
+        run: |
+          if [ ! -f commitlint.config.mjs ]; then
+            wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/commitlint.config.mjs"
+          fi
+          if [ ! -f package.json ]; then
+            wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/package.json"
+          fi
+          if [ ! -f package-lock.json ]; then
+            wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/package-lock.json"
+          fi
+        env:
+          GIT_REPO: unikraft-cloud/x
+          GIT_REF: prod-staging
 
-      - name: signed-off-by
-        if: always()
-        uses: gsactions/commit-message-checker@v2
+      - name: Setup node
+        uses: actions/setup-node@v4
         with:
-          pattern: '^Signed-off-by: .+ \<.+\@.+\..+\>$'
-          error: 'Signed-off-by line is missing.'
-          excludeDescription: 'true'
-          excludeTitle: 'true'
-          checkAllCommitMessages: 'true'
-          accessToken: ${{ secrets.GH_PAT }}
+          node-version: lts/*
+          cache: npm
 
-  pr:
-    runs-on: ubuntu-latest
-    steps:
-      - name: title-format
-        if: always()
-        uses: gsactions/commit-message-checker@v2
-        with:
-          pattern: '^(build|ci|docs|feat|fix|perf|refactor|style|test|revert|gomod|chore)(\([\w\-\_\d]+\))?!?: '
-          error: 'The PR title must follow the conventional commits format.'
-          excludeDescription: 'true'
-          excludeTitle: 'false'
-          checkAllCommitMessages: 'false'
-          accessToken: ${{ secrets.GH_PAT }}
+      - name: Setup commitlint
+        run: npm install --include=dev
 
-      - name: title-length
-        if: ${{ github.actor != 'dependabot' && github.actor != 'dependabot[bot]' }}
-        uses: gsactions/commit-message-checker@v2
-        with:
-          pattern: '^(?!.{75,}).*'
-          flags: ''
-          error: 'The maximum line length of 75 characters is exceeded.'
-          excludeDescription: 'true'
-          excludeTitle: 'false'
-          checkAllCommitMessages: 'false'
-          accessToken: ${{ secrets.GH_PAT }}
+      - name: Validate commits
+        id: validate-commits
+        run: |
+          npx commitlint \
+            --verbose \
+            --from ${{ github.event.pull_request.base.sha }} \
+            --to ${{ github.event.pull_request.head.sha }}
 
-      - name: description
-        if: ${{ github.actor != 'dependabot' && github.actor != 'dependabot[bot]' }}
-        uses: gsactions/commit-message-checker@v2
-        with:
-          pattern: '^\S+( \S+)*$'
-          error: 'The PR description must not be empty.'
-          flags: 'gm'
-          excludeDescription: 'false'
-          excludeTitle: 'true'
-          checkAllCommitMessages: 'false'
-          accessToken: ${{ secrets.GH_PAT }}
+      - name: Validate PR
+        id: validate-pr
+        if: ${{ steps.validate-commits.outcome == 'success' || steps.validate-commits.outcome == 'failure' }}
+        run: |
+          echo "$TITLE" | PR=yes npx commitlint --verbose
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
