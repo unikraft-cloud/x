@@ -56,7 +56,13 @@ func New(sink io.Writer, typ Type, level Level) *Logger {
 		logger = zerolog.New(zerolog.ConsoleWriter{Out: sink})
 	}
 
-	logger = logger.Level(level).With().Timestamp().Logger()
+	logger = logger.
+		Level(level).
+		With().
+		Timestamp().
+		Logger().
+		Hook(zerolog.HookFunc(scopeHook))
+
 	return &logger
 }
 
