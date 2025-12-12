@@ -130,9 +130,6 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	}
 	{{- end }}
 
-	// Flush headers immediately
-	g.Writer.Flush()
-
 	// Create a cancellable context
 	streamCtx, cancel := context.WithCancel(g.Request.Context())
 	defer cancel()
@@ -151,6 +148,9 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	&in
 	{{- end -}}
 	)
+
+	// Flush headers after calling the service.
+	g.Writer.Flush()
 
 	{{ if $.StreamKeepalive -}}
 	// Set up a heartbeat to keep the connection alive
