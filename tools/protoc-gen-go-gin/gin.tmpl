@@ -3,9 +3,11 @@
 package {{.Package}}
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -16,9 +18,11 @@ import (
 
 // Prevent import errors.
 var (
+	_ bytes.Buffer
 	_ context.Context
 	_ fmt.Stringer
 	_ http.RoundTripper
+	_ io.Reader
 	_ json.Marshaler
 	_ log.Level
 	_ time.Time
@@ -98,6 +102,23 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 
 	{{ end -}}
 	{{- if ne $method.Input.Desc.FullName "google.protobuf.Empty" -}}
+	bodyBytes, err := g.GetRawData()
+	if err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to read request body")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+
+	// Restore the body for further use.
+	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
 	var in {{ $method.Input.GoIdent.GoName }}
 	if err := g.ShouldBind(&in); err != nil {
 		log.G(g.Request.Context()).
@@ -111,6 +132,9 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 		}
 		return
 	}
+
+	// Restore the body for further use.
+	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 	{{ end -}}
 	{{- if $method.IsStreamingServer }}
