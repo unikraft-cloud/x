@@ -25,7 +25,8 @@ const base = {
                 "chore",
             ],
         ],
-
+        // enforce sentence case for subject
+        "subject-case": [RuleConfigSeverity.Error, "always", ["sentence-case"]],
         // leading blanks aren't super useful
         "body-leading-blank": [RuleConfigSeverity.Disabled],
         // HACK: this detects false positives, see https://github.com/conventional-changelog/commitlint/issues/3129
