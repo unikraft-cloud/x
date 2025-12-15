@@ -49,7 +49,7 @@ jobs:
 
       - name: Validate PR
         id: validate-pr
-        if: ${{ steps.validate-commits.outcome == 'success' || steps.validate-commits.outcome == 'failure' }}
+        if: ${{ (steps.validate-commits.outcome == 'success' || steps.validate-commits.outcome == 'failure') && github.actor != 'dependabot' && github.actor != 'dependabot[bot]' }}
         run: |
           echo "$TITLE" | PR=yes npx commitlint --verbose
         env:
