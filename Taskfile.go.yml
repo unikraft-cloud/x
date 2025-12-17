@@ -87,6 +87,10 @@ tasks:
       -o './dist/{{.bin}}'
       {{.package}}
 
+  snapshot:
+  - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
+  - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
+
   test:
     requires:
       vars:
@@ -96,11 +100,6 @@ tasks:
         ref: .package | default "./..."
     cmd: >-
       {{.gotestsum_bin}} --format=testname {{.gotestsum_args}} -- -tags='{{.go_tags}}' {{.CLI_ARGS}} {{.package}}
-
-  static-check:
-  - task: tidy?
-  - task: fmt
-  - task: lint
 
   tidy?:
     cmds:
@@ -155,12 +154,14 @@ tasks:
       {{.golangci_bin}} fmt
       --no-config
       --enable=gofumpt
+      --diff-colored
       {{.golangci_args}}
       {{.CLI_ARGS}}
 
-  snapshot:
-  - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
-  - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
+  static-check:
+    - task: tidy?
+    - task: fmt
+    - task: lint
 
   license-check:
     desc: "Check that every go file begins with an SPDX-License-Identifier"
@@ -174,3 +175,19 @@ tasks:
         else
           echo "All files have SPDX-License-Identifier header."
         fi
+
+  # ci steps
+
+  ci/check:
+  - task: license-check
+  - task: static-check
+    vars:
+      golangci_args: --output.junit-xml.path=lint-results.xml
+
+  ci/test:
+  - task: test
+    vars:
+      gotestsum_args: --format=testname --junitfile=test-results.xml
+
+  ci/build:
+  - task: snapshot
