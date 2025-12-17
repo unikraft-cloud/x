@@ -146,6 +146,7 @@ tasks:
       {{ with join "," .disable }}
       --disable='{{.}}'
       {{ end }}
+      {{.golangci_args}}
       {{.CLI_ARGS}}
       {{.package}}
 
@@ -154,6 +155,7 @@ tasks:
       {{.golangci_bin}} fmt
       --no-config
       --enable=gofumpt
+      {{.golangci_args}}
       {{.CLI_ARGS}}
 
   snapshot:
