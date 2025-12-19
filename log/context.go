@@ -34,7 +34,7 @@ func FromContextOrDefault(ctx context.Context) *Logger {
 		return v
 	}
 
-	return New(os.Stdout, "text", InfoLevel)
+	return New(os.Stderr, "text", InfoLevel)
 }
 
 // WithLogger returns a new Context, derived from ctx, which carries the
