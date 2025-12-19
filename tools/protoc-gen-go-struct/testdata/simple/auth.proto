@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package protoc.gen.go.struct.api;
+
+option go_package = "example.com/protocgen/struct/api;api";
+
+message AuthResponse {
+  string hostname = 1;
+}

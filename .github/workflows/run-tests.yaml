@@ -44,6 +44,11 @@ jobs:
           restore-keys: |
             ${{ github.job }}-${{ runner.os }}-go-
 
+      - name: Install test prerequisites
+        shell: bash
+        run: |
+          go install github.com/bufbuild/buf/cmd/buf@v1.54.0
+
       - name: Run tests
         shell: bash
         run: |

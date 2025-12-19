@@ -214,8 +214,12 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 						f.Type = "*" + f.Type
 					}
 					// Recursively handle nested messages.
-					for k, strct := range td.getStructs(field.Message) {
-						data[k] = strct
+					if parent := field.Desc.Message().Parent(); parent != nil {
+						if _, ok := parent.(protoreflect.MessageDescriptor); ok {
+							for k, strct := range td.getStructs(field.Message) {
+								data[k] = strct
+							}
+						}
 					}
 				}
 			} else {

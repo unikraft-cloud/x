@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package api.example.proxy.v1;
+import "common/v1/common.proto";
+option go_package = "proxy/v1;proxyv1";
+
+// The response message for certificate activation.
+message NodeResponse {
+  repeated api.example.common.v1.ResponseError errors = 1;
+}

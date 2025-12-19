@@ -1,0 +1,16 @@
+version: v2
+managed:
+  enabled: false
+
+# buf --config testdata/multiple-definitions/buf.yaml generate --template testdata/multiple-definitions/buf.gen.yaml
+inputs:
+  - directory: testdata/multiple-definitions
+
+plugins:
+- local: ["go", "run", "main.go"]
+  types:
+  - "api.example.proxy.v1.AuthResponse"
+  - "api.example.proxy.v1.NodeResponse"
+  out: dist/multiple-definitions
+  opt:
+  - base_package=github.com/example/project/api
