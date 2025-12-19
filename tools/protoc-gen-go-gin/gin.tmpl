@@ -44,6 +44,9 @@ type {{ $service.Name }} interface {
 	{{- $hasRes := ne $method.Output.Desc.FullName "google.protobuf.Empty" -}}
 	{{- $resAsAny := eq $method.Output.Desc.FullName "google.protobuf.Any" -}}
 	{{ $method.Name }}(g *gin.Context
+	{{- if $method.IsStreamingServer -}}
+	, cancel context.CancelFunc
+	{{- end -}}
 	{{- range $method.PathParams -}}
 	, {{ . }} string
 	{{- end -}}
@@ -162,7 +165,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	g.Request = g.Request.WithContext(streamCtx)
 
 	// Call the service method to get the stream channels
-	dataCh := handler.service.{{ $method.Name }}(g,
+	dataCh := handler.service.{{ $method.Name }}(g, cancel,
 	{{- if gt (len $method.PathParams) 0 -}}
 	{{- range $method.PathParams -}}
 	params.{{ . | toCamel }},
