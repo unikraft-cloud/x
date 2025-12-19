@@ -182,13 +182,10 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	defer ticker.Stop()
 	{{- end }}
 
-	// Create a notification channel for client disconnection
-	clientGone := g.Request.Context().Done()
-
 	// Send the events to the client
 	for {
 		select {
-		case <-clientGone:
+		case <-g.Request.Context().Done():
 			// Client disconnected
 			cancel()
 			return
