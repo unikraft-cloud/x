@@ -156,3 +156,16 @@ tasks:
   snapshot:
   - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
   - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
+
+  license-check:
+    desc: "Check that every go file begins with an SPDX-License-Identifier"
+    cmds:
+      - |
+        missing=$(grep -rL '^// SPDX-License-Identifier:' . --include="*.go" --exclude-dir=.git --exclude=Taskfile.yml)
+        if [ -n "$missing" ]; then
+          echo "Files missing SPDX-License-Identifier header:"
+          echo "$missing"
+          exit 1
+        else
+          echo "All files have SPDX-License-Identifier header."
+        fi
