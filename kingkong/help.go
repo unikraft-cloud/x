@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/alecthomas/kong"
@@ -61,7 +62,15 @@ func HelpPrinter(version string) func(options kong.HelpOptions, ctx *kong.Contex
 }
 
 func summary(app *kong.Node) string {
-	summary := app.Path()
+	summary := ""
+
+	switch app.Type {
+	case kong.CommandNode:
+		summary += app.Name
+	case kong.ArgumentNode:
+		summary += "<" + app.Name + ">"
+	}
+
 	if flags := app.FlagSummary(true); flags != "" {
 		summary += " " + flags
 	}
@@ -246,8 +255,37 @@ func writeCompactCommandList(cmds []*kong.Node, iw *helpWriter) {
 		if cmd.Hidden {
 			continue
 		}
-		rows = append(rows, [2]string{CommandColor(cmd.Path()), DimmedColor(cmd.Help)})
+
+		var buf strings.Builder
+
+		switch cmd.Type {
+		case kong.CommandNode:
+			// Show the default command name first and remove any aliases which are
+			// equal to it.
+			buf.WriteString(
+				strings.Join(
+					append(
+						[]string{cmd.Name},
+						slices.DeleteFunc(
+							cmd.Aliases,
+							func(alias string) bool {
+								return alias == cmd.Name
+							},
+						)...,
+					),
+					", ",
+				),
+			)
+		case kong.ArgumentNode:
+			buf.WriteString("<")
+			buf.WriteString(cmd.Name)
+			buf.WriteString(">")
+		default:
+		}
+
+		rows = append(rows, [2]string{CommandColor(buf.String()), DimmedColor(cmd.Help)})
 	}
+
 	writeTwoColumns(iw, rows)
 }
 
