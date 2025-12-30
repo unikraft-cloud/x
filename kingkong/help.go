@@ -466,14 +466,8 @@ func (h *helpWriter) Wrap(text string) {
 func helpValueFormatter(value *kong.Value) string {
 	var buf strings.Builder
 
-	// Remove trailing period from help text.
-	buf.WriteString(DimmedColor(strings.TrimSuffix(value.Help, ".")))
-
-	if len(value.Tag.Envs) > 0 {
-		buf.WriteString(" (" + formatEnvs(value.Tag.Envs) + ")")
-	}
-
-	buf.WriteString(DimmedColor("."))
+	// Ensure help text ends with a period.
+	buf.WriteString(DimmedColor(strings.TrimSuffix(value.Help, ".") + "."))
 	buf.WriteString("\n")
 
 	if len(value.Default) > 0 {
@@ -527,7 +521,7 @@ func writeTwoColumns(w *helpWriter, rows [][2]string) {
 
 // formatFlag returns a formatted flag string, including short and long names,
 func formatFlag(flag *kong.Flag) string {
-	flagString := ""
+	var buf strings.Builder
 	name := flag.Name
 	isBool := flag.IsBool()
 
@@ -542,9 +536,16 @@ func formatFlag(flag *kong.Flag) string {
 		name += "/" + flag.Tag.Negatable
 	}
 
-	flagString += fmt.Sprintf("%s--%s", short, name)
+	buf.WriteString(fmt.Sprintf("%s--%s", short, name))
 
-	return flagString
+	if len(flag.Tag.Envs) > 0 {
+		buf.WriteString(" ")
+		buf.WriteString(DimmedColor("("))
+		buf.WriteString(formatEnvs(flag.Tag.Envs))
+		buf.WriteString(DimmedColor(")"))
+	}
+
+	return buf.String()
 }
 
 func formatEnvs(envs []string) string {
