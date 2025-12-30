@@ -24,13 +24,13 @@ import (
 // [containerd/log]: https://pkg.go.dev/github.com/containerd/log
 var G = FromContextOrDefault
 
-// contextKey is how we find Loggers in a context.Context.
-type contextKey struct{}
+// ContextKey is how we find Loggers in a context.Context.
+type ContextKey struct{}
 
 // FromContextOrDefault returns a Logger from ctx. If no Logger is found, this
 // returns the default Logger.
 func FromContextOrDefault(ctx context.Context) *Logger {
-	if v, ok := ctx.Value(contextKey{}).(*Logger); ok {
+	if v, ok := ctx.Value(ContextKey{}).(*Logger); ok {
 		return v
 	}
 
@@ -40,7 +40,7 @@ func FromContextOrDefault(ctx context.Context) *Logger {
 // WithLogger returns a new Context, derived from ctx, which carries the
 // provided Logger.
 func WithLogger(ctx context.Context, v *Logger) context.Context {
-	return context.WithValue(ctx, contextKey{}, v)
+	return context.WithValue(ctx, ContextKey{}, v)
 }
 
 // New returns a slog.Logger backed by a JSON or text handler.
