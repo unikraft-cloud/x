@@ -4,6 +4,7 @@ go 1.25.5
 // This list is alphabetical and should not be reordered.
 use (
 	./colors
+	./fingerprint
 	./guesstermwidth
 	./iata
 	./kingkong
