@@ -1,6 +1,6 @@
 module unikraft.com/x/colors
 
-go 1.24
+go 1.25.5
 
 require github.com/charmbracelet/lipgloss v1.1.0
 
