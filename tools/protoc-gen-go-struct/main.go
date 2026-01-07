@@ -269,7 +269,8 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 
 				// If the value is a message or enum, inspect further.
 				var valueTypeName string
-				if valueKind == protoreflect.MessageKind {
+				switch valueKind {
+				case protoreflect.MessageKind:
 					// Check if message comes from a different package
 					valuePath := string(valueField.Desc.Message().ParentFile().Path())
 					currentPath := string(m.Desc.ParentFile().Path())
@@ -282,7 +283,7 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 					} else {
 						valueTypeName = string(valueField.Desc.Message().Name())
 					}
-				} else if valueKind == protoreflect.EnumKind {
+				case protoreflect.EnumKind:
 					// Check if enum comes from a different package
 					valuePath := string(valueField.Desc.Enum().ParentFile().Path())
 					currentPath := string(m.Desc.ParentFile().Path())
@@ -295,7 +296,7 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 					} else {
 						valueTypeName = string(valueField.Desc.Enum().Name())
 					}
-				} else {
+				default:
 					valueTypeName = valueKind.String()
 				}
 
