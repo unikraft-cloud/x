@@ -1,9 +1,52 @@
+version: "2"
 run:
-  timeout: 5m
-
+  issues-exit-code: 2
+  build-tags:
+    - integration
 linters:
+  default: none
   enable:
+    - staticcheck
+    - errcheck
+    - govet
     - unparam
+    - ineffassign
+    - unused
     - misspell
-    - gofumpt
-    - stylecheck
+    - godox
+  exclusions:
+    generated: lax
+    presets:
+    - comments
+    - common-false-positives
+    - legacy
+    - std-error-handling
+    paths:
+    - tmp/
+    - dist/
+    - examples$
+  settings:
+    staticcheck:
+      checks:
+      # default
+      - "all"
+      - "-ST1000"
+      - "-ST1003"
+      - "-ST1016"
+      - "-ST1020"
+      - "-ST1021"
+      - "-ST1022"
+      # kong uses duplicate struct tags
+      - "-SA5008" # invalid struct tag
+    godox:
+      keywords:
+        - XXX
+formatters:
+  enable:
+  - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+    - tmp/
+    - dist/
+    - examples$

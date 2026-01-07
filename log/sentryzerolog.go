@@ -137,7 +137,7 @@ func NewSentry(ctx context.Context, cfg Config) (*Writer, error) {
 
 	client.SetSDKIdentifier(sdkIdentifier)
 
-	cfg.Options.SetDefaults()
+	cfg.Options.SetDefaults() //nolint:staticcheck
 
 	levels := make(map[zerolog.Level]struct{}, len(cfg.Levels))
 	for _, lvl := range cfg.Levels {

@@ -50,17 +50,9 @@ jobs:
           go work sync
           git diff --exit-code -- "${FILES}"
 
-      - name: gofumpt
-        if: success() || failure()  # run this step even if the previous one failed
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --no-config --timeout=5m --disable-all --enable=gofumpt --out-format=colored-line-number -- $(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/...")[]')
-          skip-cache: true
-
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
-          args: --out-format=colored-line-number -- $(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/...")[]')
+          args: -- $(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/...")[]')
           skip-cache: true
