@@ -1,6 +1,6 @@
 module unikraft.com/x/kingkong
 
-go 1.24.0
+go 1.25.5
 
 require (
 	github.com/alecthomas/kong v1.12.1

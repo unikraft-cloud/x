@@ -1,3 +1,3 @@
 module unikraft.com/x/ptr
 
-go 1.24.0
+go 1.25.5

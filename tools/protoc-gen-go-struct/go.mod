@@ -1,6 +1,6 @@
 module unikraft.com/x/tools/protoc-gen-go-struct
 
-go 1.24
+go 1.25.5
 
 require (
 	github.com/iancoleman/strcase v0.3.0
