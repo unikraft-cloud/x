@@ -5,6 +5,7 @@ go 1.25.5
 use (
 	./colors
 	./guesstermwidth
+	./iata
 	./kingkong
 	./limiter
 	./log
