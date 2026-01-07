@@ -33,7 +33,7 @@ jobs:
 
     - uses: actions/setup-go@v6
       with:
-        go-version: 1.24.0
+        go-version-file: 'go.work'
         cache: false
 
     - name: Set Go variables
