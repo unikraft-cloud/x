@@ -128,7 +128,7 @@ func Summary(app *kong.Node) string {
 func printApp(version string, w *helpWriter, app *kong.Application) {
 	if !w.NoAppSummary {
 		w.Print(Underline("Usage") + ":")
-		w.Indent().Printf("%s%s\n", app.Name, Summary(app.Node))
+		w.Indent().Printf("%s\n", Summary(app.Node))
 	}
 
 	w.Print(Underline("Version") + ":")
