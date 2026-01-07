@@ -61,14 +61,19 @@ func HelpPrinter(version string) func(options kong.HelpOptions, ctx *kong.Contex
 	}
 }
 
-func summary(app *kong.Node) string {
+func Summary(app *kong.Node) string {
 	summary := ""
 
 	switch app.Type {
-	case kong.CommandNode:
+	case kong.ApplicationNode, kong.CommandNode:
 		summary += app.Name
 	case kong.ArgumentNode:
 		summary += "<" + app.Name + ">"
+	}
+	parent := app.Parent
+	for parent != nil {
+		summary = parent.Name + " " + summary
+		parent = parent.Parent
 	}
 
 	if flags := app.FlagSummary(true); flags != "" {
@@ -123,7 +128,7 @@ func summary(app *kong.Node) string {
 func printApp(version string, w *helpWriter, app *kong.Application) {
 	if !w.NoAppSummary {
 		w.Print(Underline("Usage") + ":")
-		w.Indent().Printf("%s%s\n", app.Name, summary(app.Node))
+		w.Indent().Printf("%s%s\n", app.Name, Summary(app.Node))
 	}
 
 	w.Print(Underline("Version") + ":")
@@ -145,7 +150,7 @@ func printApp(version string, w *helpWriter, app *kong.Application) {
 func printCommand(w *helpWriter, app *kong.Application, cmd *kong.Command) {
 	if !w.NoAppSummary {
 		w.Print(Underline("Usage") + ":")
-		w.Indent().Printf("%s %s", app.Name, summary(cmd))
+		w.Indent().Printf("%s", Summary(cmd))
 	}
 
 	printNodeDetail(w, cmd, true)
@@ -179,7 +184,7 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 
 	printFlags := func() {
 		if flags := node.AllFlags(true); len(flags) > 0 {
-			groupedFlags := collectFlagGroups(flags)
+			groupedFlags := GroupFlags(flags)
 			for _, group := range groupedFlags {
 				w.Print("")
 				if group.Metadata.Title != "" {
@@ -212,7 +217,7 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 			w.Print(Underline("Commands") + ":")
 			writeCommandTree(iw, node)
 		} else {
-			groupedCmds := collectCommandGroups(cmds)
+			groupedCmds := GroupCommands(cmds)
 			for _, group := range groupedCmds {
 				w.Print("")
 				if group.Metadata.Title != "" {
@@ -301,103 +306,6 @@ func writeCommandTree(w *helpWriter, node *kong.Node) {
 		}
 	}
 	writeTwoColumns(w, rows)
-}
-
-type helpFlagGroup struct {
-	Metadata *kong.Group
-	Flags    [][]*kong.Flag
-}
-
-func collectFlagGroups(flags [][]*kong.Flag) []helpFlagGroup {
-	// Group keys in order of appearance.
-	groups := []*kong.Group{}
-	// Flags grouped by their group key.
-	flagsByGroup := map[string][][]*kong.Flag{}
-
-	for _, levelFlags := range flags {
-		levelFlagsByGroup := map[string][]*kong.Flag{}
-
-		for _, flag := range levelFlags {
-			key := ""
-			if flag.Flag.Name == "help" && flag.Group == nil {
-				flag.Group = &kong.Group{
-					Key: "flag-global",
-				}
-			}
-			if flag.Group != nil {
-				key = flag.Group.Key
-				groupAlreadySeen := false
-				for _, group := range groups {
-					if key == group.Key {
-						groupAlreadySeen = true
-						break
-					}
-				}
-				if !groupAlreadySeen {
-					groups = append(groups, flag.Group)
-				}
-			}
-
-			levelFlagsByGroup[key] = append(levelFlagsByGroup[key], flag)
-		}
-
-		for key, flags := range levelFlagsByGroup {
-			flagsByGroup[key] = append(flagsByGroup[key], flags)
-		}
-	}
-
-	out := []helpFlagGroup{}
-	// Ungrouped flags are always displayed first.
-	if ungroupedFlags, ok := flagsByGroup[""]; ok {
-		out = append(out, helpFlagGroup{
-			Metadata: &kong.Group{
-				Title: Underline("Flags") + ":",
-			},
-			Flags: ungroupedFlags,
-		})
-	}
-	for _, group := range groups {
-		out = append(out, helpFlagGroup{Metadata: group, Flags: flagsByGroup[group.Key]})
-	}
-	return out
-}
-
-type helpCommandGroup struct {
-	Metadata *kong.Group
-	Commands []*kong.Node
-}
-
-func collectCommandGroups(nodes []*kong.Node) []helpCommandGroup {
-	// Groups in order of appearance.
-	groups := []*kong.Group{}
-	// Nodes grouped by their group key.
-	nodesByGroup := map[string][]*kong.Node{}
-
-	for _, node := range nodes {
-		key := ""
-		if group := node.ClosestGroup(); group != nil {
-			key = group.Key
-			if _, ok := nodesByGroup[key]; !ok {
-				groups = append(groups, group)
-			}
-		}
-		nodesByGroup[key] = append(nodesByGroup[key], node)
-	}
-
-	out := []helpCommandGroup{}
-	// Ungrouped nodes are always displayed first.
-	if ungroupedNodes, ok := nodesByGroup[""]; ok {
-		out = append(out, helpCommandGroup{
-			Metadata: &kong.Group{
-				Title: Underline("Commands") + ":",
-			},
-			Commands: ungroupedNodes,
-		})
-	}
-	for _, group := range groups {
-		out = append(out, helpCommandGroup{Metadata: group, Commands: nodesByGroup[group.Key]})
-	}
-	return out
 }
 
 func printCommandSummary(w *helpWriter, cmd *kong.Command) {
