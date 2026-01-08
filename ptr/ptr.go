@@ -132,3 +132,19 @@ func FromPtr[T any](ptr *T) (T, bool) {
 	}
 	return *ptr, true
 }
+
+// NilIfZero returns a pointer to the value if it is non-zero, otherwise returns
+// nil.
+//
+// Example:
+//
+//	v := NilIfZero(5) // v points to 5
+//
+//	v = NilIfZero(0) // v is nil
+func NilIfZero[T comparable](s T) *T {
+	var zero T
+	if s == zero {
+		return nil
+	}
+	return &s
+}
