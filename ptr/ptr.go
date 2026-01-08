@@ -64,7 +64,7 @@ func CheckNotNil(params map[string]any) error {
 	var nilParams []string
 
 	for name, value := range params {
-		if isNil(value) {
+		if IsNil(value) {
 			nilParams = append(nilParams, name)
 		}
 	}
@@ -77,14 +77,14 @@ func CheckNotNil(params map[string]any) error {
 	return nil
 }
 
-// isNil returns true if the value is nil, handling all types that can be nil in Go
+// IsNil returns true if the value is nil, handling all types that can be nil in Go
 // (pointers, slices, maps, channels, functions, interfaces).
 //
 // Example:
 //
-//	var ptr *int        // isNil(ptr) returns true
-//	var num int = 0     // isNil(num) returns false
-func isNil(value any) bool {
+//	var ptr *int        // IsNil(ptr) returns true
+//	var num int = 0     // IsNil(num) returns false
+func IsNil(value any) bool {
 	if value == nil {
 		return true
 	}

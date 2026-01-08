@@ -219,7 +219,7 @@ func TestIsNil(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isNil(tt.value)
+			result := IsNil(tt.value)
 			if result != tt.expected {
 				t.Errorf("isNil(%v) = %v, expected %v", tt.value, result, tt.expected)
 			}
