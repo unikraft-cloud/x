@@ -10,6 +10,7 @@ use (
 	./limiter
 	./log
 	./middleware
+	./oidext
 	./ptr
 	./ringbuffer
 	./router

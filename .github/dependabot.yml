@@ -47,6 +47,13 @@ updates:
     time: '09:00'
 
 - package-ecosystem: gomod
+  directory: /oidext
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
   directory: /router
   schedule:
     interval: weekly
