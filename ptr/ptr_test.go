@@ -219,7 +219,7 @@ func TestIsNil(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isNil(tt.value)
+			result := IsNil(tt.value)
 			if result != tt.expected {
 				t.Errorf("isNil(%v) = %v, expected %v", tt.value, result, tt.expected)
 			}
@@ -344,6 +344,89 @@ func TestFromPtr(t *testing.T) {
 
 			if ok != tt.expectOk || result != tt.expected {
 				t.Errorf("FromPtr() = (%v, %v), expected (%v, %v)", result, ok, tt.expected, tt.expectOk)
+			}
+		})
+	}
+}
+
+func TestNilIfZeroIntegers(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    int
+		expected *int
+	}{
+		{"zero value", 0, nil},
+		{"positive value", 42, func() *int { x := 42; return &x }()},
+		{"negative value", -10, func() *int { x := -10; return &x }()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NilIfZero(tt.value)
+
+			if tt.expected == nil {
+				if result != nil {
+					t.Errorf("NilIfZero() = %v, expected nil", *result)
+				}
+			} else {
+				if result == nil || *result != *tt.expected {
+					t.Errorf("NilIfZero() = %v, expected %v", result, *tt.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestNilIfZeroEmptyString(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected *string
+	}{
+		{"empty string", "", nil},
+		{"non-empty string", "hello", func() *string { x := "hello"; return &x }()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NilIfZero(tt.value)
+
+			if tt.expected == nil {
+				if result != nil {
+					t.Errorf("NilIfZero() = %v, expected nil", *result)
+				}
+			} else {
+				if result == nil || *result != *tt.expected {
+					t.Errorf("NilIfZero() = %v, expected %v", result, *tt.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestNilIfEqual(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    int
+		compare  int
+		expected *int
+	}{
+		{"equal values", 10, 10, nil},
+		{"non-equal values", 10, 5, func() *int { x := 10; return &x }()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NilIfEqual(tt.value, tt.compare)
+
+			if tt.expected == nil {
+				if result != nil {
+					t.Errorf("NilIfEqual() = %v, expected nil", *result)
+				}
+			} else {
+				if result == nil || *result != *tt.expected {
+					t.Errorf("NilIfEqual() = %v, expected %v", result, *tt.expected)
+				}
 			}
 		})
 	}

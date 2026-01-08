@@ -64,7 +64,7 @@ func CheckNotNil(params map[string]any) error {
 	var nilParams []string
 
 	for name, value := range params {
-		if isNil(value) {
+		if IsNil(value) {
 			nilParams = append(nilParams, name)
 		}
 	}
@@ -77,14 +77,14 @@ func CheckNotNil(params map[string]any) error {
 	return nil
 }
 
-// isNil returns true if the value is nil, handling all types that can be nil in Go
+// IsNil returns true if the value is nil, handling all types that can be nil in Go
 // (pointers, slices, maps, channels, functions, interfaces).
 //
 // Example:
 //
-//	var ptr *int        // isNil(ptr) returns true
-//	var num int = 0     // isNil(num) returns false
-func isNil(value any) bool {
+//	var ptr *int        // IsNil(ptr) returns true
+//	var num int = 0     // IsNil(num) returns false
+func IsNil(value any) bool {
 	if value == nil {
 		return true
 	}
@@ -131,4 +131,40 @@ func FromPtr[T any](ptr *T) (T, bool) {
 		return zero, false
 	}
 	return *ptr, true
+}
+
+// NilIfZero returns a pointer to the value if it is non-zero, otherwise returns
+// nil.
+//
+// Example:
+//
+//	v := NilIfZero(5) // v points to 5
+//
+//	v = NilIfZero(0) // v is nil
+func NilIfZero[T comparable](s T) *T {
+	var zero T
+	if s == zero {
+		return nil
+	}
+	return &s
+}
+
+// NilIfEqual returns a pointer to the value if it is not equal to the compare
+// value, otherwise returns nil.
+//
+// Example:
+//
+//	v := NilIfEqual(10, 0) // v points to 10
+//
+//	v2 := NilIfEqual(0, 0) // v2 is nil
+//
+//	v3 := NilIfEqual("foo", "bar") // v3 points to "foo"
+//
+//	v4 := NilIfEqual("foo", "foo") // v4 is nil
+func NilIfEqual[T comparable](value, compare T) *T {
+	if value == compare {
+		return nil
+	}
+
+	return &value
 }
