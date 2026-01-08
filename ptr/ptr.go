@@ -148,3 +148,23 @@ func NilIfZero[T comparable](s T) *T {
 	}
 	return &s
 }
+
+// NilIfEqual returns a pointer to the value if it is not equal to the compare
+// value, otherwise returns nil.
+//
+// Example:
+//
+//	v := NilIfEqual(10, 0) // v points to 10
+//
+//	v2 := NilIfEqual(0, 0) // v2 is nil
+//
+//	v3 := NilIfEqual("foo", "bar") // v3 points to "foo"
+//
+//	v4 := NilIfEqual("foo", "foo") // v4 is nil
+func NilIfEqual[T comparable](value, compare T) *T {
+	if value == compare {
+		return nil
+	}
+
+	return &value
+}

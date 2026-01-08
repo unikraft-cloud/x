@@ -403,3 +403,31 @@ func TestNilIfZeroEmptyString(t *testing.T) {
 		})
 	}
 }
+
+func TestNilIfEqual(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    int
+		compare  int
+		expected *int
+	}{
+		{"equal values", 10, 10, nil},
+		{"non-equal values", 10, 5, func() *int { x := 10; return &x }()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NilIfEqual(tt.value, tt.compare)
+
+			if tt.expected == nil {
+				if result != nil {
+					t.Errorf("NilIfEqual() = %v, expected nil", *result)
+				}
+			} else {
+				if result == nil || *result != *tt.expected {
+					t.Errorf("NilIfEqual() = %v, expected %v", result, *tt.expected)
+				}
+			}
+		})
+	}
+}
