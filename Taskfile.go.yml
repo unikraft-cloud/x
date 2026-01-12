@@ -70,11 +70,14 @@ tasks:
 
       go_gcflags: >-
         {{- ternary "-N -l" "" .go_debug }}
+      go_ldflags_extra:
+        ref: .go_ldflags_extra | default ""
       go_ldflags: >-
         {{- ternary "" "-s -w -linkmode external -extldflags -static-pie" .go_debug }}
         -X "{{.go_module}}/internal/version.Version={{.version}}"
         -X "{{.go_module}}/internal/version.Commit={{.git_sha}}"
         -X "{{.go_module}}/internal/version.BuildTime={{now}}"
+        {{.go_ldflags_extra}}
     cmd: >-
       {{.go_bin}} build -v {{.CLI_ARGS}}
       -buildmode=pie
