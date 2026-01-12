@@ -6,6 +6,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/shirou/gopsutil/v3 v3.24.5
+	golang.org/x/sys v0.38.0
 	tailscale.com v1.92.5
 	unikraft.com/x/ptr v0.0.0-20260108134909-16540cbbe59c
 )
@@ -23,5 +24,4 @@ require (
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/sys v0.38.0 // indirect
 )
