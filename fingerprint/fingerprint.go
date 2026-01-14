@@ -17,6 +17,7 @@ import (
 	"github.com/denisbrodbeck/machineid"
 	"github.com/gofrs/uuid/v5"
 	"github.com/shirou/gopsutil/v3/cpu"
+	"golang.org/x/sys/unix"
 	"tailscale.com/hostinfo"
 	"tailscale.com/util/dnsname"
 
@@ -77,6 +78,12 @@ type Fingerprint struct {
 	// Lists of available kernel features (e.g., "kvm", "virtio-net").
 	// Only applies to Linux.
 	KernelFeatures []string `json:"kernel_features,omitempty" oid:"20,omitempty"`
+
+	// The kernel release of the underlying host, if available.
+	KernelRelease *string `json:"kernel_release,omitempty" oid:"21,omitempty"`
+
+	// The kernel version of the underlying host, if available.
+	KernelVersion *string `json:"kernel_version,omitempty" oid:"22,omitempty"`
 }
 
 func New() (*Fingerprint, error) {
@@ -106,6 +113,8 @@ func New() (*Fingerprint, error) {
 		return nil, err
 	}
 
+	kernelRelease, kernelVersion := getKernelReleaseVersion()
+
 	return &Fingerprint{
 		MachineId:      machineId,
 		Hostname:       dnsname.TrimCommonSuffixes(host.Hostname),
@@ -127,6 +136,8 @@ func New() (*Fingerprint, error) {
 		GoVersion:      ptr.NilIfZero(runtime.Version()),
 		OsVersion:      ptr.NilIfZero(host.OSVersion),
 		KernelFeatures: detectKernelFeatures(),
+		KernelRelease:  ptr.NilIfZero(kernelRelease),
+		KernelVersion:  ptr.NilIfZero(kernelVersion),
 	}, nil
 }
 
@@ -139,6 +150,24 @@ func getMacOSVersion() (string, error) {
 	}
 	version := strings.TrimSpace(string(output))
 	return version, nil
+}
+
+func cstrToStr(b []byte) string {
+	return string(b[:bytes.IndexByte(b, 0)])
+}
+
+// getKernelVersion retrieves the kernel version details from the Uname system.
+func getKernelReleaseVersion() (string, string) {
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		return "", ""
+	}
+
+	var u unix.Utsname
+	if err := unix.Uname(&u); err != nil {
+		return "", ""
+	}
+
+	return cstrToStr(u.Release[:]), cstrToStr(u.Version[:])
 }
 
 // kernelFeatureCache caches kernel feature detection data to avoid repeated
