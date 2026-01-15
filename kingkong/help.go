@@ -30,10 +30,13 @@ const (
 )
 
 var (
-	Underline    = lipgloss.NewStyle().Underline(true).Render
-	EnvVarColor  = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Emerald500), Dark: string(colors.Emerald200)}).Render
-	CommandColor = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Blue500), Dark: string(colors.Blue200)}).Render
-	DimmedColor  = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Slate500), Dark: string(colors.Slate200)}).Render
+	Underline = lipgloss.NewStyle().Underline(true).Render
+	Bold      = lipgloss.NewStyle().Bold(true).Render
+
+	EnvVarColor     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Emerald500), Dark: string(colors.Emerald200)}).Render
+	CommandColor    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Blue500), Dark: string(colors.Blue200)}).Render
+	DimmedColor     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Slate500), Dark: string(colors.Slate300)}).Render
+	DimmedMoreColor = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Slate400), Dark: string(colors.Slate400)}).Render
 )
 
 // HelpPrinter returns a function implementation of kong.HelpPrinter.
@@ -235,6 +238,12 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 				}
 			}
 		}
+	}
+
+	for _, section := range getAdditionalSections(node) {
+		w.Print("")
+		w.Print(Underline(section.Title) + ":")
+		w.Indent().Wrap(section.Content)
 	}
 
 	if w.FlagsLast {
@@ -463,4 +472,12 @@ func formatEnvs(envs []string) string {
 	}
 
 	return strings.Join(formatted, ", ")
+}
+
+func getAdditionalSections(node *kong.Node) []HelpSection {
+	help, ok := node.Target.Interface().(AdditionalHelp)
+	if !ok {
+		return nil
+	}
+	return help.HelpSections()
 }
