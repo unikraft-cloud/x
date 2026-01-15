@@ -22,7 +22,7 @@ vars:
   buf_bin: "{{.go_bin}} run github.com/bufbuild/buf/cmd/buf@{{.buf_version}}"
 
   golangci_version:
-    ref: .golangci_version | default "v2.5.0"
+    ref: .golangci_version | default "v2.8.0"
   golangci_bin: "{{.go_bin}} run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.golangci_version}}"
 
   gotestsum_version:
