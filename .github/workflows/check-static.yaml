@@ -46,9 +46,12 @@ jobs:
       - name: Check that go.work is tidy
         shell: bash
         run: |
-          FILES=$(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/go.mod") + map_values(. + "/go.sum") | sort | . + ["./go.mod", "./go.sum"] | .[]')
           go work sync
-          git diff --exit-code -- "${FILES}"
+          go work edit -json | jq -r '[.Use[].DiskPath] | sort | .[]' | xargs -I "{}" sh -c "cd {} && go mod tidy"
+
+          git diff --exit-code -- go.work go.work.sum
+          # shellcheck disable=SC2046 # this is completely intentional
+          git diff --exit-code -- $(go work edit -json | jq -r '[.Use[].DiskPath] | sort | .[]')
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
