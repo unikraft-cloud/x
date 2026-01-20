@@ -23,6 +23,14 @@ func LoadDockerImage(ctx context.Context, named reference.Named, remote remotes.
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve image %q: %w", named, err)
 	}
+	ref, err := reference.Parse(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse resolved image name %q: %w", name, err)
+	}
+	named, ok := ref.(reference.Named)
+	if !ok {
+		return nil, fmt.Errorf("resolved image name %q is not a named reference", name)
+	}
 
 	fetcher, err := remote.Fetcher(ctx, name)
 	if err != nil {

@@ -24,6 +24,7 @@ use (
 // Common tools.
 // This list is alphabetical and should not be reordered.
 use (
+	./tools/imgtool
 	./tools/protoc-gen-go-gin
 	./tools/protoc-gen-go-struct
 )
