@@ -12,20 +12,53 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func ToLogrus(l *Logger) *logrus.Logger {
+func ToLogrus(l *Logger, opts ...LogrusOpt) *logrus.Logger {
+	opt := logrusOpt{}
+	for _, o := range opts {
+		o(&opt)
+	}
 	logger := logrus.New()
+
 	// format all the logrus logs using zerolog
-	logger.SetFormatter(logFormatter{l})
+	logger.SetFormatter(logrusFormatter{l, opt})
+
 	// crank the log level to the max so all logs are passed to zerolog
 	logger.SetLevel(logrus.TraceLevel)
+
 	return logger
 }
 
-type logFormatter struct {
-	l *Logger
+func ToLogrusFormatter(l *Logger, opts ...LogrusOpt) logrus.Formatter {
+	opt := logrusOpt{}
+	for _, o := range opts {
+		o(&opt)
+	}
+	return logrusFormatter{l, opt}
 }
 
-func (f logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+type logrusOpt struct {
+	drop map[string]struct{}
+}
+
+type LogrusOpt func(*logrusOpt)
+
+func WithLogrusDroppedFields(fields ...string) LogrusOpt {
+	return func(o *logrusOpt) {
+		if o.drop == nil {
+			o.drop = make(map[string]struct{})
+		}
+		for _, f := range fields {
+			o.drop[f] = struct{}{}
+		}
+	}
+}
+
+type logrusFormatter struct {
+	l   *Logger
+	opt logrusOpt
+}
+
+func (f logrusFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	var e *zerolog.Event
 
 	switch entry.Level {
@@ -46,12 +79,10 @@ func (f logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 
 	for k, v := range entry.Data {
-		switch k {
-		// drop some fields
-		case "go.version":
-		default:
-			e = e.Any(k, v)
+		if _, ok := f.opt.drop[k]; ok {
+			continue
 		}
+		e = e.Any(k, v)
 	}
 
 	// log here
