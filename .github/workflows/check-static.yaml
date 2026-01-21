@@ -43,10 +43,9 @@ jobs:
           restore-keys: |
             ${{ github.job }}-${{ runner.os }}-go-
 
-      - name: Check that go.work is tidy
+      - name: Check that go.mods are tidy
         shell: bash
         run: |
-          go work sync
           go work edit -json | jq -r '[.Use[].DiskPath] | sort | .[]' | xargs -I "{}" sh -c "cd {} && go mod tidy"
 
           git diff --exit-code -- go.work go.work.sum
