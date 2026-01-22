@@ -9,7 +9,6 @@ const (
 	WellKnownKernelPath      = "/unikraft/bin/kernel"
 	WellKnownKernelDbgPath   = "/unikraft/bin/kernel.dbg"
 	WellKnownInitrdPath      = "/unikraft/bin/initrd"
-	WellKnownRomPath         = "/unikraft/bin/rom"
 	WellKnownKConfigPath     = "/unikraft/bin/config"
 	WellKnownConfigPath      = "/unikraft/config.json"
 	WellKnownCmdlinePath     = "/unikraft/cmdline.txt"

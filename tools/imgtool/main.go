@@ -23,7 +23,6 @@ import (
 
 type CLI struct {
 	Inspect InspectCmd `cmd:"" help:"Inspect an image"`
-	Unpack  UnpackCmd  `cmd:"" help:"Unpack an image"`
 	Copy    CopyCmd    `cmd:"" help:"Copy an image"`
 }
 
@@ -132,33 +131,6 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 		if imgConfig.Config.WorkingDir != "" {
 			fmt.Fprintf(w, "  WorkingDir: %s\n", imgConfig.Config.WorkingDir)
 		}
-	}
-
-	return nil
-}
-
-type UnpackCmd struct {
-	Image       string `arg:"" name:"image" help:"Image reference or path"`
-	Destination string `arg:"" name:"destination" help:"Destination path"`
-
-	Insecure string `help:"Allow insecure connections when accessing remote images" enum:"source,all,none" default:"none"`
-}
-
-func (c *UnpackCmd) Run(ctx context.Context) (rerr error) {
-	insecure := c.Insecure == "source" || c.Insecure == "all"
-	img, err := imagespec.Load(ctx, c.Image, withResolver(insecure))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cerr := img.Close(); cerr != nil && rerr == nil {
-			rerr = cerr
-		}
-	}()
-
-	err = imagespec.Unpack(ctx, img, c.Destination)
-	if err != nil {
-		return fmt.Errorf("unpacking image: %w", err)
 	}
 
 	return nil
