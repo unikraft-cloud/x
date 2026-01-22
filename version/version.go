@@ -6,19 +6,37 @@
 package version
 
 import (
+	"cmp"
 	"runtime"
+	"runtime/debug"
 
 	"github.com/MakeNowJust/heredoc"
 )
 
 var (
-	Tool      = "unset"
-	Docs      = "unset"
-	Issues    = "unset"
-	Version   = "unset"
-	Commit    = "unset"
-	BuildTime = "unset"
+	Tool      = "unikraft"
+	Docs      = ""
+	Issues    = ""
+	Version   = "v0.0.0"
+	Commit    = ""
+	BuildTime = ""
 )
+
+func init() {
+	if Commit == "" || BuildTime == "" {
+		info, ok := debug.ReadBuildInfo()
+		if ok {
+			for _, setting := range info.Settings {
+				switch setting.Key {
+				case "vcs.revision":
+					Commit = cmp.Or(Commit, setting.Value)
+				case "vcs.time":
+					BuildTime = cmp.Or(BuildTime, setting.Value)
+				}
+			}
+		}
+	}
+}
 
 // String returns a one-line string with the version information.
 func String() string {
@@ -29,11 +47,11 @@ func String() string {
 func Map() map[string]string {
 	return map[string]string{
 		"tool":       Tool,
-		"docs":       Docs,
-		"issues":     Issues,
+		"docs":       wrapEmpty(Docs),
+		"issues":     wrapEmpty(Issues),
 		"version":    Version,
-		"commit":     Commit,
-		"build_time": BuildTime,
+		"commit":     wrapEmpty(Commit),
+		"build_time": wrapEmpty(BuildTime),
 		"go_version": runtime.Version(),
 		"platform":   runtime.GOOS + "/" + runtime.GOARCH,
 	}
@@ -52,13 +70,13 @@ func Long() string {
 		  issues    : %s`,
 		Tool,
 		Version,
-		Commit,
+		wrapEmpty(Commit),
 		runtime.GOOS,
 		runtime.GOARCH,
-		BuildTime,
+		wrapEmpty(BuildTime),
 		runtime.Version(),
-		Docs,
-		Issues,
+		wrapEmpty(Docs),
+		wrapEmpty(Issues),
 	)
 }
 
@@ -72,4 +90,8 @@ func UserAgent() string {
 		runtime.GOOS,
 		runtime.GOARCH,
 	)
+}
+
+func wrapEmpty(value string) string {
+	return cmp.Or(value, "unset")
 }
