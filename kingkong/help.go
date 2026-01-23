@@ -240,6 +240,16 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 		}
 	}
 
+	if examples := getExamples(node); len(examples) > 0 {
+		w.Print("")
+		w.Print(Underline("Examples") + ":")
+
+		for _, example := range examples {
+			w.Indent().Wrap(example.Description)
+			w.Indent().Wrap(example.Command)
+		}
+	}
+
 	for _, section := range getAdditionalSections(node) {
 		w.Print("")
 		w.Print(Underline(section.Title) + ":")
@@ -472,6 +482,14 @@ func formatEnvs(envs []string) string {
 	}
 
 	return strings.Join(formatted, ", ")
+}
+
+func getExamples(node *kong.Node) []Example {
+	help, ok := node.Target.Interface().(ExamplesProvider)
+	if !ok {
+		return nil
+	}
+	return help.Examples()
 }
 
 func getAdditionalSections(node *kong.Node) []HelpSection {
