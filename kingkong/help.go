@@ -244,9 +244,23 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 		w.Print("")
 		w.Print(Underline("Examples") + ":")
 
-		for _, example := range examples {
-			w.Indent().Wrap(example.Description)
-			w.Indent().Wrap(example.Command)
+		comment := &helpWriter{
+			indent:      DimmedMoreColor(w.indent + "  # "),
+			lines:       w.lines,
+			width:       w.width - 4,
+			HelpOptions: w.HelpOptions,
+		}
+
+		for i, example := range examples {
+			for _, line := range strings.Split(strings.TrimSpace(ansi.Wrap(strings.TrimSpace(example.Description), comment.width, "-")), "\n") {
+				comment.Print(DimmedMoreColor(line))
+			}
+			for _, command := range example.Commands {
+				w.Indent().Wrap(command)
+			}
+			if i != len(examples)-1 {
+				w.Print("")
+			}
 		}
 	}
 
