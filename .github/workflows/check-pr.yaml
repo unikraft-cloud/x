@@ -1,4 +1,4 @@
-name: check/pr
+name: check-pr
 
 on:
   pull_request:
@@ -8,49 +8,12 @@ on:
   workflow_call:
 
 jobs:
-  commitlint:
+  check-pr:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-      - name: Fetch commitlint config
-        run: |
-          if [ ! -f commitlint.config.mjs ]; then
-            wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/commitlint.config.mjs"
-          fi
-          if [ ! -f package.json ]; then
-            wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/package.json"
-          fi
-          if [ ! -f package-lock.json ]; then
-            wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/package-lock.json"
-          fi
-        env:
-          GIT_REPO: unikraft-cloud/x
-          GIT_REF: prod-staging
-
-      - name: Setup node
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: npm
-
-      - name: Setup commitlint
-        run: npm install --include=dev
-
-      - name: Validate commits
-        id: validate-commits
-        run: |
-          npx commitlint \
-            --verbose \
-            --from ${{ github.event.pull_request.base.sha }} \
-            --to ${{ github.event.pull_request.head.sha }}
-
-      - name: Validate PR
-        id: validate-pr
-        if: ${{ (steps.validate-commits.outcome == 'success' || steps.validate-commits.outcome == 'failure') && github.actor != 'dependabot' && github.actor != 'dependabot[bot]' }}
-        run: |
-          echo "$TITLE" | PR=yes npx commitlint --verbose
-        env:
-          TITLE: ${{ github.event.pull_request.title }}
+    - name: Run check-pr
+      uses: ./.github/actions/check-pr
