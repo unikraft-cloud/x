@@ -12,6 +12,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ToLogrus converts a zerolog Logger to a logrus Logger. All log entries
+// created by the returned logrus Logger will be forwarded to the provided
+// zerolog Logger.
 func ToLogrus(l *Logger, opts ...LogrusOpt) *logrus.Logger {
 	opt := logrusOpt{}
 	for _, o := range opts {
@@ -38,10 +41,13 @@ func ToLogrusFormatter(l *Logger, opts ...LogrusOpt) logrus.Formatter {
 
 type logrusOpt struct {
 	drop map[string]struct{}
+	cap  *logrus.Level
 }
 
 type LogrusOpt func(*logrusOpt)
 
+// WithLogrusDroppedFields specifies fields that should be dropped from logrus
+// entries when converting to zerolog.
 func WithLogrusDroppedFields(fields ...string) LogrusOpt {
 	return func(o *logrusOpt) {
 		if o.drop == nil {
@@ -53,6 +59,16 @@ func WithLogrusDroppedFields(fields ...string) LogrusOpt {
 	}
 }
 
+// WithLogrusLevelCap specifies a minimum logrus level that should be mapped to
+// zerolog. For example, if the cap is set to logrus.InfoLevel, then
+// logrus.WarnLevel would be capped out at logrus.InfoLevel when converting to
+// zerolog.
+func WithLogrusLevelCap(level logrus.Level) LogrusOpt {
+	return func(o *logrusOpt) {
+		o.cap = &level
+	}
+}
+
 type logrusFormatter struct {
 	l   *Logger
 	opt logrusOpt
@@ -61,7 +77,12 @@ type logrusFormatter struct {
 func (f logrusFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	var e *zerolog.Event
 
-	switch entry.Level {
+	level := entry.Level
+	if f.opt.cap != nil && level < *f.opt.cap {
+		level = *f.opt.cap
+	}
+
+	switch level {
 	case logrus.TraceLevel:
 		e = f.l.Trace()
 	case logrus.DebugLevel:
