@@ -9,7 +9,7 @@ package kingkong
 // of the example and the second being the code snippet.
 type Example struct {
 	Description string
-	Command     string
+	Commands    []string
 }
 
 // ExamplesProvider is an interface that defines a method to return examples for

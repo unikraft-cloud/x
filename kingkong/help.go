@@ -251,12 +251,14 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 			HelpOptions: w.HelpOptions,
 		}
 
-		for _, example := range examples {
+		for i, example := range examples {
 			for _, line := range strings.Split(strings.TrimSpace(ansi.Wrap(strings.TrimSpace(example.Description), comment.width, "-")), "\n") {
 				comment.Print(DimmedMoreColor(line))
 			}
-			w.Indent().Wrap(example.Command)
-			if example != examples[len(examples)-1] {
+			for _, command := range example.Commands {
+				w.Indent().Wrap(command)
+			}
+			if i != len(examples)-1 {
 				w.Print("")
 			}
 		}
