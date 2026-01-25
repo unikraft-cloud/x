@@ -14,15 +14,15 @@ vars:
 
   # tool vars
   goreleaser_version:
-    ref: .goreleaser_version | default "v2.1.0"
+    ref: .goreleaser_version | default "latest"
   goreleaser_bin: "{{.go_bin}} run github.com/goreleaser/goreleaser/v2@{{.goreleaser_version}}"
 
   buf_version:
-    ref: .buf_version | default "v1.54.0"
+    ref: .buf_version | default "latest"
   buf_bin: "{{.go_bin}} run github.com/bufbuild/buf/cmd/buf@{{.buf_version}}"
 
   golangci_version:
-    ref: .golangci_version | default "v2.8.0"
+    ref: .golangci_version | default "latest"
   golangci_bin: "{{.go_bin}} run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.golangci_version}}"
 
   gotestsum_version:
