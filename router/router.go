@@ -20,12 +20,12 @@ import (
 )
 
 const (
-	ReadTimeout        = 60 * time.Second
-	WriteTimeout       = 30 * time.Second
-	IdleTimeout        = 30 * time.Second
-	ReadHeaderTimeout  = 30 * time.Second
-	ShutdownTimeout    = 30 * time.Second
-	MaxMultipartMemory = int64(8 * bytesize.MiB)
+	DefaultReadTimeout        = 60 * time.Second
+	DefaultWriteTimeout       = 30 * time.Second
+	DefaultIdleTimeout        = 30 * time.Second
+	DefaultReadHeaderTimeout  = 30 * time.Second
+	DefaultShutdownTimeout    = 30 * time.Second
+	DefaultMaxMultipartMemory = int64(8 * bytesize.MiB)
 )
 
 // RouteHandler defines the prototype for adding routes to the main router.
@@ -39,6 +39,13 @@ type Router struct {
 	routes     []RouteHandler
 	server     *http.Server
 	running    atomic.Bool
+
+	readTimeout        time.Duration
+	writeTimeout       time.Duration
+	idleTimeout        time.Duration
+	readHeaderTimeout  time.Duration
+	shutdownTimeout    time.Duration
+	maxMultipartMemory int64
 }
 
 // New returns a new router, which wraps an http server and gin handler engine.
@@ -46,7 +53,14 @@ type Router struct {
 // When the router's work is finished, Stop should be called on it to close
 // connections gracefully.
 func New(ctx context.Context, addr string, opts ...RouterOption) (*Router, error) {
-	router := Router{}
+	router := Router{
+		readTimeout:        DefaultReadTimeout,
+		writeTimeout:       DefaultWriteTimeout,
+		idleTimeout:        DefaultIdleTimeout,
+		readHeaderTimeout:  DefaultReadHeaderTimeout,
+		shutdownTimeout:    DefaultShutdownTimeout,
+		maxMultipartMemory: DefaultMaxMultipartMemory,
+	}
 
 	// Apply all method options.
 	for _, opt := range opts {
@@ -66,16 +80,16 @@ func New(ctx context.Context, addr string, opts ...RouterOption) (*Router, error
 	router.engine = gin.New()
 
 	// Create the engine here -- this is the core request routing handler.
-	router.engine.MaxMultipartMemory = MaxMultipartMemory
+	router.engine.MaxMultipartMemory = router.maxMultipartMemory
 	router.engine.HandleMethodNotAllowed = true
 
 	router.server = &http.Server{
 		Addr:              addr,
 		Handler:           router.engine,
-		ReadTimeout:       ReadTimeout,
-		ReadHeaderTimeout: ReadHeaderTimeout,
-		WriteTimeout:      WriteTimeout,
-		IdleTimeout:       IdleTimeout,
+		ReadTimeout:       router.readTimeout,
+		ReadHeaderTimeout: router.readHeaderTimeout,
+		WriteTimeout:      router.writeTimeout,
+		IdleTimeout:       router.idleTimeout,
 	}
 
 	// Attach global middlewares which are used for every request.
@@ -165,7 +179,7 @@ func (router *Router) Stop(ctx context.Context) error {
 		Info().
 		Msg("stopping server")
 
-	ctx, cancel := context.WithTimeout(ctx, ShutdownTimeout)
+	ctx, cancel := context.WithTimeout(ctx, router.shutdownTimeout)
 	defer cancel()
 
 	if err := router.server.Shutdown(ctx); err != nil {
