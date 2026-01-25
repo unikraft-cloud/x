@@ -151,6 +151,9 @@ func getHTTPServices(ps []*protogen.Service) []Service {
 				} else if u := rule.GetPatch(); u != "" {
 					m.RequestMethod = "PATCH"
 					m.URI = u
+				} else if u := rule.GetDelete(); u != "" {
+					m.RequestMethod = "DELETE"
+					m.URI = u
 				}
 
 				// Replace path parameters with colon prefixed names,
