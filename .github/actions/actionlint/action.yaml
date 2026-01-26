@@ -1,0 +1,16 @@
+name: actionlint
+
+description: Lint the syntax changes of a GitHub Actions workflow file.
+
+runs:
+  using: composite
+  steps:
+  - name: Install action linter
+    shell: bash
+    run: |
+      mkdir -p "$HOME"/.local/bin
+      curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest "$HOME"/.local/bin
+
+  - name: Check that all workflows are valid
+    shell: bash
+    run: actionlint -verbose
