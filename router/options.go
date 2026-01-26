@@ -6,6 +6,8 @@
 package router
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -34,6 +36,55 @@ func WithRoutes(routes ...RouteHandler) RouterOption {
 func WithDebug(debug bool) RouterOption {
 	return func(router *Router) error {
 		router.debug = debug
+		return nil
+	}
+}
+
+// WithReadTimeout sets the read timeout for the HTTP server.
+func WithReadTimeout(timeout time.Duration) RouterOption {
+	return func(router *Router) error {
+		router.readTimeout = timeout
+		return nil
+	}
+}
+
+// WithWriteTimeout sets the write timeout for the HTTP server.
+func WithWriteTimeout(timeout time.Duration) RouterOption {
+	return func(router *Router) error {
+		router.writeTimeout = timeout
+		return nil
+	}
+}
+
+// WithIdleTimeout sets the idle timeout for the HTTP server.
+func WithIdleTimeout(timeout time.Duration) RouterOption {
+	return func(router *Router) error {
+		router.idleTimeout = timeout
+		return nil
+	}
+}
+
+// WithReadHeaderTimeout sets the read header timeout for the HTTP server.
+func WithReadHeaderTimeout(timeout time.Duration) RouterOption {
+	return func(router *Router) error {
+		router.readHeaderTimeout = timeout
+		return nil
+	}
+}
+
+// WithShutdownTimeout sets the shutdown timeout for the HTTP server.
+func WithShutdownTimeout(timeout time.Duration) RouterOption {
+	return func(router *Router) error {
+		router.shutdownTimeout = timeout
+		return nil
+	}
+}
+
+// WithMaxMultipartMemory sets the maximum memory used for multipart forms in
+// the HTTP server.
+func WithMaxMultipartMemory(maxMemory int64) RouterOption {
+	return func(router *Router) error {
+		router.maxMultipartMemory = maxMemory
 		return nil
 	}
 }
