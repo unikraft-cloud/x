@@ -10,6 +10,11 @@ package guesstermwidth
 
 import "io"
 
+// IsTTY checks if the given writer is a terminal.
+func IsTTY(w io.Writer) bool {
+	return false
+}
+
 // GuessTermWidth returns a default terminal width of 80 characters since the
 // environment does not support querying terminal dimensions.
 func GuessTermWidth(w io.Writer) int {
