@@ -28,7 +28,7 @@ func GuessTermWidth(w io.Writer) int {
 		}
 	}
 
-	if t, ok := w.(*os.File); ok {
+	if t, ok := w.(interface{ Fd() uintptr }); ok {
 		fd := t.Fd()
 		var dimensions [4]uint16
 
