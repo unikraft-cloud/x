@@ -463,7 +463,7 @@ func writeTwoColumns(w *helpWriter, rows [][2]string) {
 // formatFlag returns a formatted flag string, including short and long names,
 func formatFlag(flag *kong.Flag) string {
 	var buf strings.Builder
-	name := flag.Name
+	names := append([]string{flag.Name}, flag.Aliases...)
 	isBool := flag.IsBool()
 
 	short := "    "
@@ -471,13 +471,16 @@ func formatFlag(flag *kong.Flag) string {
 		short = "-" + string(flag.Short) + DimmedColor(", ")
 	}
 
-	if isBool && flag.Tag.Negatable == NegatableDefault {
-		name = "[no-]" + name
-	} else if isBool && flag.Tag.Negatable != "" {
-		name += "/" + flag.Tag.Negatable
+	for i := range names {
+		if isBool && flag.Tag.Negatable == NegatableDefault {
+			names[i] = "[no-]" + names[i]
+		} else if isBool && flag.Tag.Negatable != "" {
+			names[i] += "/" + flag.Tag.Negatable
+		}
+		names[i] = "--" + names[i]
 	}
 
-	buf.WriteString(fmt.Sprintf("%s--%s", short, name))
+	buf.WriteString(fmt.Sprintf("%s%s", short, strings.Join(names, ", ")))
 
 	if len(flag.Tag.Envs) > 0 {
 		buf.WriteString(" ")
