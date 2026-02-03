@@ -16,6 +16,12 @@ concurrency:
 jobs:
   go:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos:
+          - linux
+          - darwin
     steps:
       - uses: actions/checkout@v5
 
@@ -44,6 +50,7 @@ jobs:
             ${{ github.job }}-${{ runner.os }}-go-
 
       - name: Check that go.mods are tidy
+        if: matrix.goos == 'linux'
         shell: bash
         run: |
           go work edit -json | jq -r '[.Use[].DiskPath] | sort | .[]' | xargs -I "{}" sh -c "cd {} && go mod tidy"
@@ -54,6 +61,8 @@ jobs:
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
+        env:
+          GOOS: ${{ matrix.goos }}
         with:
           version: latest
           args: -- $(go work edit -json | jq -c -r '[.Use[].DiskPath] | map_values(. + "/...")[]')
