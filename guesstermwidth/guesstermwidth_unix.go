@@ -21,11 +21,10 @@ func IsTTY(w io.Writer) bool {
 	if t, ok := w.(interface{ Fd() uintptr }); ok {
 		fd := t.Fd()
 		var val syscall.Termios
-		req := syscall.TCGETS
 		_, _, err := syscall.Syscall(
 			syscall.SYS_IOCTL,
 			uintptr(fd),
-			uintptr(req),
+			uintptr(termiosIoctlGet),
 			uintptr(unsafe.Pointer(&val)),
 		)
 		return err == 0
