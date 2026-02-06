@@ -45,6 +45,12 @@ func WithRom(rom File) NewImageOpt {
 	}
 }
 
+func WithPlatform(platform ocispec.Platform) NewImageOpt {
+	return func(b *imageBuilder) {
+		b.platform = &platform
+	}
+}
+
 func WithImageConfig(config ocispec.ImageConfig) NewImageOpt {
 	return func(b *imageBuilder) {
 		b.config = &config
@@ -74,9 +80,11 @@ type imageBuilder struct {
 	initrd      File
 	roms        []File
 
+	metadata *ImageMetadata
+
 	annotations map[string]string
 	config      *ocispec.ImageConfig
-	metadata    *ImageMetadata
+	platform    *ocispec.Platform
 }
 
 func (builder imageBuilder) build() *Image {
@@ -86,6 +94,12 @@ func (builder imageBuilder) build() *Image {
 		img = &ocispec.Image{
 			Config: *builder.config,
 		}
+	}
+	if builder.platform != nil {
+		if img == nil {
+			img = &ocispec.Image{}
+		}
+		img.Platform = *builder.platform
 	}
 	if builder.metadata != nil {
 		if img == nil {

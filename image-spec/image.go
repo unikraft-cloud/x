@@ -6,10 +6,7 @@
 package imagespec
 
 import (
-	"bytes"
-	"context"
 	"errors"
-	"io"
 	"time"
 
 	"github.com/containerd/containerd/v2/core/content"
@@ -83,30 +80,4 @@ func (i *Image) Metadata() ImageMetadata {
 	}
 
 	return metadata
-}
-
-type File interface {
-	Path() string
-	Open(ctx context.Context) (io.ReadCloser, int64, error)
-
-	Source() (ocispec.Descriptor, content.Provider)
-}
-
-var _ File = (*staticFile)(nil)
-
-type staticFile struct {
-	path string
-	data []byte
-}
-
-func (f *staticFile) Path() string {
-	return f.path
-}
-
-func (f *staticFile) Open(ctx context.Context) (io.ReadCloser, int64, error) {
-	return io.NopCloser(bytes.NewReader(f.data)), int64(len(f.data)), nil
-}
-
-func (f *staticFile) Source() (ocispec.Descriptor, content.Provider) {
-	return ocispec.Descriptor{}, nil
 }

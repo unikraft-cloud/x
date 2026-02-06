@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 	"slices"
 	"strings"
 
@@ -165,7 +166,8 @@ func packageJSON(ctx context.Context, store content.Ingester, mediaType string, 
 	desc := ocispec.Descriptor{
 		MediaType: mediaType,
 		Size:      int64(len(data)),
-		Digest:    digest.FromBytes(data),
+		// FIXME: try and preserve original digest if content was sourced from a descriptor
+		Digest: digest.FromBytes(data),
 	}
 
 	log.G(ctx).
@@ -269,28 +271,47 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	defer r.Close()
-
-	w, err := content.OpenWriter(ctx, store)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to create layer content writer: %w", err)
-	}
 	defer func() {
-		if w != nil {
-			w.Close()
+		if r != nil {
+			r.Close()
 		}
 	}()
 
 	digester := digest.Canonical.Digester()
-	counter := &writeCounter{}
-	mw := io.MultiWriter(w, digester.Hash(), counter)
+
+	var reader io.Reader
 
 	if path == "" {
-		_, err = io.Copy(mw, r)
+		_, err = io.Copy(digester.Hash(), r)
 		if err != nil {
 			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
 		}
+		if seeker, ok := r.(io.Seeker); ok {
+			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+				return ocispec.Descriptor{}, fmt.Errorf("failed to rewind layer content: %w", err)
+			}
+		} else {
+			if err := r.Close(); err != nil {
+				return ocispec.Descriptor{}, err
+			}
+			r = nil
+			r, _, err = file.Open(ctx)
+			if err != nil {
+				return ocispec.Descriptor{}, err
+			}
+		}
+		reader = r
 	} else {
+		tmp, err := os.CreateTemp("", "imagespec-layer-*")
+		if err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to create temp layer file: %w", err)
+		}
+		defer func() {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}()
+
+		mw := io.MultiWriter(tmp, digester.Hash())
 		tw := tar.NewWriter(mw)
 		err = tw.WriteHeader(&tar.Header{
 			Name: strings.TrimPrefix(path, "/"),
@@ -309,22 +330,58 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		if err := tw.Close(); err != nil {
 			return ocispec.Descriptor{}, fmt.Errorf("failed to finalize layer tar: %w", err)
 		}
+		if err := tmp.Sync(); err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to sync layer tar: %w", err)
+		}
+		if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to rewind layer content: %w", err)
+		}
+
+		stat, err := tmp.Stat()
+		if err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to stat layer tar: %w", err)
+		}
+		size = stat.Size()
+
+		reader = tmp
 	}
 
 	desc := ocispec.Descriptor{
 		MediaType: mediaType,
-		Size:      counter.Size(),
+		Size:      size,
 		Digest:    digester.Digest(),
 	}
-	if err := w.Commit(ctx, desc.Size, desc.Digest); err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to commit layer content: %w", err)
+	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(desc))
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to create layer content writer: %w", err)
+	}
+	defer func() {
+		if w != nil {
+			w.Close()
+		}
+	}()
+
+	_, err = io.Copy(w, reader)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
 	}
 
-	log.G(ctx).Debug().
-		Str("mediaType", mediaType).
-		Str("path", path).
-		Str("digest", desc.Digest.String()).
-		Msg("packaged layer")
+	err = w.Commit(ctx, desc.Size, desc.Digest)
+	if err == nil {
+		log.G(ctx).Debug().
+			Str("mediaType", mediaType).
+			Str("path", path).
+			Str("digest", desc.Digest.String()).
+			Msg("packaged layer")
+	} else if errdefs.IsAlreadyExists(err) {
+		log.G(ctx).Debug().
+			Str("mediaType", mediaType).
+			Str("path", path).
+			Str("digest", desc.Digest.String()).
+			Msg("packaged pre-existing layer")
+	} else {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to commit layer content: %w", err)
+	}
 
 	err = w.Close()
 	w = nil
@@ -332,20 +389,6 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		return ocispec.Descriptor{}, fmt.Errorf("failed to finalize layer content write: %w", err)
 	}
 	return desc, nil
-}
-
-type writeCounter struct {
-	n int64
-}
-
-func (wc *writeCounter) Write(p []byte) (int, error) {
-	n := len(p)
-	wc.n += int64(n)
-	return n, nil
-}
-
-func (wc *writeCounter) Size() int64 {
-	return wc.n
 }
 
 func ingestDefaults(store content.Ingester, opts ...content.WriterOpt) content.Ingester {
