@@ -52,7 +52,7 @@ func LoadTarballReader(ctx context.Context, r io.Reader) (_ *Image, rerr error) 
 		return nil, fmt.Errorf("failed to import tarball: %w", err)
 	}
 
-	img, err := loadCtrdImage(ctx, store, idxDesc)
+	img, err := LoadContent(ctx, store, idxDesc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load image from imported tarball: %w", err)
 	}
@@ -84,7 +84,7 @@ func SaveTarballWriter(ctx context.Context, w io.Writer, image *Image) error {
 		return fmt.Errorf("failed to create local store: %w", err)
 	}
 
-	desc, err := saveCtrdImage(ctx, store, "latest", image)
+	desc, err := SaveContent(ctx, store, "latest", image)
 	if err != nil {
 		return fmt.Errorf("failed to save image to local store: %w", err)
 	}

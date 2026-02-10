@@ -27,7 +27,7 @@ import (
 	"unikraft.com/x/log"
 )
 
-func saveCtrdImage(ctx context.Context, store content.Ingester, ref string, image *Image) (ocispec.Descriptor, error) {
+func SaveContent(ctx context.Context, store content.Ingester, ref string, image *Image) (ocispec.Descriptor, error) {
 	store = ingestDefaults(store, content.WithRef(ref))
 
 	eg, egCtx := errgroup.WithContext(ctx)
