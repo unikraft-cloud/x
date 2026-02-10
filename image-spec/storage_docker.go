@@ -38,7 +38,7 @@ func LoadDockerImage(ctx context.Context, named reference.Named, remote remotes.
 	}
 	provider := contentutil.FromFetcher(fetcher)
 
-	img, err := loadCtrdImage(ctx, provider, desc)
+	img, err := LoadContent(ctx, provider, desc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load image %q: %w", named, err)
 	}
@@ -56,7 +56,7 @@ func SaveDockerImage(ctx context.Context, named reference.Named, remote remotes.
 	}
 	ingester := contentutil.FromPusher(pusher)
 
-	desc, err := saveCtrdImage(ctx, ingester, named.Name(), image)
+	desc, err := SaveContent(ctx, ingester, named.Name(), image)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to save image %q: %w", named, err)
 	}

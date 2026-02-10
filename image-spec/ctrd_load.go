@@ -20,7 +20,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-func loadCtrdImage(ctx context.Context, store content.Provider, desc ocispec.Descriptor) (*Image, error) {
+func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor) (*Image, error) {
 	img := &Image{
 		Provider:   store,
 		Descriptor: desc,
