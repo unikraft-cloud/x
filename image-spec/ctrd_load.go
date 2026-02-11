@@ -101,6 +101,10 @@ func (f *fileAccessor) Open(ctx context.Context) (rc io.ReadCloser, size int64, 
 	return readCloser{Reader: rr, Closer: r}, hdr.Size, nil
 }
 
+func (f *fileAccessor) Cleanup() error {
+	return nil
+}
+
 func (f *fileAccessor) Source() (ocispec.Descriptor, content.Provider) {
 	return f.desc, f.store
 }
