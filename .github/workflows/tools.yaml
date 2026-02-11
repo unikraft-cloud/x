@@ -6,7 +6,8 @@ on:
     branches: [prod-staging]
     paths:
       - 'tools/**'
-      - 'Makefile'
+      - 'Taskfile.yml'
+      - 'Taskfile.go.yml'
 
 jobs:
   build:
@@ -60,6 +61,8 @@ jobs:
         restore-keys: |
           ${{ github.job }}-${{ runner.os }}-go-
 
+    - uses: go-task/setup-task@v1
+
     - name: Build ${{ matrix.tool }}
       shell: bash
-      run: make ${{ matrix.tool }}
+      run: task ${{ matrix.tool }}
