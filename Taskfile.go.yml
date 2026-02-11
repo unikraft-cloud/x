@@ -164,7 +164,7 @@ tasks:
     desc: "Check that every go file begins with an SPDX-License-Identifier"
     cmds:
       - |
-        missing=$(grep -rL '^// SPDX-License-Identifier:' . --include="*.go" --exclude-dir=.git --exclude=Taskfile.yml)
+        missing=$(grep -rL '^// SPDX-License-Identifier:' . --include="*.go" --exclude="*.pb.go" --exclude-dir=.git --exclude-from=.gitignore --exclude=Taskfile.yml)
         if [ -n "$missing" ]; then
           echo "Files missing SPDX-License-Identifier header:"
           echo "$missing"
