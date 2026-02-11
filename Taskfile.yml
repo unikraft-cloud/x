@@ -1,0 +1,38 @@
+# https://taskfile.dev
+version: 3
+
+includes:
+  go:
+    taskfile: ./Taskfile.go.yml
+
+tasks:
+  forone:
+    requires: { vars: [module, gotask] }
+    # NOTE: this is a hack to work around the fact that go-task doesn't
+    # allow passing the 'dir' setting to child tasks:
+    # https://github.com/go-task/task/issues/585
+    cmd: task -d {{.module}} -t Taskfile.go.yml -s {{.gotask}}
+
+  forall:
+    requires: { vars: [gotask] }
+    vars:
+      modules:
+        sh: go list -m -f {{"{{.Dir}}"}}
+    cmds:
+      - for: { var: modules }
+        task: forone
+        vars:
+          module: '{{.ITEM}}'
+          gotask: '{{.gotask}}'
+
+  ci/check:
+  - task: go:license-check # already recursive
+  - task: forall
+    vars: { gotask: static-check }
+
+  ci/test:
+  - task: forall
+    vars: { gotask: test }
+
+  ci/build:
+    # noop
