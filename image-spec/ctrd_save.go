@@ -352,7 +352,14 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		Digest:    digester.Digest(),
 	}
 	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(desc))
-	if err != nil {
+	if errdefs.IsAlreadyExists(err) {
+		log.G(ctx).Debug().
+			Str("mediaType", mediaType).
+			Str("path", path).
+			Str("digest", desc.Digest.String()).
+			Msg("packaged pre-existing layer")
+		return desc, nil
+	} else if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to create layer content writer: %w", err)
 	}
 	defer func() {
