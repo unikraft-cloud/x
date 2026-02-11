@@ -18,8 +18,15 @@ concurrency:
 jobs:
   go:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos:
+          - linux
+          - darwin
     steps:
       - uses: actions/checkout@v6
+
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.work'
@@ -46,15 +53,15 @@ jobs:
 
       - uses: go-task/setup-task@v1
 
-      - name: Install test prerequisites
-        shell: bash
-        run: |
-          go install github.com/bufbuild/buf/cmd/buf@v1.54.0
-
       - name: Run checks
         shell: bash
         run: |
           task ci/check
+
+      - name: Install test prerequisites
+        shell: bash
+        run: |
+          go install github.com/bufbuild/buf/cmd/buf@v1.54.0
 
       - name: Run tests
         shell: bash
