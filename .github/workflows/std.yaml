@@ -1,4 +1,4 @@
-name: run-tests
+name: std
 permissions:
   contents: read
 
@@ -8,7 +8,7 @@ on:
     paths:
       - '**'
       - '!.github/**'
-      - .github/workflows/run-tests.yaml
+      - .github/workflows/std.yaml
 
 # Automatically cancel in-progress actions on the same branch
 concurrency:
@@ -44,12 +44,19 @@ jobs:
           restore-keys: |
             ${{ github.job }}-${{ runner.os }}-go-
 
+      - uses: go-task/setup-task@v1
+
       - name: Install test prerequisites
         shell: bash
         run: |
           go install github.com/bufbuild/buf/cmd/buf@v1.54.0
 
+      - name: Run checks
+        shell: bash
+        run: |
+          task ci/check
+
       - name: Run tests
         shell: bash
         run: |
-          go list -m -f '{{.Path}}/...' | xargs go test -v
+          task ci/test
