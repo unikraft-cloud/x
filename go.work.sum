@@ -541,6 +541,7 @@ github.com/timonwong/loggercheck v0.9.4/go.mod h1:caz4zlPcgvpEkXgVnAJGowHAMW2NwH
 github.com/tomarrell/wrapcheck/v2 v2.8.3/go.mod h1:g9vNIyhb5/9TQgumxQyOEqDHsmGYcGsVMOx/xGkqdMo=
 github.com/tommy-muehle/go-mnd/v2 v2.5.1/go.mod h1:WsUAkMJMYww6l/ufffCD3m+P7LEvr8TnZn9lwVDlgzw=
 github.com/tonistiigi/dchapes-mode v0.0.0-20250318174251-73d941a28323/go.mod h1:3Iuxbr0P7D3zUzBMAZB+ois3h/et0shEz0qApgHYGpY=
+github.com/tonistiigi/fsutil v0.0.0-20250605211040-586307ad452f h1:MoxeMfHAe5Qj/ySSBfL8A7l1V+hxuluj8owsIEEZipI=
 github.com/tonistiigi/fsutil v0.0.0-20250605211040-586307ad452f/go.mod h1:BKdcez7BiVtBvIcef90ZPc6ebqIWr4JWD7+EvLm6J98=
 github.com/tonistiigi/go-actions-cache v0.0.0-20250626083717-378c5ed1ddd9/go.mod h1:cD0SB2270BYw6HYKriFn4H6NRLhGj6ytf48YTpsm8LY=
 github.com/tonistiigi/go-archvariant v1.0.0/go.mod h1:TxFmO5VS6vMq2kvs3ht04iPXtu2rUT/erOnGFYfk5Ho=
