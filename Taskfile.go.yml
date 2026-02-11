@@ -91,6 +91,8 @@ tasks:
 
   snapshot:
     desc: "Run goreleaser with --snapshot"
+    preconditions:
+    - test -f .goreleaser.yaml
     cmds:
     - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
     - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
