@@ -79,11 +79,11 @@ func (f *osFile) Open(ctx context.Context) (io.ReadCloser, int64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	_, err = f.f.Seek(0, io.SeekStart)
+	newFd, err := os.Open(f.f.Name())
 	if err != nil {
 		return nil, 0, err
 	}
-	return f.f, fi.Size(), nil
+	return newFd, fi.Size(), nil
 }
 
 func (f *osFile) Cleanup() error {

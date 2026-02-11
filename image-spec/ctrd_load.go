@@ -18,20 +18,50 @@ import (
 	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"golang.org/x/sync/errgroup"
 )
 
-func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor) (*Image, error) {
-	img := &Image{
-		Provider:   store,
-		Descriptor: desc,
-	}
-
-	// TODO: store the descriptor of the manifest in img.desc
-	mfst, err := images.Manifest(ctx, store, desc, platforms.All)
+func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+	mfsts, err := manifest(ctx, store, desc, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
 	}
-	img.Annotations = mfst.Annotations
+	return loadCtrdImageMfst(ctx, store, desc, mfsts[0])
+}
+
+func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
+	mfsts, err := manifest(ctx, store, desc, platform)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get image manifest: %w", err)
+	}
+
+	imgs := make([]*Image, len(mfsts))
+
+	eg, ctx := errgroup.WithContext(ctx)
+	for i, mfst := range mfsts {
+		eg.Go(func() error {
+			img, err := loadCtrdImageMfst(ctx, store, desc, mfst)
+			if err != nil {
+				return fmt.Errorf("failed to load image manifest: %w", err)
+			}
+			imgs[i] = img
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return imgs, nil
+}
+
+func loadCtrdImageMfst(ctx context.Context, store content.Provider, desc ocispec.Descriptor, mfst ocispec.Manifest) (*Image, error) {
+	// TODO: store the descriptor of the manifest in img.desc
+	img := &Image{
+		Provider:    store,
+		Descriptor:  desc,
+		Annotations: mfst.Annotations,
+	}
 
 	dt, err := content.ReadBlob(ctx, store, mfst.Config)
 	if err != nil {
