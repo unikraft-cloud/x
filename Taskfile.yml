@@ -19,11 +19,36 @@ tasks:
       modules:
         sh: go list -m -f {{"{{.Dir}}"}}
     cmds:
-      - for: { var: modules }
-        task: forone
-        vars:
-          module: '{{.ITEM}}'
-          gotask: '{{.gotask}}'
+    - for: { var: modules }
+      task: forone
+      vars:
+        module: '{{.ITEM}}'
+        gotask: '{{.gotask}}'
+
+  protoc-gen-go-gin:
+  - task: go:build
+    vars:
+      go_module: unikraft.com/x/tools/protoc-gen-go-gin
+      package: ./tools/protoc-gen-go-gin
+
+  protoc-gen-go-struct:
+  - task: go:build
+    vars:
+      go_module: unikraft.com/x/tools/protoc-gen-go-struct
+      package: ./tools/protoc-gen-go-struct
+
+  imgtool:
+  - task: go:build
+    vars:
+      go_module: unikraft.com/x/tools/imgtool
+      package: ./tools/imgtool
+
+  tools:
+  - task: protoc-gen-go-gin
+  - task: protoc-gen-go-struct
+  - task: imgtool
+
+  # ci tasks
 
   ci/check:
   - task: go:license-check # already recursive
@@ -35,4 +60,4 @@ tasks:
     vars: { gotask: test }
 
   ci/build:
-    # noop
+  - task: tools
