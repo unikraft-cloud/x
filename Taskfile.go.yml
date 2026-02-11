@@ -31,6 +31,7 @@ vars:
 
 tasks:
   generate:
+    desc: "Run go generate"
     requires:
       vars:
       - package
@@ -41,6 +42,7 @@ tasks:
     {{.buf_bin}} generate --clean
 
   build:
+    desc: "Run go build"
     # deps:
     # - generate
     requires:
@@ -88,10 +90,13 @@ tasks:
       {{.package}}
 
   snapshot:
-  - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
-  - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
+    desc: "Run goreleaser with --snapshot"
+    cmds:
+    - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
+    - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
 
   test:
+    desc: "Run gotestsum"
     requires:
       vars:
       - package
@@ -102,16 +107,19 @@ tasks:
       {{.gotestsum_bin}} --format=testname {{.gotestsum_args}} -- -tags='{{.go_tags}}' {{.CLI_ARGS}} {{.package}}
 
   tidy?:
+    desc: "Check go.mod"
     cmds:
     - "{{.go_bin}} mod tidy -diff"
 
   tidy:
+    desc: "Run go mod tidy"
     cmd: >-
       {{.go_bin}} mod tidy
 
   # XXX(robertgzr): figure out a solution for workspaces
   # https://github.com/golangci/golangci-lint/issues/2654#issuecomment-1606439587
   lint:
+    desc: "Run golangci-lint"
     requires:
       vars:
       - package
@@ -150,6 +158,7 @@ tasks:
       {{.package}}
 
   fmt:
+    desc: "Run gofumpt"
     cmd: >-
       {{.golangci_bin}} fmt
       --no-config
@@ -159,6 +168,8 @@ tasks:
       {{.CLI_ARGS}}
 
   static-check:
+    desc: "Run static checks: tidy?, fmt, lint"
+    cmds:
     - task: tidy?
     - task: fmt
     - task: lint
@@ -179,15 +190,21 @@ tasks:
   # ci steps
 
   ci/check:
-  - task: license-check
-  - task: static-check
-    vars:
-      golangci_args: --output.junit-xml.path=lint-results.xml
+    desc: "Tasks for CI check job: license-check, static-check"
+    cmds:
+    - task: license-check
+    - task: static-check
+      vars:
+        golangci_args: --output.junit-xml.path=lint-results.xml
 
   ci/test:
-  - task: test
-    vars:
-      gotestsum_args: --format=testname --junitfile=test-results.xml
+    desc: "Tasks for CI test job: test"
+    cmds:
+    - task: test
+      vars:
+        gotestsum_args: --format=testname --junitfile=test-results.xml
 
   ci/build:
-  - task: snapshot
+    desc: "Tasks for CI build job: snapshot"
+    cmds:
+    - task: snapshot
