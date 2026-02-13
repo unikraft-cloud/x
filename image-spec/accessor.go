@@ -15,13 +15,13 @@ import (
 	"github.com/distribution/reference"
 )
 
-type Store struct {
+type Accessor struct {
 	remote    remotes.Resolver
 	refParser func(string) (reference.Named, error)
 }
 
-func NewStore(opts ...StorageOpt) *Store {
-	s := &Store{}
+func NewAccessor(opts ...AccessOpt) *Accessor {
+	s := &Accessor{}
 	for _, o := range opts {
 		o(s)
 	}
@@ -34,28 +34,28 @@ func NewStore(opts ...StorageOpt) *Store {
 	return s
 }
 
-type StorageOpt func(*Store)
+type AccessOpt func(*Accessor)
 
-func WithResolver(r remotes.Resolver) StorageOpt {
-	return func(so *Store) {
+func WithResolver(r remotes.Resolver) AccessOpt {
+	return func(so *Accessor) {
 		so.remote = r
 	}
 }
 
-func WithReferenceParser(rp func(string) (reference.Named, error)) StorageOpt {
-	return func(so *Store) {
+func WithReferenceParser(rp func(string) (reference.Named, error)) AccessOpt {
+	return func(so *Accessor) {
 		so.refParser = rp
 	}
 }
 
-func (store *Store) Load(ctx context.Context, src *URI, platform platforms.MatchComparer) (*Image, error) {
+func (accessor *Accessor) Load(ctx context.Context, src *URI, platform platforms.MatchComparer) (*Image, error) {
 	switch src.Scheme {
 	case URISchemeOCI:
-		named, err := store.refParser(src.Path)
+		named, err := accessor.refParser(src.Path)
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
-		return LoadDockerImage(ctx, named, store.remote, platform)
+		return LoadDockerImage(ctx, named, accessor.remote, platform)
 	case URISchemeOCILayout:
 		path, tag := parsePathTag(src.Path)
 		return LoadOCILayoutNamed(ctx, path, tag, platform)
@@ -66,14 +66,14 @@ func (store *Store) Load(ctx context.Context, src *URI, platform platforms.Match
 	}
 }
 
-func (store *Store) LoadAll(ctx context.Context, src *URI, platform platforms.MatchComparer) ([]*Image, error) {
+func (accessor *Accessor) LoadAll(ctx context.Context, src *URI, platform platforms.MatchComparer) ([]*Image, error) {
 	switch src.Scheme {
 	case URISchemeOCI:
-		named, err := store.refParser(src.Path)
+		named, err := accessor.refParser(src.Path)
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
-		return LoadAllDockerImages(ctx, named, store.remote, platform)
+		return LoadAllDockerImages(ctx, named, accessor.remote, platform)
 	case URISchemeOCILayout:
 		path, tag := parsePathTag(src.Path)
 		return LoadAllOCILayoutsNamed(ctx, path, tag, platform)
@@ -84,14 +84,14 @@ func (store *Store) LoadAll(ctx context.Context, src *URI, platform platforms.Ma
 	}
 }
 
-func (store *Store) Save(ctx context.Context, dest *URI, img ...*Image) error {
+func (accessor *Accessor) Save(ctx context.Context, dest *URI, img ...*Image) error {
 	switch dest.Scheme {
 	case URISchemeOCI:
-		named, err := store.refParser(dest.Path)
+		named, err := accessor.refParser(dest.Path)
 		if err != nil {
 			return fmt.Errorf("parsing image reference %q: %w", dest, err)
 		}
-		_, _, err = SaveDockerImage(ctx, named, store.remote, img...)
+		_, _, err = SaveDockerImage(ctx, named, accessor.remote, img...)
 		return err
 	case URISchemeOCILayout:
 		path, tag := parsePathTag(dest.Path)

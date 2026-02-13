@@ -43,8 +43,8 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 		return fmt.Errorf("parsing image reference: %w", err)
 	}
 
-	store := imagespec.NewStore(withResolver(insecure))
-	imgs, err := store.LoadAll(ctx, uri, platforms.All)
+	accessor := imagespec.NewAccessor(withResolver(insecure))
+	imgs, err := accessor.LoadAll(ctx, uri, platforms.All)
 	if err != nil {
 		return err
 	}
@@ -173,8 +173,8 @@ func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 		return fmt.Errorf("parsing image destination: %w", err)
 	}
 
-	store := imagespec.NewStore(withResolver(insecure))
-	imgs, err := store.LoadAll(ctx, src, platforms.All)
+	accessor := imagespec.NewAccessor(withResolver(insecure))
+	imgs, err := accessor.LoadAll(ctx, src, platforms.All)
 	if err != nil {
 		return err
 	}
@@ -187,8 +187,8 @@ func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 	}()
 
 	insecure = c.Insecure == "destination" || c.Insecure == "all"
-	store = imagespec.NewStore(withResolver(insecure))
-	err = store.Save(ctx, dest, imgs...)
+	accessor = imagespec.NewAccessor(withResolver(insecure))
+	err = accessor.Save(ctx, dest, imgs...)
 	if err != nil {
 		return fmt.Errorf("saving image to destination: %w", err)
 	}
