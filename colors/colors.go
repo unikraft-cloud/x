@@ -6,7 +6,8 @@
 package colors
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/compat"
 )
 
 var (
@@ -66,34 +67,34 @@ var (
 	Slate900   = lipgloss.Color("#0f172b")
 	Slate950   = lipgloss.Color("#020618")
 
-	Primary     = lipgloss.AdaptiveColor{Light: string(Blue500), Dark: string(Blue500)}
+	Primary     = compat.AdaptiveColor{Light: Blue500, Dark: Blue500}
 	PrimaryFg   = lipgloss.NewStyle().Foreground(Primary).Render
 	PrimaryFgBg = lipgloss.NewStyle().
-			Background(lipgloss.AdaptiveColor{Light: string(Blue100), Dark: string(Blue900)}).
-			Foreground(lipgloss.AdaptiveColor{Light: string(Blue900), Dark: string(Blue100)}).
+			Background(compat.AdaptiveColor{Light: Blue100, Dark: Blue900}).
+			Foreground(compat.AdaptiveColor{Light: Blue900, Dark: Blue100}).
 			Render
-	Success     = lipgloss.AdaptiveColor{Light: string(Emerald500), Dark: string(Emerald500)}
+	Success     = compat.AdaptiveColor{Light: Emerald500, Dark: Emerald500}
 	SuccessFg   = lipgloss.NewStyle().Foreground(Success).Render
 	SuccessFgBg = lipgloss.NewStyle().
-			Background(lipgloss.AdaptiveColor{Light: string(Emerald100), Dark: string(Emerald900)}).
-			Foreground(lipgloss.AdaptiveColor{Light: string(Emerald900), Dark: string(Emerald100)}).
+			Background(compat.AdaptiveColor{Light: Emerald100, Dark: Emerald900}).
+			Foreground(compat.AdaptiveColor{Light: Emerald900, Dark: Emerald100}).
 			Render
-	Warning     = lipgloss.AdaptiveColor{Light: string(Orange500), Dark: string(Orange500)}
+	Warning     = compat.AdaptiveColor{Light: Orange500, Dark: Orange500}
 	WarningFg   = lipgloss.NewStyle().Foreground(Warning).Render
 	WarningFgBg = lipgloss.NewStyle().
-			Background(lipgloss.AdaptiveColor{Light: string(Orange100), Dark: string(Orange900)}).
-			Foreground(lipgloss.AdaptiveColor{Light: string(Orange900), Dark: string(Orange100)}).
+			Background(compat.AdaptiveColor{Light: Orange100, Dark: Orange900}).
+			Foreground(compat.AdaptiveColor{Light: Orange900, Dark: Orange100}).
 			Render
-	Error     = lipgloss.AdaptiveColor{Light: string(Rose600), Dark: string(Rose600)}
+	Error     = compat.AdaptiveColor{Light: Rose600, Dark: Rose600}
 	ErrorFg   = lipgloss.NewStyle().Foreground(Error).Render
 	ErrorFgBg = lipgloss.NewStyle().
-			Background(lipgloss.AdaptiveColor{Light: string(Rose100), Dark: string(Rose900)}).
-			Foreground(lipgloss.AdaptiveColor{Light: string(Rose900), Dark: string(Rose100)}).
+			Background(compat.AdaptiveColor{Light: Rose100, Dark: Rose900}).
+			Foreground(compat.AdaptiveColor{Light: Rose900, Dark: Rose100}).
 			Render
-	Info     = lipgloss.AdaptiveColor{Light: string(Slate400), Dark: string(Slate400)}
+	Info     = compat.AdaptiveColor{Light: Slate400, Dark: Slate400}
 	InfoFg   = lipgloss.NewStyle().Foreground(Info).Render
 	InfoFgBg = lipgloss.NewStyle().
-			Background(lipgloss.AdaptiveColor{Light: string(Slate100), Dark: string(Slate900)}).
-			Foreground(lipgloss.AdaptiveColor{Light: string(Slate900), Dark: string(Slate100)}).
+			Background(compat.AdaptiveColor{Light: Slate100, Dark: Slate900}).
+			Foreground(compat.AdaptiveColor{Light: Slate900, Dark: Slate100}).
 			Render
 )
