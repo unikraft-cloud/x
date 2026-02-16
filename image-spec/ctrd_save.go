@@ -28,124 +28,139 @@ import (
 	"unikraft.com/x/log"
 )
 
-func SaveContent(ctx context.Context, store content.Ingester, ref string, image *Image) (ocispec.Descriptor, error) {
+func SaveContent(ctx context.Context, store content.Ingester, ref string, images ...*Image) (ocispec.Descriptor, error) {
 	store = ingestDefaults(store, content.WithRef(ref))
 
 	eg, egCtx := errgroup.WithContext(ctx)
-	layers := []ocispec.Descriptor{}
 
-	// Kernel layer
-	if image.Kernel != nil {
-		idx := len(layers)
-		layers = append(layers, ocispec.Descriptor{})
-		eg.Go(func() error {
-			kernelDesc, err := packageLayer(egCtx, store, image, image.Kernel, ocispec.MediaTypeImageLayer, WellKnownKernelPath)
-			if err != nil {
-				return fmt.Errorf("failed to package kernel: %w", err)
-			}
-			if kernelDesc.Annotations == nil {
-				kernelDesc.Annotations = make(map[string]string)
-			}
-			kernelDesc.Annotations[AnnotationKernelPath] = WellKnownKernelPath
-			layers[idx] = kernelDesc
-			return nil
-		})
-	}
+	imageLayers := make([][]ocispec.Descriptor, len(images))
 
-	// Kernel debug layer
-	if image.KernelDebug != nil {
-		idx := len(layers)
-		layers = append(layers, ocispec.Descriptor{})
-		eg.Go(func() error {
-			kernelDesc, err := packageLayer(egCtx, store, image, image.KernelDebug, ocispec.MediaTypeImageLayer, WellKnownKernelDbgPath)
-			if err != nil {
-				return fmt.Errorf("failed to package kernel: %w", err)
-			}
-			if kernelDesc.Annotations == nil {
-				kernelDesc.Annotations = make(map[string]string)
-			}
-			kernelDesc.Annotations[AnnotationKernelDbgPath] = WellKnownKernelDbgPath
-			layers[idx] = kernelDesc
-			return nil
-		})
-	}
+	for i, image := range images {
+		var layers []ocispec.Descriptor
 
-	// Initrd layer
-	if image.Initrd != nil {
-		idx := len(layers)
-		layers = append(layers, ocispec.Descriptor{})
-		eg.Go(func() error {
-			initrdDesc, err := packageLayer(egCtx, store, image, image.Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
-			if err != nil {
-				return fmt.Errorf("failed to package initrd: %w", err)
-			}
-			if initrdDesc.Annotations == nil {
-				initrdDesc.Annotations = make(map[string]string)
-			}
-			initrdDesc.Annotations[AnnotationKernelInitrdPath] = WellKnownInitrdPath
-			layers[idx] = initrdDesc
-			return nil
-		})
-	}
+		// Kernel layer
+		if image.Kernel != nil {
+			idx := len(layers)
+			layers = append(layers, ocispec.Descriptor{})
+			eg.Go(func() error {
+				kernelDesc, err := packageLayer(egCtx, store, image, image.Kernel, ocispec.MediaTypeImageLayer, WellKnownKernelPath)
+				if err != nil {
+					return fmt.Errorf("failed to package kernel: %w", err)
+				}
+				if kernelDesc.Annotations == nil {
+					kernelDesc.Annotations = make(map[string]string)
+				}
+				kernelDesc.Annotations[AnnotationKernelPath] = WellKnownKernelPath
+				layers[idx] = kernelDesc
+				return nil
+			})
+		}
 
-	// ROM layers
-	for _, rom := range image.Roms {
-		idx := len(layers)
-		layers = append(layers, ocispec.Descriptor{})
-		eg.Go(func() error {
-			romDesc, err := packageLayer(egCtx, store, image, rom, MediaTypeRom, "")
-			if err != nil {
-				return fmt.Errorf("failed to package rom: %w", err)
-			}
-			layers[idx] = romDesc
-			return nil
-		})
+		// Kernel debug layer
+		if image.KernelDebug != nil {
+			idx := len(layers)
+			layers = append(layers, ocispec.Descriptor{})
+			eg.Go(func() error {
+				kernelDesc, err := packageLayer(egCtx, store, image, image.KernelDebug, ocispec.MediaTypeImageLayer, WellKnownKernelDbgPath)
+				if err != nil {
+					return fmt.Errorf("failed to package kernel: %w", err)
+				}
+				if kernelDesc.Annotations == nil {
+					kernelDesc.Annotations = make(map[string]string)
+				}
+				kernelDesc.Annotations[AnnotationKernelDbgPath] = WellKnownKernelDbgPath
+				layers[idx] = kernelDesc
+				return nil
+			})
+		}
+
+		// Initrd layer
+		if image.Initrd != nil {
+			idx := len(layers)
+			layers = append(layers, ocispec.Descriptor{})
+			eg.Go(func() error {
+				initrdDesc, err := packageLayer(egCtx, store, image, image.Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
+				if err != nil {
+					return fmt.Errorf("failed to package initrd: %w", err)
+				}
+				if initrdDesc.Annotations == nil {
+					initrdDesc.Annotations = make(map[string]string)
+				}
+				initrdDesc.Annotations[AnnotationKernelInitrdPath] = WellKnownInitrdPath
+				layers[idx] = initrdDesc
+				return nil
+			})
+		}
+
+		// ROM layers
+		for _, rom := range image.Roms {
+			idx := len(layers)
+			layers = append(layers, ocispec.Descriptor{})
+			eg.Go(func() error {
+				romDesc, err := packageLayer(egCtx, store, image, rom, MediaTypeRom, "")
+				if err != nil {
+					return fmt.Errorf("failed to package rom: %w", err)
+				}
+				layers[idx] = romDesc
+				return nil
+			})
+		}
+
+		imageLayers[i] = layers
 	}
 
 	if err := eg.Wait(); err != nil {
 		return ocispec.Descriptor{}, err
 	}
 
-	// Image
-	ociImage := ocispec.Image{}
-	if image.Image != nil {
-		ociImage = *image.Image
-	}
-	ociImage.RootFS.Type = "layers"
-	ociImage.RootFS.DiffIDs = make([]digest.Digest, 0, len(layers))
-	for _, layer := range layers {
-		// NOTE: layers are uncompressed, so DiffID == Digest
-		ociImage.RootFS.DiffIDs = append(ociImage.RootFS.DiffIDs, layer.Digest)
-	}
+	var mfstDescs []ocispec.Descriptor
 
-	var err error
-	imgDesc, err := packageJSON(ctx, store, ocispec.MediaTypeImageConfig, &ociImage)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to package image config: %w", err)
-	}
+	for i, image := range images {
+		layers := imageLayers[i]
 
-	mfst := ocispec.Manifest{
-		Versioned: ocispecs.Versioned{
-			SchemaVersion: 2,
-		},
-		MediaType:   ocispec.MediaTypeImageManifest,
-		Config:      imgDesc,
-		Layers:      layers,
-		Annotations: image.Annotations,
+		// Image
+		ociImage := ocispec.Image{}
+		if image.Image != nil {
+			ociImage = *image.Image
+		}
+		ociImage.RootFS.Type = "layers"
+		ociImage.RootFS.DiffIDs = make([]digest.Digest, 0, len(layers))
+		for _, layer := range layers {
+			// NOTE: layers are uncompressed, so DiffID == Digest
+			ociImage.RootFS.DiffIDs = append(ociImage.RootFS.DiffIDs, layer.Digest)
+		}
+
+		var err error
+		imgDesc, err := packageJSON(ctx, store, ocispec.MediaTypeImageConfig, &ociImage)
+		if err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to package image config: %w", err)
+		}
+
+		mfst := ocispec.Manifest{
+			Versioned: ocispecs.Versioned{
+				SchemaVersion: 2,
+			},
+			MediaType:   ocispec.MediaTypeImageManifest,
+			Config:      imgDesc,
+			Layers:      layers,
+			Annotations: image.Annotations,
+		}
+		mfstDesc, err := packageJSON(ctx, store, mfst.MediaType, mfst)
+		if err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to package manifest: %w", err)
+		}
+		mfstDesc.Annotations = image.Annotations
+		mfstDesc.Platform = &image.Image.Platform
+
+		mfstDescs = append(mfstDescs, mfstDesc)
 	}
-	mfstDesc, err := packageJSON(ctx, store, mfst.MediaType, mfst)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to package manifest: %w", err)
-	}
-	mfstDesc.Annotations = image.Annotations
-	mfstDesc.Platform = &image.Image.Platform
 
 	idx := ocispec.Index{
 		Versioned: ocispecs.Versioned{
 			SchemaVersion: 2,
 		},
 		MediaType: ocispec.MediaTypeImageIndex,
-		Manifests: []ocispec.Descriptor{mfstDesc},
+		Manifests: mfstDescs,
 	}
 	idxDesc, err := packageJSON(ctx, store, idx.MediaType, idx)
 	if err != nil {
@@ -352,7 +367,14 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		Digest:    digester.Digest(),
 	}
 	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(desc))
-	if err != nil {
+	if errdefs.IsAlreadyExists(err) {
+		log.G(ctx).Debug().
+			Str("mediaType", mediaType).
+			Str("path", path).
+			Str("digest", desc.Digest.String()).
+			Msg("packaged pre-existing layer")
+		return desc, nil
+	} else if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to create layer content writer: %w", err)
 	}
 	defer func() {

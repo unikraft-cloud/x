@@ -8,6 +8,7 @@ package imagespec
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 
@@ -18,6 +19,7 @@ import (
 type File interface {
 	Path() string
 	Open(ctx context.Context) (io.ReadCloser, int64, error)
+	Cleanup() error
 
 	Source() (ocispec.Descriptor, content.Provider)
 }
@@ -42,17 +44,29 @@ func (f *staticFile) Open(ctx context.Context) (io.ReadCloser, int64, error) {
 	return io.NopCloser(bytes.NewReader(f.data)), int64(len(f.data)), nil
 }
 
+func (f *staticFile) Cleanup() error {
+	return nil
+}
+
 func (f *staticFile) Source() (ocispec.Descriptor, content.Provider) {
 	return ocispec.Descriptor{}, nil
 }
 
 type osFile struct {
-	f *os.File
+	f      *os.File
+	delete bool
 }
 
 func NewOSFile(f *os.File) File {
 	return &osFile{
 		f: f,
+	}
+}
+
+func NewTempOSFile(f *os.File) File {
+	return &osFile{
+		f:      f,
+		delete: true,
 	}
 }
 
@@ -65,7 +79,19 @@ func (f *osFile) Open(ctx context.Context) (io.ReadCloser, int64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	return f.f, fi.Size(), nil
+	newFd, err := os.Open(f.f.Name())
+	if err != nil {
+		return nil, 0, err
+	}
+	return newFd, fi.Size(), nil
+}
+
+func (f *osFile) Cleanup() error {
+	err := f.f.Close()
+	if f.delete {
+		err = errors.Join(err, os.Remove(f.f.Name()))
+	}
+	return err
 }
 
 func (f *osFile) Source() (ocispec.Descriptor, content.Provider) {
