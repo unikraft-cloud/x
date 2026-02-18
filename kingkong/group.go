@@ -5,7 +5,13 @@
 
 package kingkong
 
-import "github.com/alecthomas/kong"
+import (
+	"slices"
+
+	"github.com/alecthomas/kong"
+)
+
+const tagCollapse = "collapse"
 
 type FlagGroup struct {
 	Metadata *kong.Group
@@ -19,6 +25,8 @@ func GroupFlags(flags [][]*kong.Flag) []FlagGroup {
 	flagsByGroup := map[string][][]*kong.Flag{}
 
 	for _, levelFlags := range flags {
+		levelFlags = collapseFlags(levelFlags)
+
 		levelFlagsByGroup := map[string][]*kong.Flag{}
 
 		for _, flag := range levelFlags {
@@ -64,6 +72,51 @@ func GroupFlags(flags [][]*kong.Flag) []FlagGroup {
 		out = append(out, FlagGroup{Metadata: group, Flags: flagsByGroup[group.Key]})
 	}
 	return out
+}
+
+func collapseFlags(flags []*kong.Flag) []*kong.Flag {
+	out := make([]*kong.Flag, 0, len(flags))
+	byID := map[string]*kong.Flag{}
+
+	for _, flag := range flags {
+		if flag == nil {
+			continue
+		}
+		if flag.Value == nil || flag.Tag == nil {
+			out = append(out, flag)
+			continue
+		}
+
+		id := flag.Tag.Get(tagCollapse)
+		if id == "" {
+			out = append(out, flag)
+			continue
+		}
+
+		base := byID[id]
+		if base == nil {
+			clone := new(kong.Flag)
+			*clone = *flag
+			clone.Aliases = append([]string(nil), flag.Aliases...)
+			byID[id] = clone
+			out = append(out, clone)
+			continue
+		}
+
+		appendUniqueAlias(base, flag.Name)
+	}
+
+	return out
+}
+
+func appendUniqueAlias(flag *kong.Flag, name string) {
+	if flag == nil || name == "" || name == flag.Name {
+		return
+	}
+	if slices.Contains(flag.Aliases, name) {
+		return
+	}
+	flag.Aliases = append(flag.Aliases, name)
 }
 
 type CommandGroup struct {
