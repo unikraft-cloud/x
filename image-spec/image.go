@@ -43,6 +43,18 @@ func (i *Image) Close() error {
 	for _, cleanup := range i.cleanup {
 		err = errors.Join(err, cleanup())
 	}
+	if i.Kernel != nil {
+		err = errors.Join(err, i.Kernel.Cleanup())
+	}
+	if i.KernelDebug != nil {
+		err = errors.Join(err, i.KernelDebug.Cleanup())
+	}
+	if i.Initrd != nil {
+		err = errors.Join(err, i.Initrd.Cleanup())
+	}
+	for _, rom := range i.Roms {
+		err = errors.Join(err, rom.Cleanup())
+	}
 	return err
 }
 

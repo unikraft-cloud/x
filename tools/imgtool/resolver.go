@@ -15,7 +15,7 @@ import (
 	"unikraft.com/x/version"
 )
 
-func withResolver(insecure bool) imagespec.StorageOpt {
+func withResolver(insecure bool) imagespec.AccessOpt {
 	headers := http.Header{}
 	headers.Set("User-Agent", version.UserAgent())
 

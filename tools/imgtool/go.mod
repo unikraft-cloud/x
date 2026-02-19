@@ -7,6 +7,7 @@ replace github.com/unikraft-cloud/x/image-spec => ../../image-spec
 require (
 	github.com/alecthomas/kong v1.13.0
 	github.com/containerd/containerd/v2 v2.2.0
+	github.com/containerd/platforms v1.0.0-rc.2
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v28.5.0+incompatible
 	github.com/opencontainers/image-spec v1.1.1
@@ -21,7 +22,6 @@ require (
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/containerd/platforms v1.0.0-rc.2 // indirect
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect

@@ -31,6 +31,7 @@ vars:
 
 tasks:
   generate:
+    desc: "Run go generate"
     requires:
       vars:
       - package
@@ -41,6 +42,7 @@ tasks:
     {{.buf_bin}} generate --clean
 
   build:
+    desc: "Run go build"
     # deps:
     # - generate
     requires:
@@ -53,20 +55,10 @@ tasks:
         ref: .bin | default (regexFind "[^/.]+$" .package)
 
       # version vars
-      hash_commit: HEAD
-      hash:
-        sh: git update-index -q --refresh && git describe --tags
-      dirty:
-        sh: >-
-          {{- if eq .hash_commit "HEAD" }}
-          git update-index -q --refresh &&
-          git diff-index --quiet HEAD -- . || echo "-dirty"
-          {{- else -}}
-          printf "" # can't be dirty by definition
-          {{- end -}}
-      version: '{{.hash}}{{.dirty}}'
+      git_tag:
+        sh: git update-index -q --refresh && git describe --abbrev=0 --tags --dirty || printf "0.0.0"
       git_sha:
-        sh: git update-index -q --refresh && git rev-parse --short HEAD
+        sh: git update-index -q --refresh && git rev-parse HEAD
 
       go_gcflags: >-
         {{- ternary "-N -l" "" .go_debug }}
@@ -74,7 +66,7 @@ tasks:
         ref: .go_ldflags_extra | default ""
       go_ldflags: >-
         {{- ternary "" "-s -w -extldflags -static-pie" .go_debug }}
-        -X "{{.go_module}}/internal/version.Version={{.version}}"
+        -X "{{.go_module}}/internal/version.Version={{.git_tag}}"
         -X "{{.go_module}}/internal/version.Commit={{.git_sha}}"
         -X "{{.go_module}}/internal/version.BuildTime={{now}}"
         {{.go_ldflags_extra}}
@@ -87,7 +79,16 @@ tasks:
       -o './dist/{{.bin}}'
       {{.package}}
 
+  snapshot:
+    desc: "Run goreleaser with --snapshot"
+    preconditions:
+    - test -f .goreleaser.yaml
+    cmds:
+    - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
+    - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
+
   test:
+    desc: "Run gotestsum"
     requires:
       vars:
       - package
@@ -97,22 +98,20 @@ tasks:
     cmd: >-
       {{.gotestsum_bin}} --format=testname {{.gotestsum_args}} -- -tags='{{.go_tags}}' {{.CLI_ARGS}} {{.package}}
 
-  static-check:
-  - task: tidy?
-  - task: fmt
-  - task: lint
-
   tidy?:
+    desc: "Check go.mod"
     cmds:
     - "{{.go_bin}} mod tidy -diff"
 
   tidy:
+    desc: "Run go mod tidy"
     cmd: >-
       {{.go_bin}} mod tidy
 
   # XXX(robertgzr): figure out a solution for workspaces
   # https://github.com/golangci/golangci-lint/issues/2654#issuecomment-1606439587
   lint:
+    desc: "Run golangci-lint"
     requires:
       vars:
       - package
@@ -146,19 +145,26 @@ tasks:
       {{ with join "," .disable }}
       --disable='{{.}}'
       {{ end }}
+      {{.golangci_args}}
       {{.CLI_ARGS}}
       {{.package}}
 
   fmt:
+    desc: "Run gofumpt"
     cmd: >-
       {{.golangci_bin}} fmt
       --no-config
       --enable=gofumpt
+      --diff-colored
+      {{.golangci_args}}
       {{.CLI_ARGS}}
 
-  snapshot:
-  - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
-  - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
+  static-check:
+    desc: "Run static checks: tidy?, fmt, lint"
+    cmds:
+    - task: tidy?
+    - task: fmt
+    - task: lint
 
   license-check:
     desc: "Check that every go file begins with an SPDX-License-Identifier"
@@ -172,3 +178,25 @@ tasks:
         else
           echo "All files have SPDX-License-Identifier header."
         fi
+
+  # ci steps
+
+  ci/check:
+    desc: "Tasks for CI check job: license-check, static-check"
+    cmds:
+    - task: license-check
+    - task: static-check
+      vars:
+        golangci_args: --output.junit-xml.path=lint-results.xml
+
+  ci/test:
+    desc: "Tasks for CI test job: test"
+    cmds:
+    - task: test
+      vars:
+        gotestsum_args: --format=testname --junitfile=test-results.xml
+
+  ci/build:
+    desc: "Tasks for CI build job: snapshot"
+    cmds:
+    - task: snapshot
