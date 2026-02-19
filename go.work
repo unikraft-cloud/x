@@ -1,4 +1,4 @@
-go 1.25.5
+go 1.25.7
 
 // Common modules.
 // This list is alphabetical and should not be reordered.
@@ -8,6 +8,7 @@ use (
 	./guesstermwidth
 	./iata
 	./image-spec
+	./joinerrgroup
 	./kingkong
 	./limiter
 	./log
