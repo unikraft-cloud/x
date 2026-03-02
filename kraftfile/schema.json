@@ -1,0 +1,315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unikraft.com/x/kraftfile/kraftfile",
+  "$defs": {
+    "Command": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
+    },
+    "FS": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "format": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "type": "object",
+          "required": [
+            "source"
+          ]
+        }
+      ]
+    },
+    "Library": {
+      "oneOf": [
+        {
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "kconfig": {
+              "$ref": "#/$defs/Map"
+            }
+          },
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "Map": {
+      "oneOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "MapPair": {
+      "properties": {
+        "Key": {
+          "type": "string"
+        },
+        "Value": true
+      },
+      "type": "object",
+      "required": [
+        "Key",
+        "Value"
+      ]
+    },
+    "Target": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "arch": {
+              "type": "string"
+            },
+            "plat": {
+              "type": "string"
+            },
+            "kconfig": {
+              "$ref": "#/$defs/Map"
+            },
+            "architecture": {
+              "type": "string"
+            },
+            "platform": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "type": "object"
+        }
+      ]
+    },
+    "Template": {
+      "oneOf": [
+        {
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "Unikraft": {
+      "oneOf": [
+        {
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "kconfig": {
+              "$ref": "#/$defs/Map"
+            }
+          },
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "Volume": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "driver": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "destination": {
+              "type": "string"
+            },
+            "mode": true,
+            "readonly": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": true,
+          "type": "object"
+        }
+      ]
+    },
+    "Volumes": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/Volume"
+          },
+          "type": "array"
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "not": {
+        "required": [
+          "specification"
+        ]
+      },
+      "required": [
+        "spec"
+      ]
+    },
+    {
+      "not": {
+        "required": [
+          "spec"
+        ]
+      },
+      "required": [
+        "specification"
+      ]
+    }
+  ],
+  "properties": {
+    "template": {
+      "$ref": "#/$defs/Template"
+    },
+    "name": {
+      "type": "string"
+    },
+    "targets": {
+      "items": {
+        "$ref": "#/$defs/Target"
+      },
+      "type": "array"
+    },
+    "cmd": {
+      "$ref": "#/$defs/Command"
+    },
+    "env": {
+      "$ref": "#/$defs/Map"
+    },
+    "labels": {
+      "oneOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "patternProperties": {
+            "^[a-zA-Z0-9._/-]+$": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        }
+      ]
+    },
+    "runtime": {
+      "oneOf": [
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "unikraft": {
+      "$ref": "#/$defs/Unikraft"
+    },
+    "libraries": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Library"
+      },
+      "type": "object"
+    },
+    "rootfs": {
+      "$ref": "#/$defs/FS"
+    },
+    "roms": {
+      "items": {
+        "$ref": "#/$defs/FS"
+      },
+      "type": "array"
+    },
+    "volumes": {
+      "$ref": "#/$defs/Volumes"
+    },
+    "outdir": {
+      "type": "string"
+    },
+    "spec": {
+      "type": "string",
+      "pattern": "^v?0\\.7(?:\\.0)?$"
+    },
+    "specification": {
+      "type": "string",
+      "pattern": "^v?0\\.7(?:\\.0)?$"
+    }
+  },
+  "additionalProperties": true,
+  "type": "object"
+}

@@ -10,6 +10,7 @@ use (
 	./image-spec
 	./joinerrgroup
 	./kingkong
+	./kraftfile
 	./limiter
 	./log
 	./middleware
@@ -26,6 +27,7 @@ use (
 // This list is alphabetical and should not be reordered.
 use (
 	./tools/imgtool
+	./tools/kraftfile-schema
 	./tools/protoc-gen-go-gin
 	./tools/protoc-gen-go-struct
 )
