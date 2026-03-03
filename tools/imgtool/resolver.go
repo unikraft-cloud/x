@@ -15,7 +15,7 @@ import (
 	"unikraft.com/x/version"
 )
 
-func withResolver(insecure bool) imagespec.AccessOpt {
+func newAccessor(insecure bool) *imagespec.Accessor {
 	headers := http.Header{}
 	headers.Set("User-Agent", version.UserAgent())
 
@@ -41,5 +41,10 @@ func withResolver(insecure bool) imagespec.AccessOpt {
 		Headers: headers,
 		Hosts:   docker.ConfigureDefaultRegistries(opts...),
 	}
-	return imagespec.WithResolver(docker.NewResolver(dro))
+	resolver := docker.NewResolver(dro)
+	return imagespec.NewAccessor(
+		imagespec.WithResolver(resolver),
+		imagespec.WithRegistryHosts(dro.Hosts),
+		imagespec.WithRegistryHeaders(dro.Headers),
+	)
 }

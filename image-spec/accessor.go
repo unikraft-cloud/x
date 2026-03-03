@@ -8,6 +8,8 @@ package imagespec
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
 
 	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
@@ -16,8 +18,10 @@ import (
 )
 
 type Accessor struct {
-	remote    remotes.Resolver
-	refParser func(string) (reference.Named, error)
+	remote          remotes.Resolver
+	registryHosts   docker.RegistryHosts
+	registryHeaders http.Header
+	refParser       func(string) (reference.Named, error)
 }
 
 func NewAccessor(opts ...AccessOpt) *Accessor {
@@ -39,6 +43,22 @@ type AccessOpt func(*Accessor)
 func WithResolver(r remotes.Resolver) AccessOpt {
 	return func(so *Accessor) {
 		so.remote = r
+	}
+}
+
+func WithRegistryHosts(hosts docker.RegistryHosts) AccessOpt {
+	return func(so *Accessor) {
+		so.registryHosts = hosts
+	}
+}
+
+func WithRegistryHeaders(headers http.Header) AccessOpt {
+	return func(so *Accessor) {
+		if headers == nil {
+			so.registryHeaders = nil
+			return
+		}
+		so.registryHeaders = headers.Clone()
 	}
 }
 
@@ -104,5 +124,29 @@ func (accessor *Accessor) Save(ctx context.Context, dest *URI, img ...*Image) er
 		return SaveTarball(ctx, dest.Path, img...)
 	default:
 		return fmt.Errorf("unsupported URI scheme: %q", dest.Scheme)
+	}
+}
+
+func (accessor *Accessor) Delete(ctx context.Context, target *URI) error {
+	switch target.Scheme {
+	case URISchemeOCI:
+		if accessor.registryHosts == nil {
+			return fmt.Errorf("no registry hosts configured for %q", target.Path)
+		}
+		named, err := accessor.refParser(target.Path)
+		if err != nil {
+			return fmt.Errorf("parsing image reference %q: %w", target, err)
+		}
+		return DeleteDockerImage(ctx, named, accessor.remote, accessor.registryHosts, accessor.registryHeaders)
+	case URISchemeOCILayout:
+		path, tag := parsePathTag(target.Path)
+		if tag == "" {
+			return os.RemoveAll(path)
+		}
+		return DeleteOCILayoutNamed(path, tag)
+	case URISchemeOCIArchive:
+		return os.Remove(target.Path)
+	default:
+		return fmt.Errorf("unsupported URI scheme: %q", target.Scheme)
 	}
 }
