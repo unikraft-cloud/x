@@ -1,0 +1,62 @@
+Kingkong is a CLI showcase for rich help output.
+
+Usage:
+  kingkong <command> [flags]
+
+Version:
+  v0.0.0-test ({{GOOS}}/{{GOARCH}})
+
+  -h, --help
+          Show context-sensitive help.
+
+Core Flags
+  Common settings for every command.
+
+      --config ($KINGKONG_CONFIG)
+          Path to config file.
+          [default: ./kingkong.yaml]
+      --profile
+          Runtime profile.
+          [default: dev, choice: dev,staging,prod]
+      --output
+          Output format.
+          [default: json, choice: json,yaml,text]
+  -v, --verbose
+          Enable verbose logging.
+      --[no-]debug ($KINGKONG_DEBUG)
+          Enable debug logging.
+
+Network Flags
+  Connection-related options.
+
+      --host
+          Bind address.
+          [default: 127.0.0.1]
+      --port
+          Bind port.
+          [default: 8080]
+
+Lifecycle Commands
+  Project setup and runtime operations.
+
+  init [flags]
+    Initialize a project.
+
+
+  serve (run,server) <config> [<profile>] [flags]
+    Run the service.
+
+
+Examples:
+  # Initialize a new project.
+  kingkong init --template=go
+  kingkong init --template=rust --force
+
+  # Run with a custom config.
+  kingkong serve ./configs/dev.yaml
+  kingkong serve ./configs/prod.yaml prod
+
+Environment:
+  Use KINGKONG_CONFIG to override the config path.
+
+Run "kingkong <command> --help" for more information on a command.
