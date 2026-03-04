@@ -129,6 +129,7 @@ func Summary(app *kong.Node) string {
 }
 
 func printApp(version string, w *helpWriter, app *kong.Application) {
+	printNodeHelp(w, app.Node)
 	if !w.NoAppSummary {
 		w.Print(Underline("Usage") + ":")
 		w.Indent().Printf("%s\n", Summary(app.Node))
@@ -151,6 +152,7 @@ func printApp(version string, w *helpWriter, app *kong.Application) {
 }
 
 func printCommand(w *helpWriter, app *kong.Application, cmd *kong.Command) {
+	printNodeHelp(w, cmd)
 	if !w.NoAppSummary {
 		w.Print(Underline("Usage") + ":")
 		w.Indent().Printf("%s", Summary(cmd))
@@ -165,11 +167,6 @@ func printCommand(w *helpWriter, app *kong.Application, cmd *kong.Command) {
 }
 
 func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
-	if node.Help != "" {
-		w.Print("")
-		w.Wrap(node.Help)
-	}
-
 	if w.Summary {
 		return
 	}
@@ -275,6 +272,17 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 	}
 }
 
+func printNodeHelp(w *helpWriter, node *kong.Node) {
+	if node.Help == "" {
+		return
+	}
+	if len(*w.lines) > 0 {
+		w.Print("")
+	}
+	w.Wrap(node.Help)
+	w.Print("")
+}
+
 func writeCommandList(cmds []*kong.Node, iw *helpWriter) {
 	for i, cmd := range cmds {
 		if cmd.Hidden {
@@ -345,6 +353,7 @@ func printCommandSummary(w *helpWriter, cmd *kong.Command) {
 	w.Print(cmd.Summary())
 	if cmd.Help != "" {
 		w.Indent().Wrap(cmd.Help)
+		w.Print("")
 	}
 }
 
