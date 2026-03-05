@@ -235,9 +235,9 @@ func TestIsNil(t *testing.T) {
 func TestValueOrDefault(t *testing.T) {
 	tests := []struct {
 		name         string
-		ptr          interface{}
-		defaultValue interface{}
-		expected     interface{}
+		ptr          any
+		defaultValue any
+		expected     any
 	}{
 		{"nil int with default", (*int)(nil), 42, 42},
 		{"valid int", func() *int { x := 10; return &x }(), 42, 10},
@@ -273,8 +273,8 @@ func TestValueOrDefault(t *testing.T) {
 func TestSafeDeref(t *testing.T) {
 	tests := []struct {
 		name     string
-		ptr      interface{}
-		expected interface{}
+		ptr      any
+		expected any
 		expectOk bool
 	}{
 		{"nil int", (*int)(nil), 0, false},

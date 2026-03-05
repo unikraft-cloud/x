@@ -9,11 +9,14 @@ linters:
     - staticcheck
     - errcheck
     - govet
+    - modernize
     - unparam
     - ineffassign
     - unused
     - misspell
     - godox
+    - testifylint
+    - nolintlint
   exclusions:
     generated: lax
     presets:

@@ -4,7 +4,6 @@
 // You may not use this file except in compliance with the License.
 
 //go:build !appengine && linux
-// +build !appengine,linux
 
 package guesstermwidth
 

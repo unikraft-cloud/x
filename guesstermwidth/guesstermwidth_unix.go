@@ -4,7 +4,6 @@
 // You may not use this file except in compliance with the License.
 
 //go:build (!appengine && linux) || freebsd || darwin || dragonfly || netbsd || openbsd
-// +build !appengine,linux freebsd darwin dragonfly netbsd openbsd
 
 package guesstermwidth
 
