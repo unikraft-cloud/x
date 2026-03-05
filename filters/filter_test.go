@@ -6,16 +6,20 @@
 package filters
 
 import (
-	"reflect"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestFilters(t *testing.T) {
 	type cEntry struct {
-		Name   string
-		Other  string
-		Labels map[string]string
+		Name         string
+		Other        string
+		Labels       map[string]string
+		NestedLabels map[string]map[string]string
 	}
 
 	corpusS := []cEntry{
@@ -24,9 +28,25 @@ func TestFilters(t *testing.T) {
 			Labels: map[string]string{
 				"foo": "true",
 			},
+			NestedLabels: map[string]map[string]string{
+				"x": {
+					"foo": "true",
+				},
+				"y": {
+					"bar": "true",
+				},
+			},
 		},
 		{
 			Name: "bar",
+			NestedLabels: map[string]map[string]string{
+				"x": {
+					"foo": "true",
+				},
+				"y": {
+					"bar": "false",
+				},
+			},
 		},
 		{
 			Name: "foo",
@@ -77,18 +97,40 @@ func TestFilters(t *testing.T) {
 	// adapt shows an example of how to build an adaptor function for a type.
 	adapt := func(o any) Adaptor {
 		obj := o.(cEntry)
-		return AdapterFunc(func(fieldpath []string) (string, bool) {
+		return AdapterFunc(func(fieldpath []string) (string, []string, bool) {
 			switch fieldpath[0] {
 			case "name":
-				return obj.Name, len(obj.Name) > 0
+				return obj.Name, nil, true
 			case "other":
-				return obj.Other, len(obj.Other) > 0
+				return obj.Other, nil, true
 			case "labels":
+				if len(fieldpath) < 2 {
+					return "", slices.Collect(maps.Keys(obj.Labels)), true
+				}
 				value, ok := obj.Labels[strings.Join(fieldpath[1:], ".")]
-				return value, ok
+				if !ok {
+					return "", nil, true
+				}
+				return value, nil, true
+			case "nestedlabels":
+				if len(fieldpath) < 2 {
+					return "", slices.Collect(maps.Keys(obj.NestedLabels)), true
+				}
+				nested, ok := obj.NestedLabels[fieldpath[1]]
+				if !ok {
+					return "", nil, true
+				}
+				if len(fieldpath) < 3 {
+					return "", slices.Collect(maps.Keys(nested)), true
+				}
+				value, ok := nested[strings.Join(fieldpath[2:], ".")]
+				if !ok {
+					return "", nil, true
+				}
+				return value, nil, true
 			}
 
-			return "", false
+			return "", nil, false
 		})
 	}
 
@@ -97,6 +139,7 @@ func TestFilters(t *testing.T) {
 		input     string
 		expected  []any
 		errString string
+		errField  string
 	}{
 		{
 			name:     "Empty",
@@ -189,6 +232,13 @@ func TestFilters(t *testing.T) {
 			},
 		},
 		{
+			name:  "NotRegexpValue",
+			input: "name==foo,labels.foo!~=p.*",
+			expected: []any{
+				corpus[0],
+			},
+		},
+		{
 			name:  "RegexpQuotedValue",
 			input: "other~=/[abc]+/,name!=foo",
 			expected: []any{
@@ -271,38 +321,148 @@ func TestFilters(t *testing.T) {
 			input:     "labels.key==/value",
 			errString: `filters: parse error: [labels.key== >|/|< value]: quoted literal not terminated`,
 		},
+		{
+			name:  "WildcardValue",
+			input: "labels.*==present",
+			expected: []any{
+				corpus[2],
+				corpus[4],
+				corpus[5],
+			},
+		},
+		{
+			name:  "WildcardPresent",
+			input: "labels.*",
+			expected: []any{
+				corpus[0],
+				corpus[2],
+				corpus[3],
+				corpus[4],
+				corpus[5],
+				corpus[8],
+			},
+		},
+		{
+			name:  "WildcardPresentAndName",
+			input: "labels.*,name==foo",
+			expected: []any{
+				corpus[0],
+				corpus[2],
+			},
+		},
+		{
+			name:  "WildcardNotEqual",
+			input: "labels.*!=true",
+			expected: []any{
+				corpus[2],
+				corpus[4],
+				corpus[5],
+				corpus[8],
+			},
+		},
+		{
+			name:  "WildcardMatches",
+			input: "labels.*~=^true$",
+			expected: []any{
+				corpus[0],
+				corpus[3],
+			},
+		},
+		{
+			name:  "WildcardNotMatches",
+			input: "labels.*!~=^true$",
+			expected: []any{
+				corpus[2],
+				corpus[4],
+				corpus[5],
+				corpus[8],
+			},
+		},
+		{
+			name:  "NestedWildcardValue",
+			input: "nestedlabels.x.*==true",
+			expected: []any{
+				corpus[0],
+				corpus[1],
+			},
+		},
+		{
+			name:  "NestedWildcardNotEqual",
+			input: "nestedlabels.x.*!=true",
+		},
+		{
+			name:  "NestedWildcardKey",
+			input: "nestedlabels.*.foo==true",
+			expected: []any{
+				corpus[0],
+				corpus[1],
+			},
+		},
+		{
+			name:  "NestedWildcardKeyNotEqual",
+			input: "nestedlabels.*.bar!=true",
+			expected: []any{
+				corpus[1],
+			},
+		},
+		{
+			name:  "NestedDoubleWildcard",
+			input: "nestedlabels.*.*==true",
+			expected: []any{
+				corpus[0],
+				corpus[1],
+			},
+		},
+		{
+			name:  "NestedDoubleWildcardNotEqual",
+			input: "nestedlabels.*.*!=true",
+		},
+		{
+			name:     "MissingField",
+			input:    "missing.field==value",
+			errField: "missing.field",
+		},
+		{
+			name:     "WildcardMissingField",
+			input:    "labels.*.missing",
+			errField: "labels.*.missing",
+		},
 	} {
 		t.Run(testcase.name, func(t *testing.T) {
 			filter, err := Parse(testcase.input)
 			if testcase.errString != "" {
-				if err == nil {
-					t.Fatalf("expected an error, but received nil")
-				}
-				if err.Error() != testcase.errString {
-					t.Fatalf("error %v != %v", err, testcase.errString)
-				}
+				require.Error(t, err)
+				require.Equal(t, testcase.errString, err.Error())
 
 				return
 			}
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
-			if filter == nil {
-				t.Fatal("filter should not be nil")
-			}
+			require.NotNil(t, filter)
 
 			var results []any
+			sawErr := false
 			for _, item := range corpus {
 				adaptor := adapt(item)
-				if filter.Match(adaptor) {
+				matched, err := filter.Match(adaptor)
+				if err != nil {
+					var fieldErr *FieldNotFoundError
+					require.ErrorAs(t, err, &fieldErr)
+					if testcase.errField != "" {
+						require.Contains(t, err.Error(), testcase.errField)
+					}
+					sawErr = true
+					continue
+				}
+				if matched {
 					results = append(results, item)
 				}
 			}
 
-			if !reflect.DeepEqual(results, testcase.expected) {
-				t.Fatalf("%q: %#v != %#v", testcase.input, results, testcase.expected)
-			}
+			expectErr := testcase.errField != ""
+			require.Equal(t, expectErr, sawErr, "field not found error expectation mismatch")
+
+			require.Equal(t, testcase.expected, results, "%q: %#v != %#v", testcase.input, results, testcase.expected)
 		})
 	}
 }
@@ -313,14 +473,13 @@ func TestOperatorStrings(t *testing.T) {
 		expected string
 	}{
 		{operatorPresent, "?"},
-		{operatorEqual, "=="},
+		{operatorEqual, "="},
 		{operatorNotEqual, "!="},
 		{operatorMatches, "~="},
+		{operatorNotMatches, "!~="},
 		{10, "unknown"},
 	} {
-		if !reflect.DeepEqual(testcase.op.String(), testcase.expected) {
-			t.Fatalf("return value unexpected: %v != %v", testcase.op.String(), testcase.expected)
-		}
+		require.Equal(t, testcase.expected, testcase.op.String())
 	}
 }
 
@@ -328,8 +487,6 @@ func FuzzFiltersParse(f *testing.F) {
 	f.Add("foo=bar")
 	f.Fuzz(func(t *testing.T, expr string) {
 		filter, err := Parse(expr)
-		if filter != nil && err != nil {
-			t.Fatal("either filter or err must be non-nil")
-		}
+		require.False(t, filter != nil && err != nil, "either filter or err must be non-nil")
 	})
 }

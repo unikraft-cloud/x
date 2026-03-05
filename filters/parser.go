@@ -116,10 +116,14 @@ loop:
 	return ss, nil
 }
 
-func (p *parser) selector() (selector, error) {
-	fieldpath, err := p.fieldpath()
-	if err != nil {
-		return selector{}, err
+func (p *parser) selector() (Filter, error) {
+	var fieldpath []string
+	if p.scanner.peek() != '*' {
+		var err error
+		fieldpath, err = p.fieldpath()
+		if err != nil {
+			return selector{}, err
+		}
 	}
 
 	switch p.scanner.peek() {
@@ -128,15 +132,59 @@ func (p *parser) selector() (selector, error) {
 			fieldpath: fieldpath,
 			operator:  operatorPresent,
 		}, nil
+	case '*':
+		pos, tok, _ := p.scanner.scan() // consume '*'
+		if tok != tokenWildcard {
+			return nil, p.mkerr(pos, "expected a wildcard (`*`)")
+		}
+
+		switch p.scanner.peek() {
+		case tokenEOF, ',':
+			// Wildcard presence check (no operator/value)
+			return wildcard{
+				fieldpath: fieldpath,
+				filter:    Always,
+			}, nil
+		case '.':
+			pos, tok, _ := p.scanner.scan() // consume separator
+			if tok != tokenSeparator {
+				return nil, p.mkerr(pos, "expected a field separator (`.`)")
+			}
+
+			filter, err := p.selector()
+			if err != nil {
+				return nil, err
+			}
+			return wildcard{
+				fieldpath: fieldpath,
+				filter:    filter,
+				negated:   isNegatedFilter(filter),
+			}, nil
+		}
+
+		filter, err := p.selectorPart(nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return wildcard{
+			fieldpath: fieldpath,
+			filter:    filter,
+			negated:   isNegatedFilter(filter),
+		}, nil
 	}
 
+	return p.selectorPart(fieldpath)
+}
+
+func (p *parser) selectorPart(fieldpath []string) (selector, error) {
 	op, err := p.operator()
 	if err != nil {
 		return selector{}, err
 	}
 
 	var allowAltQuotes bool
-	if op == operatorMatches {
+	if op == operatorMatches || op == operatorNotMatches {
 		allowAltQuotes = true
 	}
 
@@ -153,7 +201,7 @@ func (p *parser) selector() (selector, error) {
 		value:     value,
 		operator:  op,
 	}
-	if op == operatorMatches {
+	if op == operatorMatches || op == operatorNotMatches {
 		r, err := regexp.Compile(value)
 		if err != nil {
 			return selector{}, fmt.Errorf("failed to parse regular expression: %w", err)
@@ -180,6 +228,10 @@ loop:
 			pos, tok, _ := p.scanner.scan() // consume separator
 			if tok != tokenSeparator {
 				return nil, p.mkerr(pos, "expected a field separator (`.`)")
+			}
+
+			if p.scanner.peek() == '*' {
+				break loop
 			}
 
 			f, err := p.field()
@@ -216,12 +268,14 @@ func (p *parser) operator() (operator, error) {
 	switch tok {
 	case tokenOperator:
 		switch s {
-		case "==":
+		case "=", "==":
 			return operatorEqual, nil
-		case "!=":
+		case "!=", "!==":
 			return operatorNotEqual, nil
 		case "~=":
 			return operatorMatches, nil
+		case "!~=":
+			return operatorNotMatches, nil
 		default:
 			return 0, p.mkerr(pos, "unsupported operator %q", s)
 		}
@@ -229,7 +283,7 @@ func (p *parser) operator() (operator, error) {
 		return 0, p.mkerr(pos, "%s", p.scanner.err)
 	}
 
-	return 0, p.mkerr(pos, `expected an operator ("=="|"!="|"~=")`)
+	return 0, p.mkerr(pos, `expected an operator ("="|"=="|"!="|"~=")`)
 }
 
 func (p *parser) value(allowAltQuotes bool) (string, error) {

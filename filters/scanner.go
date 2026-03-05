@@ -17,6 +17,7 @@ const (
 	tokenField
 	tokenSeparator
 	tokenOperator
+	tokenWildcard
 	tokenIllegal
 )
 
@@ -36,6 +37,8 @@ func (t token) String() string {
 		return "Separator"
 	case tokenOperator:
 		return "Operator"
+	case tokenWildcard:
+		return "Wildcard"
 	case tokenIllegal:
 		return "Illegal"
 	}
@@ -112,6 +115,9 @@ chomp:
 	case isSeparatorRune(ch):
 		s.value = false
 		return pos, tokenSeparator, s.input[pos:s.ppos]
+	case isWildcardRune(ch):
+		s.value = false
+		return pos, tokenWildcard, s.input[pos:s.ppos]
 	case isOperatorRune(ch):
 		s.scanOperator()
 		s.value = true
@@ -274,6 +280,10 @@ func isSeparatorRune(r rune) bool {
 	}
 
 	return false
+}
+
+func isWildcardRune(r rune) bool {
+	return r == '*'
 }
 
 func isValueRune(r rune) bool {
