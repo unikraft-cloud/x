@@ -69,8 +69,6 @@ package filters
 
 import (
 	"regexp"
-
-	"github.com/containerd/log"
 )
 
 // Filter matches specific resources based the provided filter
@@ -161,16 +159,6 @@ func (m selector) Match(adaptor Adaptor) bool {
 	case operatorNotEqual:
 		return value != m.value
 	case operatorMatches:
-		if m.re == nil {
-			r, err := regexp.Compile(m.value)
-			if err != nil {
-				log.L.Errorf("error compiling regexp %q", m.value)
-				return false
-			}
-
-			m.re = r
-		}
-
 		return m.re.MatchString(value)
 	default:
 		return false

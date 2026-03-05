@@ -19,8 +19,7 @@ package filters
 import (
 	"fmt"
 	"io"
-
-	"github.com/containerd/errdefs"
+	"regexp"
 )
 
 /*
@@ -69,7 +68,7 @@ func ParseAll(ss ...string) (Filter, error) {
 	for _, s := range ss {
 		f, err := Parse(s)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", err.Error(), errdefs.ErrInvalidArgument)
+			return nil, fmt.Errorf("invalid argument: %w", err)
 		}
 
 		fs = append(fs, f)
@@ -160,11 +159,20 @@ func (p *parser) selector() (selector, error) {
 		return selector{}, err
 	}
 
-	return selector{
+	sel := selector{
 		fieldpath: fieldpath,
 		value:     value,
 		operator:  op,
-	}, nil
+	}
+	if op == operatorMatches {
+		r, err := regexp.Compile(value)
+		if err != nil {
+			return selector{}, fmt.Errorf("failed to parse regular expression: %w", err)
+		}
+		sel.re = r
+	}
+
+	return sel, nil
 }
 
 func (p *parser) fieldpath() ([]string, error) {
