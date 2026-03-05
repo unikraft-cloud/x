@@ -283,8 +283,7 @@ func hasCgroupsV1() bool {
 	}
 
 	// Check for "cgroup" but not "cgroup2" in /proc/filesystems
-	lines := bytes.Split(kfCache.procFilesystems, []byte("\n"))
-	for _, line := range lines {
+	for line := range bytes.SplitSeq(kfCache.procFilesystems, []byte("\n")) {
 		if bytes.Contains(line, []byte("cgroup")) && !bytes.Contains(line, []byte("cgroup2")) {
 			return true
 		}

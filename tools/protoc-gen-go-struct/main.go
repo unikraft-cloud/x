@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"embed"
 	"flag"
+	"maps"
 	"path"
 	"regexp"
 	"strings"
@@ -216,9 +217,7 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 					// Recursively handle nested messages.
 					if parent := field.Desc.Message().Parent(); parent != nil {
 						if _, ok := parent.(protoreflect.MessageDescriptor); ok {
-							for k, strct := range td.getStructs(field.Message) {
-								data[k] = strct
-							}
+							maps.Copy(data, td.getStructs(field.Message))
 						}
 					}
 				}

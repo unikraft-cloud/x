@@ -249,7 +249,7 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 		}
 
 		for i, example := range examples {
-			for _, line := range strings.Split(strings.TrimSpace(ansi.Wrap(strings.TrimSpace(example.Description), comment.width, "-")), "\n") {
+			for line := range strings.SplitSeq(strings.TrimSpace(ansi.Wrap(strings.TrimSpace(example.Description), comment.width, "-")), "\n") {
 				comment.Print(DimmedMoreColor(line))
 			}
 			for _, command := range example.Commands {
@@ -407,7 +407,7 @@ func (h *helpWriter) Write(w io.Writer) error {
 }
 
 func (h *helpWriter) Wrap(text string) {
-	for _, line := range strings.Split(strings.TrimSpace(ansi.Wrap(strings.TrimSpace(text), h.width, "-")), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(ansi.Wrap(strings.TrimSpace(text), h.width, "-")), "\n") {
 		h.Print(line)
 	}
 }
@@ -462,8 +462,7 @@ func writeTwoColumns(w *helpWriter, rows [][2]string) {
 	for _, row := range rows {
 		w.Printf("%s", row[0])
 
-		lines := strings.Split(strings.TrimRight(row[1], "\n"), "\n")
-		for _, line := range lines {
+		for line := range strings.SplitSeq(strings.TrimRight(row[1], "\n"), "\n") {
 			w.Printf("%s%s", strings.Repeat(" ", DefaultColumnPadding*2), line)
 		}
 	}

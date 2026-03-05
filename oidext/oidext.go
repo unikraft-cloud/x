@@ -284,11 +284,7 @@ func parseOID(dotted string) (asn1.ObjectIdentifier, error) {
 }
 
 func compareOID(a, b asn1.ObjectIdentifier) int {
-	n := len(a)
-	if len(b) < n {
-		n = len(b)
-	}
-	for i := 0; i < n; i++ {
+	for i := range min(len(a), len(b)) {
 		if a[i] < b[i] {
 			return -1
 		}
