@@ -25,7 +25,6 @@ func (tr tokenResult) String() string {
 }
 
 func TestScanner(t *testing.T) {
-
 	for _, testcase := range []struct {
 		name     string
 		input    string
