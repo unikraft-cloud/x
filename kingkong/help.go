@@ -12,8 +12,9 @@ import (
 	"slices"
 	"strings"
 
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/compat"
 	"github.com/alecthomas/kong"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
 	"unikraft.com/x/colors"
@@ -33,10 +34,10 @@ var (
 	Underline = lipgloss.NewStyle().Underline(true).Render
 	Bold      = lipgloss.NewStyle().Bold(true).Render
 
-	EnvVarColor     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Emerald500), Dark: string(colors.Emerald200)}).Render
-	CommandColor    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Blue500), Dark: string(colors.Blue200)}).Render
-	DimmedColor     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Slate500), Dark: string(colors.Slate300)}).Render
-	DimmedMoreColor = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(colors.Slate400), Dark: string(colors.Slate400)}).Render
+	EnvVarColor     = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Emerald500, Dark: colors.Emerald200}).Render
+	CommandColor    = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Blue500, Dark: colors.Blue200}).Render
+	DimmedColor     = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Slate500, Dark: colors.Slate300}).Render
+	DimmedMoreColor = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Slate400, Dark: colors.Slate400}).Render
 )
 
 // HelpPrinter returns a function implementation of kong.HelpPrinter.

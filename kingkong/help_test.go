@@ -13,8 +13,7 @@ import (
 	"testing"
 
 	"github.com/alecthomas/kong"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/golden"
 )
@@ -83,7 +82,6 @@ func (e exitCode) Error() string {
 
 func TestHelpGolden(t *testing.T) {
 	t.Setenv("COLUMNS", "120")
-	lipgloss.SetColorProfile(termenv.Ascii)
 
 	var cli helpGoldenCLI
 	buf := &bytes.Buffer{}
@@ -133,6 +131,10 @@ func captureHelpOutput(t *testing.T, app *kong.Kong, buf *bytes.Buffer) (output 
 }
 
 func normalizeHelpOutput(output string) string {
+	// Strip ANSI escape codes to ensure consistent comparison across
+	// different terminal environments. This is necessary because lipgloss v2
+	// initializes its global Writer at startup, before tests can set NO_COLOR.
+	output = ansi.Strip(output)
 	output = strings.ReplaceAll(output, runtime.GOOS, "{{GOOS}}")
 	output = strings.ReplaceAll(output, runtime.GOARCH, "{{GOARCH}}")
 	return output
