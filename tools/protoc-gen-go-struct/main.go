@@ -223,24 +223,21 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 				}
 			} else {
 				f.Type = field.Desc.Kind().String()
-				if field.Desc.HasOptionalKeyword() {
-					f.Type = "*" + f.Type
-				}
-			}
 
-			switch f.Type {
-			case "float":
-				f.Type = "float32"
-				if field.Desc.HasOptionalKeyword() {
+				// Map protobuf types to Go types
+				switch f.Type {
+				case "float":
+					f.Type = "float32"
+				case "double":
+					f.Type = "float64"
+				case "bytes":
+					f.Type = "[]byte"
+				}
+
+				// Add pointer for optional fields (except []byte which is already a reference type)
+				if field.Desc.HasOptionalKeyword() && f.Type != "[]byte" {
 					f.Type = "*" + f.Type
 				}
-			case "double":
-				f.Type = "float64"
-				if field.Desc.HasOptionalKeyword() {
-					f.Type = "*" + f.Type
-				}
-			case "bytes":
-				f.Type = "[]byte"
 			}
 
 			var encodedName string
