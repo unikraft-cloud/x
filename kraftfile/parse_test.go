@@ -258,6 +258,9 @@ func TestParseSpecErrors(t *testing.T) {
 	_, err = ParseBytes([]byte(input))
 	require.Error(t, err)
 	require.ErrorContains(t, err, "unsupported spec version")
+	doc, err := ParseBytes([]byte(input), WithSkippedVersionCheck())
+	require.NoError(t, err)
+	require.Equal(t, "v0.8", doc.Spec)
 }
 
 func TestParseInvalidCmdList(t *testing.T) {
