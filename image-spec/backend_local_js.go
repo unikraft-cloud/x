@@ -36,7 +36,7 @@ func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platfo
 	return nil, errLocalImages
 }
 
-func SaveOCILayout(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {
+func SaveOCILayout(ctx context.Context, path string, image ...*Image) (ocispec.Descriptor, error) {
 	return ocispec.Descriptor{}, errLocalImages
 }
 

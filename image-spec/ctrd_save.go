@@ -26,10 +26,13 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 
+	"unikraft.com/x/image-spec/progress"
 	"unikraft.com/x/log"
 )
 
 func SaveContent(ctx context.Context, store content.Ingester, images ...*Image) (ocispec.Descriptor, error) {
+	store = progress.WrapIngester(store)
+
 	mfstDescs, err := saveManifests(ctx, store, images...)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -55,7 +58,7 @@ func SaveContent(ctx context.Context, store content.Ingester, images ...*Image) 
 // SaveManifest saves image to store as a manifest, without an index, and
 // returns its index entry.
 func SaveManifest(ctx context.Context, store content.Ingester, image *Image) (ocispec.Descriptor, error) {
-	descs, err := saveManifests(ctx, store, image)
+	descs, err := saveManifests(ctx, progress.WrapIngester(store), image)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
