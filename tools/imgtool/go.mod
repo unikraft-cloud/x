@@ -2,7 +2,7 @@ module github.com/unikraft-cloud/x/tools/imgtool
 
 go 1.25.5
 
-replace github.com/unikraft-cloud/x/image-spec => ../../image-spec
+replace unikraft.com/x/image-spec => ../../image-spec
 
 require (
 	github.com/alecthomas/kong v1.15.0
@@ -12,7 +12,7 @@ require (
 	github.com/docker/cli v29.2.1+incompatible
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
-	github.com/unikraft-cloud/x/image-spec v0.0.0-00010101000000-000000000000
+	unikraft.com/x/image-spec v0.0.0-00010101000000-000000000000
 	unikraft.com/x/log v0.0.0-20260120165849-5b2c62ce8457
 	unikraft.com/x/version v0.0.0-20260118191410-69d4b6306769
 )
@@ -60,6 +60,7 @@ require (
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

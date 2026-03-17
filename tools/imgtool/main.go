@@ -20,7 +20,7 @@ import (
 	"github.com/distribution/reference"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/tonistiigi/units"
-	imagespec "github.com/unikraft-cloud/x/image-spec"
+	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/log"
 )
 
