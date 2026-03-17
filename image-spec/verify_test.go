@@ -216,7 +216,7 @@ func TestSaveContentVerifiesWhatItCopies(t *testing.T) {
 	img.Roms = []File{NewContentStoreFile(p, desc, "")}
 	dst, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)
-	_, err = SaveContent(t.Context(), unchecked{dst}, "latest", &img)
+	_, err = SaveContent(t.Context(), unchecked{dst}, &img)
 	require.ErrorIs(t, err, ErrDigestMismatch)
 }
 
@@ -263,7 +263,7 @@ func TestSaveContentWritesAgainAfterReset(t *testing.T) {
 	store := &resetting{Ingester: dst}
 
 	// The store checks each digest on commit, so a layer written again wrong fails.
-	_, err = SaveContent(t.Context(), store, "latest", testImage)
+	_, err = SaveContent(t.Context(), store, testImage)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, store.resets.Load(), int32(3)) // the three layers at least
 }
