@@ -18,12 +18,30 @@ import (
 )
 
 const (
-	SpecVersionMin = "v0.7.0"
-	SpecVersionMax = "v0.7.0"
+	SpecVersionMin = "v0.7"
+	SpecVersionMax = "v0.7"
 )
 
+type parseOpts struct {
+	skipVersionCheck bool
+}
+
+type ParseOpt func(*parseOpts)
+
+// WithSkippedVersionCheck returns a ParseOpt that disables spec version checking.
+func WithSkippedVersionCheck() ParseOpt {
+	return func(opts *parseOpts) {
+		opts.skipVersionCheck = true
+	}
+}
+
 // ParseBytes parses a Kraftfile from bytes and validates the spec version.
-func ParseBytes(data []byte) (*Kraftfile, error) {
+func ParseBytes(data []byte, opts ...ParseOpt) (*Kraftfile, error) {
+	opt := &parseOpts{}
+	for _, o := range opts {
+		o(opt)
+	}
+
 	var header struct {
 		Spec          string `json:"spec,omitempty"`
 		Specification string `json:"specification,omitempty"`
@@ -34,6 +52,11 @@ func ParseBytes(data []byte) (*Kraftfile, error) {
 	spec, err := normalizeSpec(cmp.Or(header.Spec, header.Specification))
 	if err != nil {
 		return nil, err
+	}
+	if !opt.skipVersionCheck {
+		if semver.Compare(spec, SpecVersionMin) < 0 || semver.Compare(spec, SpecVersionMax) > 0 {
+			return nil, fmt.Errorf("unsupported spec version %q", spec)
+		}
 	}
 
 	var kf Kraftfile
@@ -52,9 +75,8 @@ func normalizeSpec(spec string) (string, error) {
 	if !strings.HasPrefix(spec, "v") {
 		spec = "v" + spec
 	}
-
-	if semver.Compare(spec, SpecVersionMin) < 0 || semver.Compare(spec, SpecVersionMax) > 0 {
-		return "", fmt.Errorf("unsupported spec version %q", spec)
+	if !semver.IsValid(spec) {
+		return "", fmt.Errorf("invalid spec version %q", spec)
 	}
 	return semver.MajorMinor(spec), nil
 }

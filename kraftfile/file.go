@@ -14,19 +14,19 @@ import (
 	"syscall"
 )
 
-func ParseFile(path string) (*Kraftfile, error) {
+func ParseFile(path string, opts ...ParseOpt) (*Kraftfile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not read file: %w", err)
 	}
-	return ParseBytes(data)
+	return ParseBytes(data, opts...)
 }
 
-func ParseDirectory(path string) (*Kraftfile, error) {
+func ParseDirectory(path string, opts ...ParseOpt) (*Kraftfile, error) {
 	files, err := os.ReadDir(path)
 	// check if directory is a kraftfile itself
 	if errors.Is(err, syscall.ENOTDIR) {
-		return ParseFile(path)
+		return ParseFile(path, opts...)
 	} else if err != nil {
 		return nil, fmt.Errorf("could not read directory: %w", err)
 	}
@@ -35,7 +35,7 @@ func ParseDirectory(path string) (*Kraftfile, error) {
 			continue
 		}
 		if slices.Contains(DefaultFileNames, file.Name()) {
-			return ParseFile(filepath.Join(path, file.Name()))
+			return ParseFile(filepath.Join(path, file.Name()), opts...)
 		}
 	}
 	return nil, fmt.Errorf("no kraftfile found in directory")
