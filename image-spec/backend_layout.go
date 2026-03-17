@@ -85,7 +85,7 @@ func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platfo
 	return LoadAllContent(ctx, store, *desc, platform)
 }
 
-func SaveOCILayout(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {
+func SaveOCILayout(ctx context.Context, path string, image ...*Image) (ocispec.Descriptor, error) {
 	store, err := local.NewStore(path)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to open content store at %q: %w", path, err)

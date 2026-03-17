@@ -25,10 +25,13 @@ import (
 	ocispecs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
+	"unikraft.com/x/image-spec/progress"
 	"unikraft.com/x/log"
 )
 
 func SaveContent(ctx context.Context, store content.Ingester, images ...*Image) (ocispec.Descriptor, error) {
+	store = progress.WrapIngester(store)
+
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	imageLayers := make([][]ocispec.Descriptor, len(images))

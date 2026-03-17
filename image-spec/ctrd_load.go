@@ -19,9 +19,11 @@ import (
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
+	"unikraft.com/x/image-spec/progress"
 )
 
 func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+	store = progress.WrapProvider(store)
 	mfsts, err := manifest(ctx, store, desc, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
@@ -30,6 +32,7 @@ func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descr
 }
 
 func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
+	store = progress.WrapProvider(store)
 	mfsts, err := manifest(ctx, store, desc, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
