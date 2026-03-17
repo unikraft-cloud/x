@@ -90,7 +90,7 @@ func SaveOCILayout(ctx context.Context, path string, tag string, image ...*Image
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
-	return SaveContent(ctx, store, tag, image...)
+	return SaveContent(ctx, store, image...)
 }
 
 func SaveOCILayoutNamed(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {
@@ -100,7 +100,7 @@ func SaveOCILayoutNamed(ctx context.Context, path string, tag string, image ...*
 	}
 	idx := ociindex.NewStoreIndex(path)
 
-	desc, err := SaveContent(ctx, store, tag, image...)
+	desc, err := SaveContent(ctx, store, image...)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to save ctrd image: %w", err)
 	}

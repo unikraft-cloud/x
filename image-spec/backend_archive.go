@@ -137,7 +137,7 @@ func SaveTarballWriter(ctx context.Context, w io.Writer, image ...*Image) error 
 		return fmt.Errorf("failed to create local store: %w", err)
 	}
 
-	desc, err := SaveContent(ctx, store, "latest", image...)
+	desc, err := SaveContent(ctx, store, image...)
 	if err != nil {
 		return fmt.Errorf("failed to save image to local store: %w", err)
 	}
