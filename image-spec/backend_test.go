@@ -47,7 +47,7 @@ func TestBuildImage(t *testing.T) {
 			export: func(t *testing.T) (content.Provider, ocispec.Descriptor) {
 				t.Helper()
 				contentDir := t.TempDir()
-				desc, err := SaveOCILayout(ctx, contentDir, "test-image", image)
+				desc, err := SaveOCILayout(ctx, contentDir, image)
 				require.NoError(t, err)
 
 				store, err := local.NewStore(contentDir)
