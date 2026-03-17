@@ -6,32 +6,36 @@
 package kingkong
 
 import (
-	"slices"
-
 	"github.com/alecthomas/kong"
 )
 
 const tagCollapse = "collapse"
 
+// Flag wraps kong.Flag and keeps collapsed flag variants.
+type Flag struct {
+	*kong.Flag
+	Collapsed []*kong.Flag
+}
+
 type FlagGroup struct {
 	Metadata *kong.Group
-	Flags    [][]*kong.Flag
+	Flags    [][]*Flag
 }
 
 func GroupFlags(flags [][]*kong.Flag) []FlagGroup {
 	// Group keys in order of appearance.
 	groups := []*kong.Group{}
 	// Flags grouped by their group key.
-	flagsByGroup := map[string][][]*kong.Flag{}
+	flagsByGroup := map[string][][]*Flag{}
 
 	for _, levelFlags := range flags {
-		levelFlags = collapseFlags(levelFlags)
+		collapsedFlags := collapseFlags(levelFlags)
 
-		levelFlagsByGroup := map[string][]*kong.Flag{}
+		levelFlagsByGroup := map[string][]*Flag{}
 
-		for _, flag := range levelFlags {
+		for _, flag := range collapsedFlags {
 			key := ""
-			if flag.Flag.Name == "help" && flag.Group == nil {
+			if flag.Name == "help" && flag.Group == nil {
 				flag.Group = &kong.Group{
 					Key: "flag-global",
 				}
@@ -53,8 +57,8 @@ func GroupFlags(flags [][]*kong.Flag) []FlagGroup {
 			levelFlagsByGroup[key] = append(levelFlagsByGroup[key], flag)
 		}
 
-		for key, flags := range levelFlagsByGroup {
-			flagsByGroup[key] = append(flagsByGroup[key], flags)
+		for key, groupedFlags := range levelFlagsByGroup {
+			flagsByGroup[key] = append(flagsByGroup[key], groupedFlags)
 		}
 	}
 
@@ -74,22 +78,22 @@ func GroupFlags(flags [][]*kong.Flag) []FlagGroup {
 	return out
 }
 
-func collapseFlags(flags []*kong.Flag) []*kong.Flag {
-	out := make([]*kong.Flag, 0, len(flags))
-	byID := map[string]*kong.Flag{}
+func collapseFlags(flags []*kong.Flag) []*Flag {
+	out := make([]*Flag, 0, len(flags))
+	byID := map[string]*Flag{}
 
 	for _, flag := range flags {
 		if flag == nil {
 			continue
 		}
 		if flag.Value == nil || flag.Tag == nil {
-			out = append(out, flag)
+			out = append(out, &Flag{Flag: flag})
 			continue
 		}
 
 		id := flag.Tag.Get(tagCollapse)
 		if id == "" {
-			out = append(out, flag)
+			out = append(out, &Flag{Flag: flag})
 			continue
 		}
 
@@ -98,25 +102,16 @@ func collapseFlags(flags []*kong.Flag) []*kong.Flag {
 			clone := new(kong.Flag)
 			*clone = *flag
 			clone.Aliases = append([]string(nil), flag.Aliases...)
-			byID[id] = clone
-			out = append(out, clone)
+			wrapped := &Flag{Flag: clone}
+			byID[id] = wrapped
+			out = append(out, wrapped)
 			continue
 		}
 
-		appendUniqueAlias(base, flag.Name)
+		base.Collapsed = append(base.Collapsed, flag)
 	}
 
 	return out
-}
-
-func appendUniqueAlias(flag *kong.Flag, name string) {
-	if flag == nil || name == "" || name == flag.Name {
-		return
-	}
-	if slices.Contains(flag.Aliases, name) {
-		return
-	}
-	flag.Aliases = append(flag.Aliases, name)
 }
 
 type CommandGroup struct {

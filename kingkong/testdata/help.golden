@@ -17,10 +17,14 @@ Core Flags
           [default: ./kingkong.yaml]
       --profile
           Runtime profile.
-          [default: dev, choice: dev,staging,prod]
+          [default: dev, choices: dev, staging, prod]
       --output
           Output format.
-          [default: json, choice: json,yaml,text]
+          [default: json, choices: json, yaml, text]
+      --value=<value>
+          Value to apply.
+      --filter=<key>=<value>
+          Filter in key-value form.
   -v, --verbose
           Enable verbose logging.
       --[no-]debug ($KINGKONG_DEBUG)

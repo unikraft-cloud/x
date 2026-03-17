@@ -34,10 +34,11 @@ var (
 	Underline = lipgloss.NewStyle().Underline(true).Render
 	Bold      = lipgloss.NewStyle().Bold(true).Render
 
-	EnvVarColor     = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Emerald500, Dark: colors.Emerald200}).Render
-	CommandColor    = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Blue500, Dark: colors.Blue200}).Render
-	DimmedColor     = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Slate500, Dark: colors.Slate300}).Render
-	DimmedMoreColor = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Slate400, Dark: colors.Slate400}).Render
+	EnvVarColor      = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Emerald500, Dark: colors.Emerald200}).Render
+	CommandColor     = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Blue500, Dark: colors.Blue200}).Render
+	DimmedColor      = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Slate500, Dark: colors.Slate300}).Render
+	DimmedMoreColor  = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Slate400, Dark: colors.Slate400}).Render
+	PlaceholderColor = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Blue400, Dark: colors.Blue300}).Render
 )
 
 // HelpPrinter returns a function implementation of kong.HelpPrinter.
@@ -413,6 +414,8 @@ func (h *helpWriter) Wrap(text string) {
 	}
 }
 
+const tagExample = "example"
+
 // helpValueFormatter implements kong.HelpValueFormatter.
 func helpValueFormatter(value *kong.Value) string {
 	var buf strings.Builder
@@ -421,19 +424,82 @@ func helpValueFormatter(value *kong.Value) string {
 	buf.WriteString(DimmedColor(strings.TrimSuffix(value.Help, ".") + "."))
 	buf.WriteString("\n")
 
+	hasMetadata := false
+
 	if len(value.Default) > 0 {
 		buf.WriteString(DimmedColor("[default: ") + value.Default)
+		hasMetadata = true
 	}
 
 	if len(value.Tag.Enum) > 0 {
-		buf.WriteString(DimmedColor(", choice: ") + value.Tag.Enum)
+		if hasMetadata {
+			buf.WriteString(DimmedColor(", "))
+		} else {
+			buf.WriteString(DimmedColor("["))
+		}
+		choices := strings.Split(value.Tag.Enum, ",")
+		buf.WriteString(DimmedColor("choices: ") + strings.Join(choices, DimmedColor(", ")))
+		hasMetadata = true
 	}
 
-	if len(value.Default) > 0 || len(value.Tag.Enum) > 0 {
+	if examples := parseExamples(value.Tag.Get(tagExample)); len(examples) > 0 {
+		if hasMetadata {
+			buf.WriteString(DimmedColor(", "))
+		} else {
+			buf.WriteString(DimmedColor("["))
+		}
+		if len(examples) == 1 {
+			buf.WriteString(DimmedColor("example: ") + examples[0])
+		} else {
+			buf.WriteString(DimmedColor("examples: ") + strings.Join(examples, DimmedColor(", ")))
+		}
+		hasMetadata = true
+	}
+
+	if hasMetadata {
 		buf.WriteString(DimmedColor("]"))
 	}
 
 	return buf.String()
+}
+
+// parseExamples parses a comma-separated list of examples, supporting escaped commas.
+// Use \, to include a literal comma in an example.
+func parseExamples(s string) []string {
+	if s == "" {
+		return nil
+	}
+
+	var examples []string
+	var current strings.Builder
+	escaped := false
+
+	for _, r := range s {
+		if escaped {
+			current.WriteRune(r)
+			escaped = false
+			continue
+		}
+		if r == '\\' {
+			escaped = true
+			continue
+		}
+		if r == ',' {
+			if str := strings.TrimSpace(current.String()); str != "" {
+				examples = append(examples, str)
+			}
+			current.Reset()
+			continue
+		}
+		current.WriteRune(r)
+	}
+
+	// Don't forget the last segment.
+	if str := strings.TrimSpace(current.String()); str != "" {
+		examples = append(examples, str)
+	}
+
+	return examples
 }
 
 func writePositionals(w *helpWriter, args []*kong.Positional) {
@@ -444,7 +510,7 @@ func writePositionals(w *helpWriter, args []*kong.Positional) {
 	writeTwoColumns(w, rows)
 }
 
-func writeFlags(w *helpWriter, groups [][]*kong.Flag) {
+func writeFlags(w *helpWriter, groups [][]*Flag) {
 	rows := [][2]string{}
 	for i, group := range groups {
 		if i > 0 {
@@ -470,9 +536,8 @@ func writeTwoColumns(w *helpWriter, rows [][2]string) {
 }
 
 // formatFlag returns a formatted flag string, including short and long names,
-func formatFlag(flag *kong.Flag) string {
+func formatFlag(flag *Flag) string {
 	var buf strings.Builder
-	names := append([]string{flag.Name}, flag.Aliases...)
 	isBool := flag.IsBool()
 
 	short := "    "
@@ -480,16 +545,37 @@ func formatFlag(flag *kong.Flag) string {
 		short = "-" + string(flag.Short) + DimmedColor(", ")
 	}
 
-	for i := range names {
-		if isBool && flag.Tag.Negatable == NegatableDefault {
-			names[i] = "[no-]" + names[i]
-		} else if isBool && flag.Tag.Negatable != "" {
-			names[i] += "/" + flag.Tag.Negatable
+	formattedNames := make([]string, 0, 1+len(flag.Aliases)+len(flag.Collapsed))
+	appendNames := func(names []string, placeholder string) {
+		for i, name := range names {
+			formatted := "--" + name
+			if isBool {
+				if flag.Tag.Negatable == NegatableDefault {
+					formatted = "--[no-]" + name
+				} else if flag.Tag.Negatable != "" {
+					formatted = "--" + name + "/" + flag.Tag.Negatable
+				}
+			}
+
+			// Add placeholder if available.
+			if !isBool && i == 0 && placeholder != "" {
+				formatted += DimmedColor("=") + renderPlaceholder(placeholder)
+			}
+
+			formattedNames = append(formattedNames, formatted)
 		}
-		names[i] = "--" + names[i]
 	}
 
-	buf.WriteString(fmt.Sprintf("%s%s", short, strings.Join(names, ", ")))
+	appendNames(append([]string{flag.Name}, flag.Aliases...), flag.PlaceHolder)
+	for _, collapsed := range flag.Collapsed {
+		if collapsed == nil {
+			continue
+		}
+		appendNames(append([]string{collapsed.Name}, collapsed.Aliases...), collapsed.PlaceHolder)
+	}
+
+	buf.WriteString(short)
+	buf.WriteString(strings.Join(formattedNames, DimmedColor(", ")))
 
 	if len(flag.Tag.Envs) > 0 {
 		buf.WriteString(" ")
@@ -499,6 +585,41 @@ func formatFlag(flag *kong.Flag) string {
 	}
 
 	return buf.String()
+}
+
+func renderPlaceholder(placeholder string) string {
+	if !hasAnglePair(placeholder) {
+		return PlaceholderColor("<" + placeholder + ">")
+	}
+
+	var buf strings.Builder
+	rest := placeholder
+	for {
+		start := strings.Index(rest, "<")
+		if start == -1 {
+			buf.WriteString(rest)
+			break
+		}
+		end := strings.Index(rest[start+1:], ">")
+		if end == -1 {
+			buf.WriteString(rest)
+			break
+		}
+		end += start + 1
+		buf.WriteString(rest[:start])
+		buf.WriteString(PlaceholderColor(rest[start : end+1]))
+		rest = rest[end+1:]
+	}
+
+	return buf.String()
+}
+
+func hasAnglePair(placeholder string) bool {
+	_, rest, ok := strings.Cut(placeholder, "<")
+	if !ok {
+		return false
+	}
+	return strings.Contains(rest, ">")
 }
 
 func formatEnvs(envs []string) string {

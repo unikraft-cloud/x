@@ -19,9 +19,11 @@ import (
 )
 
 type helpGoldenCLI struct {
-	Config  string `help:"Path to config file." default:"./kingkong.yaml" env:"KINGKONG_CONFIG" placeholder:"FILE" group:"core"`
+	Config  string `help:"Path to config file." default:"./kingkong.yaml" env:"KINGKONG_CONFIG" group:"core"`
 	Profile string `help:"Runtime profile." enum:"dev,staging,prod" default:"dev" group:"core"`
 	Output  string `help:"Output format." enum:"json,yaml,text" default:"json" group:"core"`
+	Value   string `help:"Value to apply." placeholder:"<value>" group:"core"`
+	Filter  string `help:"Filter in key-value form." placeholder:"<key>=<value>" group:"core"`
 	Verbose bool   `help:"Enable verbose logging." short:"v" group:"core"`
 	Debug   bool   `help:"Enable debug logging." negatable:"" env:"KINGKONG_DEBUG" group:"core"`
 
@@ -111,6 +113,30 @@ func TestHelpGolden(t *testing.T) {
 	normalized := normalizeHelpOutput(output)
 
 	golden.Assert(t, normalized, "help.golden")
+}
+
+func TestCollapsedFlagPlaceholders(t *testing.T) {
+	type collapseCLI struct {
+		Foo string `help:"Foo value." placeholder:"<value>" collapse:"pair"`
+		Bar string `help:"Bar filter." placeholder:"<key>=<value>" collapse:"pair" aliases:"baz"`
+	}
+
+	var cli collapseCLI
+	app, err := kong.New(&cli)
+	require.NoError(t, err)
+
+	flags := collapseFlags(app.Model.Flags)
+	var collapsed *Flag
+	for _, flag := range flags {
+		if flag.Name == "foo" {
+			collapsed = flag
+			break
+		}
+	}
+	require.NotNil(t, collapsed)
+
+	formatted := strings.TrimSpace(ansi.Strip(formatFlag(collapsed)))
+	require.Equal(t, "--foo=<value>, --bar=<key>=<value>, --baz", formatted)
 }
 
 func captureHelpOutput(t *testing.T, app *kong.Kong, buf *bytes.Buffer) (output string) {
