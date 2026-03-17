@@ -177,7 +177,7 @@ func push(args []string) error {
 		if err != nil {
 			return fmt.Errorf("pushing to %s: %w", ref, err)
 		}
-		if desc, err = imagespec.SaveManifest(ctx, contentutil.FromPusher(pusher), ref, img); err != nil {
+		if desc, err = imagespec.SaveManifest(ctx, contentutil.FromPusher(pusher), img); err != nil {
 			return fmt.Errorf("pushing to %s: %w", ref, err)
 		}
 	}

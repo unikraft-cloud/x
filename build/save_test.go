@@ -174,7 +174,7 @@ func TestSave(t *testing.T) {
 			ref := host + "/acme/team/app:tmp-test-fc-" + img.Image.Architecture
 			pusher, err := resolver.Pusher(t.Context(), ref)
 			require.NoError(t, err)
-			desc, err := imagespec.SaveManifest(t.Context(), contentutil.FromPusher(pusher), ref, img)
+			desc, err := imagespec.SaveManifest(t.Context(), contentutil.FromPusher(pusher), img)
 			require.NoError(t, err)
 			parsed, err := reference.Parse(ref)
 			require.NoError(t, err)
