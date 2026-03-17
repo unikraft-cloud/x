@@ -103,9 +103,7 @@ func SaveRegistryImage(ctx context.Context, named reference.Named, remote remote
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to get pusher for image %q: %w", named, err)
 	}
-	ingester := contentutil.FromPusher(pusher)
-
-	desc, err := SaveContent(ctx, ingester, named.Name(), image...)
+	desc, err := SaveContent(ctx, contentutil.FromPusher(pusher), image...)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to save image %q: %w", named, err)
 	}
