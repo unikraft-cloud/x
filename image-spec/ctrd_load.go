@@ -78,35 +78,45 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, desc ocispec
 		// Classic OCI layer (old-style image layer).
 		case ocispec.MediaTypeImageLayer, images.MediaTypeDockerSchema2Layer:
 			if p := layer.Annotations[AnnotationKernelPath]; p != "" {
-				img.Kernel = &fileAccessor{store: store, desc: layer, path: p}
+				img.Kernel = NewContentStoreFile(store, layer, p)
 			}
 			if p := layer.Annotations[AnnotationKernelDbgPath]; p != "" {
-				img.KernelDebug = &fileAccessor{store: store, desc: layer, path: p}
+				img.KernelDebug = NewContentStoreFile(store, layer, p)
 			}
 			if p := layer.Annotations[AnnotationKernelInitrdPath]; p != "" {
-				img.Initrd = &fileAccessor{store: store, desc: layer, path: p}
+				img.Initrd = NewContentStoreFile(store, layer, p)
 			}
 
 		case MediaTypeRom:
-			img.Roms = append(img.Roms, &fileAccessor{store: store, desc: layer})
+			img.Roms = append(img.Roms, NewContentStoreFile(store, layer, ""))
 		}
 	}
 
 	return img, nil
 }
 
-type fileAccessor struct {
-	store content.Provider
-	desc  ocispec.Descriptor
-	path  string
+// ContentStoreFile is a File backed by a content.Provider and OCI descriptor.
+type ContentStoreFile struct {
+	Store content.Provider
+	Desc  ocispec.Descriptor
+	Path_ string
 }
 
-func (f *fileAccessor) Path() string {
-	return f.path
+// NewContentStoreFile creates a new ContentStoreFile.
+func NewContentStoreFile(store content.Provider, desc ocispec.Descriptor, path string) *ContentStoreFile {
+	return &ContentStoreFile{
+		Store: store,
+		Desc:  desc,
+		Path_: path,
+	}
 }
 
-func (f *fileAccessor) Open(ctx context.Context) (rc io.ReadCloser, size int64, rerr error) {
-	r, err := f.store.ReaderAt(ctx, f.desc)
+func (f *ContentStoreFile) Path() string {
+	return f.Path_
+}
+
+func (f *ContentStoreFile) Open(ctx context.Context) (rc io.ReadCloser, size int64, rerr error) {
+	r, err := f.Store.ReaderAt(ctx, f.Desc)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -115,13 +125,13 @@ func (f *fileAccessor) Open(ctx context.Context) (rc io.ReadCloser, size int64, 
 			r.Close()
 		}
 	}()
-	sr := io.NewSectionReader(r, 0, f.desc.Size)
+	sr := io.NewSectionReader(r, 0, f.Desc.Size)
 
-	if f.path == "" {
-		return readCloser{Reader: sr, Closer: r}, f.desc.Size, nil
+	if f.Path_ == "" {
+		return readCloser{Reader: sr, Closer: r}, f.Desc.Size, nil
 	}
 
-	target := filepath.Join("/", f.path)
+	target := filepath.Join("/", f.Path_)
 
 	tr := tar.NewReader(sr)
 	hdr, rr, err := readTarFile(tr, target)
@@ -131,12 +141,12 @@ func (f *fileAccessor) Open(ctx context.Context) (rc io.ReadCloser, size int64, 
 	return readCloser{Reader: rr, Closer: r}, hdr.Size, nil
 }
 
-func (f *fileAccessor) Cleanup() error {
+func (f *ContentStoreFile) Cleanup() error {
 	return nil
 }
 
-func (f *fileAccessor) Source() (ocispec.Descriptor, content.Provider) {
-	return f.desc, f.store
+func (f *ContentStoreFile) Source() (ocispec.Descriptor, content.Provider) {
+	return f.Desc, f.Store
 }
 
 func readTarFile(tr *tar.Reader, target string) (*tar.Header, io.Reader, error) {
