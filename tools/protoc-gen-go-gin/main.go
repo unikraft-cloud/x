@@ -44,6 +44,10 @@ type Method struct {
 	Output            *protogen.Message
 	PathParams        []string
 	IsStreamingServer bool
+	BodyFieldName     string            // Name of the field that maps to the HTTP body (from google.api.http body option)
+	BodyField         *protogen.Field   // The field that maps to the HTTP body
+	BodyIsFullMessage bool              // True when body: "*" - entire message is the body
+	QueryFields       []*protogen.Field // Fields that should be bound as query parameters
 }
 
 //go:embed gin.tmpl
@@ -167,6 +171,47 @@ func getHTTPServices(ps []*protogen.Service) []Service {
 					}
 				}
 				m.URI = strings.Join(paths, "/")
+
+				// Handle body field mapping from google.api.http body option
+				bodyFieldName := rule.GetBody()
+				if bodyFieldName == "*" {
+					// body: "*" means the entire message is the body
+					m.BodyIsFullMessage = true
+				} else if bodyFieldName != "" {
+					m.BodyFieldName = bodyFieldName
+					// Find the body field in the input message
+					for _, field := range method.Input.Fields {
+						if field.Desc.JSONName() == bodyFieldName || string(field.Desc.Name()) == bodyFieldName {
+							m.BodyField = field
+							break
+						}
+					}
+				}
+
+				// Collect fields as query parameters (excluding the body field and path params)
+				// Skip if body: "*" since the entire message is the body
+				if !m.BodyIsFullMessage {
+					for _, field := range method.Input.Fields {
+						fieldName := field.Desc.JSONName()
+						protoName := string(field.Desc.Name())
+						// Skip if this is the body field
+						if bodyFieldName != "" && (fieldName == bodyFieldName || protoName == bodyFieldName) {
+							continue
+						}
+						// Skip if this is a path parameter
+						isPathParam := false
+						for _, pp := range m.PathParams {
+							if fieldName == pp || protoName == pp {
+								isPathParam = true
+								break
+							}
+						}
+						if !isPathParam {
+							m.QueryFields = append(m.QueryFields, field)
+						}
+					}
+				}
+
 				sd.Methods = append(sd.Methods, m)
 			}
 		}
