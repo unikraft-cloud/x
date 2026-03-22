@@ -61,7 +61,7 @@ jobs:
         restore-keys: |
           ${{ github.job }}-${{ runner.os }}-go-
 
-    - uses: go-task/setup-task@v1
+    - uses: go-task/setup-task@v2
 
     - name: Build ${{ matrix.tool }}
       shell: bash
