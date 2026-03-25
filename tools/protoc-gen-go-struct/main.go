@@ -16,21 +16,25 @@ import (
 	"text/template"
 
 	"github.com/iancoleman/strcase"
+	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const pluginName = "unikraft.com/x/tools/protoc-gen-go-struct"
 
 type TemplateData struct {
-	PluginName  string
-	BasePackage string
-	NativeTime  bool
-	Version     string
-	Package     string
-	Imports     map[string]string // package alias -> import path
-	Structs     map[string]Struct
-	Enums       []Enum
+	PluginName      string
+	BasePackage     string
+	NativeTime      bool
+	OmitPathParams  bool
+	Version         string
+	Package         string
+	Imports         map[string]string // package alias -> import path
+	Structs         map[string]Struct
+	Enums           []Enum
+	PathParamFields map[string]map[string]bool // message name -> field names to omit
 }
 
 type Struct struct {
@@ -65,6 +69,7 @@ func main() {
 	var flags flag.FlagSet
 	basePackage := flags.String("base_package", "", "Base package to prefix imports")
 	nativeTime := flags.Bool("native_time", false, "Use time.Time instead of timestamppb.Timestamp")
+	omitPathParams := flags.Bool("omit_path_params", false, "Omit fields from input messages that are used as path parameters in HTTP methods")
 
 	protogen.Options{
 		ParamFunc: flags.Set,
@@ -74,7 +79,7 @@ func main() {
 				continue
 			}
 
-			err := generateFile(plugin, file, *basePackage, *nativeTime)
+			err := generateFile(plugin, file, *basePackage, *nativeTime, *omitPathParams)
 			if err != nil {
 				return err
 			}
@@ -84,14 +89,22 @@ func main() {
 	})
 }
 
-func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage string, nativeTime bool) error {
+func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage string, nativeTime bool, omitPathParams bool) error {
 	templateData := &TemplateData{
-		PluginName:  pluginName,
-		BasePackage: basePackage,
-		NativeTime:  nativeTime,
-		Package:     string(file.GoPackageName),
-		Imports:     make(map[string]string),
+		PluginName:      pluginName,
+		BasePackage:     basePackage,
+		NativeTime:      nativeTime,
+		OmitPathParams:  omitPathParams,
+		Package:         string(file.GoPackageName),
+		Imports:         make(map[string]string),
+		PathParamFields: make(map[string]map[string]bool),
 	}
+
+	// If omitPathParams is enabled, extract path parameters from HTTP annotations
+	if omitPathParams {
+		templateData.PathParamFields = extractPathParamFields(file.Services)
+	}
+
 	templateData.Structs = templateData.getStructs(file.Messages...)
 	templateData.Enums = templateData.getEnums(file.Enums)
 
@@ -113,6 +126,66 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage stri
 	}
 
 	return nil
+}
+
+// extractPathParamFields extracts path parameters from HTTP annotations on service methods
+// and returns a map of message name -> set of field names that should be omitted.
+func extractPathParamFields(services []*protogen.Service) map[string]map[string]bool {
+	result := make(map[string]map[string]bool)
+
+	for _, service := range services {
+		for _, method := range service.Methods {
+			rule, ok := proto.GetExtension(method.Desc.Options(), annotations.E_Http).(*annotations.HttpRule)
+			if rule == nil || !ok {
+				continue
+			}
+
+			var uri string
+			if u := rule.GetGet(); u != "" {
+				uri = u
+			} else if u := rule.GetPost(); u != "" {
+				uri = u
+			} else if u := rule.GetPut(); u != "" {
+				uri = u
+			} else if u := rule.GetPatch(); u != "" {
+				uri = u
+			} else if u := rule.GetDelete(); u != "" {
+				uri = u
+			}
+
+			if uri == "" {
+				continue
+			}
+
+			// Extract path parameters from URI (e.g., {name} or :name)
+			var pathParams []string
+			for p := range strings.SplitSeq(uri, "/") {
+				if len(p) > 0 && (p[0] == '{' && p[len(p)-1] == '}') {
+					pathParams = append(pathParams, p[1:len(p)-1])
+				} else if len(p) > 0 && p[0] == ':' {
+					pathParams = append(pathParams, p[1:])
+				}
+			}
+
+			if len(pathParams) == 0 {
+				continue
+			}
+
+			// Map path params to message fields
+			inputMsg := method.Input.GoIdent.GoName
+			if result[inputMsg] == nil {
+				result[inputMsg] = make(map[string]bool)
+			}
+
+			for _, param := range pathParams {
+				// Convert path param to Go field name (CamelCase)
+				fieldName := strcase.ToCamel(param)
+				result[inputMsg][fieldName] = true
+			}
+		}
+	}
+
+	return result
 }
 
 // generatePackageAlias creates a package alias from a proto file path
@@ -159,6 +232,15 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 		}
 
 		for _, field := range m.Fields {
+			// Skip fields that are path parameters if omitPathParams is enabled
+			if td.OmitPathParams {
+				if fieldsToOmit, ok := td.PathParamFields[m.GoIdent.GoName]; ok {
+					if fieldsToOmit[field.GoName] {
+						continue
+					}
+				}
+			}
+
 			f := StructField{
 				Name:    field.GoName,
 				Comment: field.Comments.Leading.String(),
