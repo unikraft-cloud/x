@@ -17,6 +17,7 @@ import (
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const pluginName = "unikraft.com/x/tools/protoc-gen-go-gin"
@@ -24,9 +25,11 @@ const pluginName = "unikraft.com/x/tools/protoc-gen-go-gin"
 type TemplateData struct {
 	PluginName       string
 	Package          string
+	GoImportPath     protogen.GoImportPath
 	Services         []Service
 	StreamKeepalive  bool
 	StreamDataPrefix string
+	ExtraImports     map[string]string // import path -> alias
 }
 
 type Service struct {
@@ -44,15 +47,82 @@ type Method struct {
 	Output            *protogen.Message
 	PathParams        []string
 	IsStreamingServer bool
+	BodyFieldName     string            // Name of the field that maps to the HTTP body (from google.api.http body option)
+	BodyField         *protogen.Field   // The field that maps to the HTTP body
+	BodyIsFullMessage bool              // True when body: "*" - entire message is the body
+	QueryFields       []*protogen.Field // Fields that should be bound as query parameters
 }
 
 //go:embed gin.tmpl
 var ginTmpl string
 
+// goTypeForField returns the Go type string for a protogen field, qualified with package alias if needed.
+func goTypeForField(f *protogen.Field, currentPkg protogen.GoImportPath, imports map[string]string, basePackage string) string {
+	if f.Message != nil {
+		return qualifiedGoType(f.Message.GoIdent, currentPkg, imports, basePackage)
+	}
+	if f.Enum != nil {
+		return qualifiedGoType(f.Enum.GoIdent, currentPkg, imports, basePackage)
+	}
+	// Map scalar protobuf kinds to Go types
+	switch f.Desc.Kind() {
+	case protoreflect.BoolKind:
+		return "bool"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "int32"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int64"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64"
+	case protoreflect.FloatKind:
+		return "float32"
+	case protoreflect.DoubleKind:
+		return "float64"
+	case protoreflect.StringKind:
+		return "string"
+	case protoreflect.BytesKind:
+		return "[]byte"
+	default:
+		return "any"
+	}
+}
+
+// qualifiedGoType returns the Go type qualified with package alias if it's from a different package.
+func qualifiedGoType(ident protogen.GoIdent, currentPkg protogen.GoImportPath, imports map[string]string, basePackage string) string {
+	if ident.GoImportPath == currentPkg {
+		return ident.GoName
+	}
+	// Need to use qualified name
+	importPath := string(ident.GoImportPath)
+	if basePackage != "" && !strings.HasPrefix(importPath, basePackage) {
+		importPath = strings.TrimSuffix(basePackage, "/") + "/" + strings.TrimPrefix(importPath, "/")
+	}
+	alias := derivePackageAlias(importPath)
+	imports[importPath] = alias
+	return alias + "." + ident.GoName
+}
+
+// derivePackageAlias derives a short package alias from an import path.
+func derivePackageAlias(importPath string) string {
+	parts := strings.Split(importPath, "/")
+	if len(parts) == 0 {
+		return "pkg"
+	}
+	lastPart := parts[len(parts)-1]
+	// If the last part looks like a version (v1, v2, etc.), combine with previous part
+	if len(parts) > 1 && len(lastPart) >= 2 && lastPart[0] == 'v' && lastPart[1] >= '0' && lastPart[1] <= '9' {
+		return parts[len(parts)-2] + lastPart
+	}
+	return lastPart
+}
+
 func main() {
 	var flags flag.FlagSet
 	streamKeepalive := flags.Bool("stream_keepalive", true, "Send a regular keep-alive with a timestamp in streaming responses")
 	streamDataPrefix := flags.String("stream_data_prefix", "data", "Set a prefix for data messages in streaming responses")
+	basePackage := flags.String("base_package", "", "Base package to prepend to Go import paths")
 
 	protogen.Options{
 		ParamFunc: flags.Set,
@@ -61,7 +131,7 @@ func main() {
 			if !file.Generate {
 				continue
 			}
-			if err := generateFile(plugin, file, *streamKeepalive, *streamDataPrefix); err != nil {
+			if err := generateFile(plugin, file, *streamKeepalive, *streamDataPrefix, *basePackage); err != nil {
 				return err
 			}
 		}
@@ -70,7 +140,7 @@ func main() {
 	})
 }
 
-func generateFile(plugin *protogen.Plugin, file *protogen.File, streamKeepalive bool, streamDataPrefix string) error {
+func generateFile(plugin *protogen.Plugin, file *protogen.File, streamKeepalive bool, streamDataPrefix string, basePackage string) error {
 	services := getHTTPServices(file.Services)
 
 	// No service has http option.
@@ -78,12 +148,36 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, streamKeepalive 
 		return nil
 	}
 
+	// Track extra imports needed for body/query field types from other packages
+	extraImports := make(map[string]string)
+	currentPkg := file.GoImportPath
+
+	// goType is a closure that returns qualified types and tracks imports
+	goType := func(f *protogen.Field) string {
+		return goTypeForField(f, currentPkg, extraImports, basePackage)
+	}
+
+	// Pre-collect imports by iterating over all body and query fields.
+	// This ensures imports are available before template rendering.
+	for _, service := range services {
+		for _, method := range service.Methods {
+			if method.BodyField != nil {
+				goType(method.BodyField)
+			}
+			for _, qf := range method.QueryFields {
+				goType(qf)
+			}
+		}
+	}
+
 	templateData := TemplateData{
 		PluginName:       pluginName,
 		Package:          string(file.GoPackageName),
+		GoImportPath:     file.GoImportPath,
 		Services:         services,
 		StreamKeepalive:  streamKeepalive,
 		StreamDataPrefix: streamDataPrefix,
+		ExtraImports:     extraImports,
 	}
 
 	tmpl, err := template.
@@ -91,6 +185,7 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, streamKeepalive 
 		Funcs(template.FuncMap{
 			"toCamel":      strcase.ToCamel,
 			"toLowerCamel": strcase.ToLowerCamel,
+			"goType":       goType,
 		}).
 		Parse(ginTmpl)
 	if err != nil {
@@ -167,6 +262,47 @@ func getHTTPServices(ps []*protogen.Service) []Service {
 					}
 				}
 				m.URI = strings.Join(paths, "/")
+
+				// Handle body field mapping from google.api.http body option
+				bodyFieldName := rule.GetBody()
+				if bodyFieldName == "*" {
+					// body: "*" means the entire message is the body
+					m.BodyIsFullMessage = true
+				} else if bodyFieldName != "" {
+					m.BodyFieldName = bodyFieldName
+					// Find the body field in the input message
+					for _, field := range method.Input.Fields {
+						if field.Desc.JSONName() == bodyFieldName || string(field.Desc.Name()) == bodyFieldName {
+							m.BodyField = field
+							break
+						}
+					}
+				}
+
+				// Collect fields as query parameters (excluding the body field and path params)
+				// Skip if body: "*" since the entire message is the body
+				if !m.BodyIsFullMessage {
+					for _, field := range method.Input.Fields {
+						fieldName := field.Desc.JSONName()
+						protoName := string(field.Desc.Name())
+						// Skip if this is the body field
+						if bodyFieldName != "" && (fieldName == bodyFieldName || protoName == bodyFieldName) {
+							continue
+						}
+						// Skip if this is a path parameter
+						isPathParam := false
+						for _, pp := range m.PathParams {
+							if fieldName == pp || protoName == pp {
+								isPathParam = true
+								break
+							}
+						}
+						if !isPathParam {
+							m.QueryFields = append(m.QueryFields, field)
+						}
+					}
+				}
+
 				sd.Methods = append(sd.Methods, m)
 			}
 		}

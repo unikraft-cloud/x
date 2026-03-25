@@ -14,6 +14,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"unikraft.com/x/log"
+{{- range $path, $alias := .ExtraImports }}
+	{{ $alias }} "{{ $path }}"
+{{- end }}
 )
 
 // Prevent import errors.
@@ -40,9 +43,10 @@ type {{ $service.Name }} interface {
 	{{- if ne $method.Comment "" }}
 	{{- $method.Comment }}
 	{{- end -}}
-	{{- $hasReq := ne $method.Input.Desc.FullName "google.protobuf.Empty" -}}
 	{{- $hasRes := ne $method.Output.Desc.FullName "google.protobuf.Empty" -}}
 	{{- $resAsAny := eq $method.Output.Desc.FullName "google.protobuf.Any" -}}
+	{{- $hasBodyField := ne $method.BodyFieldName "" -}}
+	{{- $hasQueryFields := gt (len $method.QueryFields) 0 -}}
 	{{ $method.Name }}(g *gin.Context
 	{{- if $method.IsStreamingServer -}}
 	, cancel context.CancelFunc
@@ -50,9 +54,24 @@ type {{ $service.Name }} interface {
 	{{- range $method.PathParams -}}
 	, {{ . }} string
 	{{- end -}}
-	{{- if $hasReq -}}
-	, req *{{ $method.Input.GoIdent.GoName -}}
-	{{ end -}}
+	{{- if $method.BodyIsFullMessage -}}
+	{{- /* body: "*" means entire message is the body */ -}}
+	, req *{{ $method.Input.GoIdent.GoName }}
+	{{- else if $hasBodyField -}}
+	{{- /* When body field is specified, use body field type directly */ -}}
+	{{- if $method.BodyField.Desc.IsList }}, body []{{ if $method.BodyField.Message }}*{{ end }}{{ goType $method.BodyField }}
+	{{- else if $method.BodyField.Message }}, body *{{ goType $method.BodyField }}
+	{{- else }}, body {{ goType $method.BodyField }}{{ end }}
+	{{- end -}}
+	{{- /* Add query parameters as separate arguments */ -}}
+	{{- if $hasQueryFields -}}
+	{{- range $method.QueryFields -}}
+	{{- if .Desc.IsList }}, {{ .GoName | toLowerCamel }} []{{ if .Message }}*{{ end }}{{ goType . }}
+	{{- else if .Message }}, {{ .GoName | toLowerCamel }} *{{ goType . }}
+	{{- else if .Desc.HasOptionalKeyword }}, {{ .GoName | toLowerCamel }} *{{ goType . }}
+	{{- else }}, {{ .GoName | toLowerCamel }} {{ goType . }}{{ end }}
+	{{- end -}}
+	{{- end -}}
 	) (
 	{{- if $method.IsStreamingServer -}}
 	<-chan *{{ .Output.GoIdent.GoName }}
@@ -83,6 +102,8 @@ func Register{{$service.Name}}(engine *gin.Engine, service {{ $service.Name }}, 
 
 {{ range .Methods }}
 {{ $method := . }}
+{{- $hasBodyField := ne $method.BodyFieldName "" }}
+{{- $hasQueryFields := gt (len $method.QueryFields) 0 }}
 func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *gin.Context) {
 	{{ if gt (len $method.PathParams) 0 }}
 	var params struct {
@@ -104,7 +125,8 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	}
 
 	{{ end -}}
-	{{- if ne $method.Input.Desc.FullName "google.protobuf.Empty" -}}
+	{{- if $method.BodyIsFullMessage -}}
+	{{- /* body: "*" - bind entire message as body */ -}}
 	bodyBytes, err := g.GetRawData()
 	if err != nil {
 		log.G(g.Request.Context()).
@@ -122,8 +144,8 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	// Restore the body for further use.
 	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
-	var in {{ $method.Input.GoIdent.GoName }}
-	if err := g.ShouldBind(&in); err != nil {
+	var req {{ $method.Input.GoIdent.GoName }}
+	if err := g.ShouldBind(&req); err != nil {
 		log.G(g.Request.Context()).
 			Warn().
 			Err(err).
@@ -138,6 +160,107 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 
 	// Restore the body for further use.
 	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	{{ else if $hasBodyField -}}
+	{{- /* Body field is specified, bind body to its type and query params separately */ -}}
+	bodyBytes, err := g.GetRawData()
+	if err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to read request body")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+
+	// Restore the body for further use.
+	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	// Bind the body field directly
+	{{- if $method.BodyField.Desc.IsList }}
+	var body []{{ if $method.BodyField.Message }}*{{ end }}{{ goType $method.BodyField }}
+	{{- else if $method.BodyField.Message }}
+	var body {{ goType $method.BodyField }}
+	{{- else }}
+	var body {{ goType $method.BodyField }}
+	{{- end }}
+	if err := json.NewDecoder(g.Request.Body).Decode(&body); err != nil && err != io.EOF {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to bind request body")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+
+	// Restore the body for further use.
+	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	{{- if $hasQueryFields }}
+	// Bind query parameters
+	var query struct {
+		{{- range $method.QueryFields }}
+		{{- if .Desc.IsList }}
+		{{ .GoName }} []{{ if .Message }}*{{ end }}{{ goType . }} `form:"{{ .Desc.JSONName }}"`
+		{{- else if .Message }}
+		{{ .GoName }} *{{ goType . }} `form:"{{ .Desc.JSONName }}"`
+		{{- else if .Desc.HasOptionalKeyword }}
+		{{ .GoName }} *{{ goType . }} `form:"{{ .Desc.JSONName }}"`
+		{{- else }}
+		{{ .GoName }} {{ goType . }} `form:"{{ .Desc.JSONName }}"`
+		{{- end }}
+		{{- end }}
+	}
+	if err := g.ShouldBindQuery(&query); err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to bind query parameters")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+	{{- end }}
+
+	{{ else if $hasQueryFields -}}
+	{{- /* No body field, bind all non-path fields as query parameters */ -}}
+	// Bind query parameters
+	var query struct {
+		{{- range $method.QueryFields }}
+		{{- if .Desc.IsList }}
+		{{ .GoName }} []{{ if .Message }}*{{ end }}{{ goType . }} `form:"{{ .Desc.JSONName }}"`
+		{{- else if .Message }}
+		{{ .GoName }} *{{ goType . }} `form:"{{ .Desc.JSONName }}"`
+		{{- else if .Desc.HasOptionalKeyword }}
+		{{ .GoName }} *{{ goType . }} `form:"{{ .Desc.JSONName }}"`
+		{{- else }}
+		{{ .GoName }} {{ goType . }} `form:"{{ .Desc.JSONName }}"`
+		{{- end }}
+		{{- end }}
+	}
+	if err := g.ShouldBindQuery(&query); err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to bind query parameters")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
 
 	{{ end -}}
 	{{- if $method.IsStreamingServer }}
@@ -171,8 +294,15 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	params.{{ . | toCamel }},
 	{{ end }}
 	{{ end }}
-	{{- if ne $method.Input.Desc.FullName "google.protobuf.Empty" -}}
-	&in
+	{{- if $method.BodyIsFullMessage -}}
+	&req,
+	{{- else if $hasBodyField -}}
+	body,
+	{{- end }}
+	{{- if $hasQueryFields -}}
+	{{- range $method.QueryFields }}
+	query.{{ .GoName }},
+	{{- end }}
 	{{- end -}}
 	)
 
@@ -244,8 +374,15 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	params.{{ . | toCamel }},
 	{{- end }}
 	{{- end }}
-	{{- if ne $method.Input.Desc.FullName "google.protobuf.Empty" -}}
-	&in
+	{{- if $method.BodyIsFullMessage -}}
+	&req,
+	{{- else if $hasBodyField -}}
+	body,
+	{{- end }}
+	{{- if $hasQueryFields -}}
+	{{- range $method.QueryFields }}
+	query.{{ .GoName }},
+	{{- end }}
 	{{- end -}}
 	)
 	if err != nil {
