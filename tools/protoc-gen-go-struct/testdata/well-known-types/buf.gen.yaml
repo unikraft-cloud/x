@@ -4,11 +4,11 @@ managed:
 
 inputs:
   - directory: testdata/well-known-types
+    types:
+    - "api.example.wellknown.v1.ResourceWithMetadata"
 
 plugins:
 - local: ["go", "run", "main.go"]
-  types:
-  - "api.example.wellknown.v1.ResourceWithMetadata"
   out: dist/well-known-types
   opt:
   - base_package=github.com/example/project/api

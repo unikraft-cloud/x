@@ -4,11 +4,11 @@ managed:
 
 inputs:
   - directory: testdata/self-reference
+    types:
+    - "api.example.instances.v1.GetInstanceRequest"
 
 plugins:
 - local: ["go", "run", "main.go"]
-  types:
-  - "api.example.instances.v1.GetInstanceRequest"
   out: dist/self-reference
   opt:
   - base_package=github.com/example/project/api
