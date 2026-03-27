@@ -1,0 +1,11 @@
+version: v2
+managed:
+  enabled: false
+
+# From tools/: buf generate --path protoc-gen-go-struct/testdata/flags --path protoc-gen-go-struct/flag --template protoc-gen-go-struct/testdata/flags/buf.gen.yaml
+
+plugins:
+- local: ["go", "run", "protoc-gen-go-struct/main.go"]
+  out: protoc-gen-go-struct/dist/flags
+  opt:
+  - base_package=github.com/example/project/api

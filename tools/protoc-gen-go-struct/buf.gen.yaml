@@ -1,0 +1,9 @@
+version: v2
+managed:
+  enabled: false
+
+plugins:
+- local: ["go", "run", "main.go"]
+  out: dist/flags
+  opt:
+  - base_package=unikraft.com/x/tools/protoc-gen-go-struct

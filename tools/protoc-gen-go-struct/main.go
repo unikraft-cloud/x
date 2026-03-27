@@ -20,6 +20,8 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	flagext "unikraft.com/x/tools/protoc-gen-go-struct/flag"
 )
 
 const pluginName = "unikraft.com/x/tools/protoc-gen-go-struct"
@@ -334,6 +336,16 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 			}
 
 			f.Tags = "json:\"" + encodedName + "\" yaml:\"" + encodedName + "\""
+
+			// Check for flag_name extension
+			if flagName, ok := flagext.GetFlagName(field.Desc.Options()); ok {
+				f.Tags += " flag:\"" + flagName + "\""
+			}
+
+			// Check for flag_default extension
+			if flagDefault, ok := flagext.GetFlagDefault(field.Desc.Options()); ok {
+				f.Tags += " default:\"" + flagDefault + "\""
+			}
 
 			if field.Desc.IsList() {
 				f.Type = "[]" + f.Type
