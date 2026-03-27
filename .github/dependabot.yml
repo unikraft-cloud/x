@@ -68,6 +68,13 @@ updates:
     time: '09:00'
 
 - package-ecosystem: gomod
+  directory: /sanitize
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+
+- package-ecosystem: gomod
   directory: /text
   schedule:
     interval: weekly

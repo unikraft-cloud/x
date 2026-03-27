@@ -18,6 +18,7 @@ use (
 	./ptr
 	./ringbuffer
 	./router
+	./sanitize
 	./startstopper
 	./text
 	./version
