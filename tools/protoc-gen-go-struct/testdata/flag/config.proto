@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package protoc.gen.go.struct.api;
+
+option go_package = "example.com/protocgen/struct/api;api";
+
+import "protoc-gen-go-struct/flag/flag.proto";
+
+message Config {
+  // Workspace path.  If empty, a temporary workspace is created.
+  string workspace = 1 [
+    json_name = "workspace",
+    (com.unikraft.tools.protoc_gen_go_struct.flag_name) = "--workspace,-w"
+  ];
+
+  // Daemonize after start.
+  bool daemonize = 2 [
+    json_name = "daemonize",
+    (com.unikraft.tools.protoc_gen_go_struct.flag_name) = "--daemonize",
+    (com.unikraft.tools.protoc_gen_go_struct.flag_default) = "false"
+  ];
+
+  // Enable telemetry
+  bool telemetry = 3 [
+    json_name = "telemetry"
+  ];
+}

@@ -45,9 +45,8 @@ func TestBufGenerate(t *testing.T) {
 
 			args := []string{
 				"buf",
-				"--config",
-				filepath.Join(tt.bufDir, "buf.yaml"),
 				"generate",
+				tt.bufDir,
 				"--template",
 				filepath.Join(tt.bufDir, "buf.gen.yaml"),
 			}
