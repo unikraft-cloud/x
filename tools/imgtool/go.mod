@@ -9,7 +9,7 @@ require (
 	github.com/containerd/containerd/v2 v2.2.0
 	github.com/containerd/platforms v1.0.0-rc.2
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v28.5.0+incompatible
+	github.com/docker/cli v29.2.0+incompatible
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
 	github.com/unikraft-cloud/x/image-spec v0.0.0-00010101000000-000000000000
