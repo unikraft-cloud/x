@@ -91,8 +91,9 @@ func goTypeForField(f *protogen.Field, currentPkg protogen.GoImportPath, imports
 
 // qualifiedGoType returns the Go type qualified with package alias if it's from a different package.
 func qualifiedGoType(ident protogen.GoIdent, currentPkg protogen.GoImportPath, imports map[string]string, basePackage string) string {
+	name := flattenGoName(ident.GoName)
 	if ident.GoImportPath == currentPkg {
-		return ident.GoName
+		return name
 	}
 	// Need to use qualified name
 	importPath := string(ident.GoImportPath)
@@ -101,7 +102,15 @@ func qualifiedGoType(ident protogen.GoIdent, currentPkg protogen.GoImportPath, i
 	}
 	alias := derivePackageAlias(importPath)
 	imports[importPath] = alias
-	return alias + "." + ident.GoName
+	return alias + "." + name
+}
+
+// flattenGoName removes underscores from protobuf nested type names to match
+// the struct generator's flattened naming convention.  Protobuf uses
+// "Parent_Child" for nested messages, but the struct generator defines them as
+// "ParentChild".  Top-level names (no underscore) are returned unchanged.
+func flattenGoName(name string) string {
+	return strings.ReplaceAll(name, "_", "")
 }
 
 // derivePackageAlias derives a short package alias from an import path.
@@ -157,14 +166,19 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, streamKeepalive 
 		return goTypeForField(f, currentPkg, extraImports, basePackage)
 	}
 
-	// Pre-collect imports by iterating over all body and query fields.
-	// This ensures imports are available before template rendering.
-	for _, service := range services {
-		for _, method := range service.Methods {
-			if method.BodyField != nil {
-				goType(method.BodyField)
+	// Pre-process: flatten GoIdent names and collect imports.
+	// Protobuf uses "Parent_Child" for nested messages, but the struct
+	// generator emits "ParentChild".  Flattening up-front means the
+	// template never needs to call flattenGoName.
+	for i := range services {
+		for j := range services[i].Methods {
+			m := &services[i].Methods[j]
+			m.Input.GoIdent.GoName = flattenGoName(m.Input.GoIdent.GoName)
+			m.Output.GoIdent.GoName = flattenGoName(m.Output.GoIdent.GoName)
+			if m.BodyField != nil {
+				goType(m.BodyField)
 			}
-			for _, qf := range method.QueryFields {
+			for _, qf := range m.QueryFields {
 				goType(qf)
 			}
 		}

@@ -231,7 +231,7 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 
 	for _, m := range messages {
 		s := Struct{
-			Name:    m.GoIdent.GoName,
+			Name:    strings.ReplaceAll(m.GoIdent.GoName, "_", ""),
 			Comment: m.Comments.Leading.String(),
 		}
 
@@ -280,7 +280,7 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 					// Check if the message is embedded (i.e., not top-level)
 					if field.Message != nil && field.Desc.Message().Parent() != nil && field.Desc.Message().Parent().Parent() != nil {
 						// Embedded message: prefix with parent type.
-						f.Type = m.GoIdent.GoName + string(field.Desc.Message().Name())
+						f.Type = strings.ReplaceAll(m.GoIdent.GoName, "_", "") + string(field.Desc.Message().Name())
 						field.Message.GoIdent.GoName = f.Type // Update GoIdent for embedded messages
 					} else {
 						messagePath := string(field.Desc.Message().ParentFile().Path())
@@ -391,7 +391,7 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 			s.Fields = append(s.Fields, f)
 		}
 
-		data[m.GoIdent.GoName] = s
+		data[strings.ReplaceAll(m.GoIdent.GoName, "_", "")] = s
 	}
 
 	return data
