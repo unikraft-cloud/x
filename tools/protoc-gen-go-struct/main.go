@@ -273,7 +273,9 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 						f.Type = "*" + f.Type
 					}
 				case "google.protobuf.Empty":
-					f.Type = "structpb.Empty"
+					f.Type = "emptypb.Empty"
+				case "google.protobuf.Value":
+					f.Type = "*structpb.Value"
 				default:
 					// Check if the message is embedded (i.e., not top-level)
 					if field.Message != nil && field.Desc.Message().Parent() != nil && field.Desc.Message().Parent().Parent() != nil {
