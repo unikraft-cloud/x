@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package api.example.instances.v1;
+
+import "instances/v1/instances.proto";
+
+option go_package = "instances/v1;instancesv1";
+
+message GetInstanceRequest {
+  string name = 1;
+}
+
+message GetInstanceResponse {
+  Instance instance = 1;
+}

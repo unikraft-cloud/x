@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package api.example.instances.v1;
+
+option go_package = "instances/v1;instancesv1";
+
+message Instance {
+  string name = 1;
+  string status = 2;
+}

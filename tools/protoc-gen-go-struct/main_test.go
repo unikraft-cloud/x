@@ -33,6 +33,11 @@ func TestBufGenerate(t *testing.T) {
 			bufDir:        "testdata/multiple-definitions/",
 			generationDir: "dist/multiple-definitions",
 		},
+		{
+			name:          "self-reference",
+			bufDir:        "testdata/self-reference/",
+			generationDir: "dist/self-reference",
+		},
 	}
 
 	for _, tt := range tests {

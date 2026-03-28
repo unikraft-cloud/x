@@ -33,6 +33,7 @@ type TemplateData struct {
 	OmitPathParams  bool
 	Version         string
 	Package         string
+	GoImportPath    string            // resolved Go import path for the current file
 	Imports         map[string]string // package alias -> import path
 	Structs         map[string]Struct
 	Enums           []Enum
@@ -98,6 +99,7 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage stri
 		NativeTime:      nativeTime,
 		OmitPathParams:  omitPathParams,
 		Package:         string(file.GoPackageName),
+		GoImportPath:    resolveImportPath(string(file.Desc.Path()), basePackage),
 		Imports:         make(map[string]string),
 		PathParamFields: make(map[string]map[string]bool),
 	}
@@ -249,14 +251,12 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 			}
 
 			if field.Enum != nil {
-				// Check if enum comes from a different package
 				enumPath := string(field.Enum.Desc.ParentFile().Path())
-				currentPath := string(m.Desc.ParentFile().Path())
+				enumImportPath := resolveImportPath(enumPath, td.BasePackage)
 
-				if enumPath != currentPath {
-					// Enum is from a different package - add import
+				if enumImportPath != td.GoImportPath {
 					alias := generatePackageAlias(enumPath)
-					td.Imports[alias] = resolveImportPath(enumPath, td.BasePackage)
+					td.Imports[alias] = enumImportPath
 					f.Type = alias + "." + string(field.Enum.Desc.Name())
 				} else {
 					f.Type = string(field.Enum.Desc.Name())
@@ -281,17 +281,14 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 						f.Type = m.GoIdent.GoName + string(field.Desc.Message().Name())
 						field.Message.GoIdent.GoName = f.Type // Update GoIdent for embedded messages
 					} else {
-						// Check if message comes from a different package
 						messagePath := string(field.Desc.Message().ParentFile().Path())
-						currentPath := string(m.Desc.ParentFile().Path())
+						messageImportPath := resolveImportPath(messagePath, td.BasePackage)
 
-						if messagePath != currentPath {
-							// Message is from a different package - add import
+						if messageImportPath != td.GoImportPath {
 							alias := generatePackageAlias(messagePath)
-							td.Imports[alias] = resolveImportPath(messagePath, td.BasePackage)
+							td.Imports[alias] = messageImportPath
 							f.Type = alias + "." + string(field.Desc.Message().Name())
 						} else {
-							// Top-level message in same package: just use the message name.
 							f.Type = string(field.Desc.Message().Name())
 						}
 					}
@@ -361,27 +358,23 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 				var valueTypeName string
 				switch valueKind {
 				case protoreflect.MessageKind:
-					// Check if message comes from a different package
 					valuePath := string(valueField.Desc.Message().ParentFile().Path())
-					currentPath := string(m.Desc.ParentFile().Path())
+					valueImportPath := resolveImportPath(valuePath, td.BasePackage)
 
-					if valuePath != currentPath {
-						// Message is from a different package - add import
+					if valueImportPath != td.GoImportPath {
 						alias := generatePackageAlias(valuePath)
-						td.Imports[alias] = resolveImportPath(valuePath, td.BasePackage)
+						td.Imports[alias] = valueImportPath
 						valueTypeName = alias + "." + string(valueField.Desc.Message().Name())
 					} else {
 						valueTypeName = string(valueField.Desc.Message().Name())
 					}
 				case protoreflect.EnumKind:
-					// Check if enum comes from a different package
 					valuePath := string(valueField.Desc.Enum().ParentFile().Path())
-					currentPath := string(m.Desc.ParentFile().Path())
+					valueImportPath := resolveImportPath(valuePath, td.BasePackage)
 
-					if valuePath != currentPath {
-						// Enum is from a different package - add import
+					if valueImportPath != td.GoImportPath {
 						alias := generatePackageAlias(valuePath)
-						td.Imports[alias] = resolveImportPath(valuePath, td.BasePackage)
+						td.Imports[alias] = valueImportPath
 						valueTypeName = alias + "." + string(valueField.Desc.Enum().Name())
 					} else {
 						valueTypeName = string(valueField.Desc.Enum().Name())
