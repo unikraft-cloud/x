@@ -297,7 +297,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	{{- if $method.BodyIsFullMessage -}}
 	&req,
 	{{- else if $hasBodyField -}}
-	{{ if $method.BodyField.Message }}&{{ end }}body,
+	{{ if and $method.BodyField.Message (not $method.BodyField.Desc.IsList) }}&{{ end }}body,
 	{{- end }}
 	{{- if $hasQueryFields -}}
 	{{- range $method.QueryFields }}
@@ -377,7 +377,7 @@ func (handler *{{ $service.Name }}Handler) {{ $method.Name | toLowerCamel }}(g *
 	{{- if $method.BodyIsFullMessage -}}
 	&req,
 	{{- else if $hasBodyField -}}
-	{{ if $method.BodyField.Message }}&{{ end }}body,
+	{{ if and $method.BodyField.Message (not $method.BodyField.Desc.IsList) }}&{{ end }}body,
 	{{- end }}
 	{{- if $hasQueryFields -}}
 	{{- range $method.QueryFields }}

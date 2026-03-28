@@ -112,6 +112,9 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage stri
 	templateData.Structs = templateData.getStructs(file.Messages...)
 	templateData.Enums = templateData.getEnums(file.Enums)
 
+	// Also collect nested enums from messages
+	templateData.Enums = append(templateData.Enums, templateData.collectNestedEnums(file.Messages)...)
+
 	tmpl, err := template.ParseFS(tmpl, "struct.tmpl")
 	if err != nil {
 		return err
@@ -257,9 +260,9 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 				if enumImportPath != td.GoImportPath {
 					alias := generatePackageAlias(enumPath)
 					td.Imports[alias] = enumImportPath
-					f.Type = alias + "." + string(field.Enum.Desc.Name())
+					f.Type = alias + "." + strings.ReplaceAll(field.Enum.GoIdent.GoName, "_", "")
 				} else {
-					f.Type = string(field.Enum.Desc.Name())
+					f.Type = strings.ReplaceAll(field.Enum.GoIdent.GoName, "_", "")
 				}
 			} else if field.Desc.Kind() == protoreflect.MessageKind {
 				switch field.Desc.Message().FullName() {
@@ -277,23 +280,18 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 				case "google.protobuf.Value":
 					f.Type = "*structpb.Value"
 				default:
-					// Check if the message is embedded (i.e., not top-level)
-					if field.Message != nil && field.Desc.Message().Parent() != nil && field.Desc.Message().Parent().Parent() != nil {
-						// Embedded message: prefix with parent type.
-						f.Type = strings.ReplaceAll(m.GoIdent.GoName, "_", "") + string(field.Desc.Message().Name())
-						field.Message.GoIdent.GoName = f.Type // Update GoIdent for embedded messages
-					} else {
-						messagePath := string(field.Desc.Message().ParentFile().Path())
-						messageImportPath := resolveImportPath(messagePath, td.BasePackage)
+					flatName := strings.ReplaceAll(field.Message.GoIdent.GoName, "_", "")
+					messagePath := string(field.Desc.Message().ParentFile().Path())
+					messageImportPath := resolveImportPath(messagePath, td.BasePackage)
 
-						if messageImportPath != td.GoImportPath {
-							alias := generatePackageAlias(messagePath)
-							td.Imports[alias] = messageImportPath
-							f.Type = alias + "." + string(field.Desc.Message().Name())
-						} else {
-							f.Type = string(field.Desc.Message().Name())
-						}
+					if messageImportPath != td.GoImportPath {
+						alias := generatePackageAlias(messagePath)
+						td.Imports[alias] = messageImportPath
+						f.Type = alias + "." + flatName
+					} else {
+						f.Type = flatName
 					}
+					field.Message.GoIdent.GoName = flatName
 					if field.Desc.HasOptionalKeyword() {
 						f.Type = "*" + f.Type
 					}
@@ -360,26 +358,28 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 				var valueTypeName string
 				switch valueKind {
 				case protoreflect.MessageKind:
+					valueFlatName := strings.ReplaceAll(valueField.Message.GoIdent.GoName, "_", "")
 					valuePath := string(valueField.Desc.Message().ParentFile().Path())
 					valueImportPath := resolveImportPath(valuePath, td.BasePackage)
 
 					if valueImportPath != td.GoImportPath {
 						alias := generatePackageAlias(valuePath)
 						td.Imports[alias] = valueImportPath
-						valueTypeName = alias + "." + string(valueField.Desc.Message().Name())
+						valueTypeName = alias + "." + valueFlatName
 					} else {
-						valueTypeName = string(valueField.Desc.Message().Name())
+						valueTypeName = valueFlatName
 					}
 				case protoreflect.EnumKind:
+					enumFlatName := strings.ReplaceAll(valueField.Enum.GoIdent.GoName, "_", "")
 					valuePath := string(valueField.Desc.Enum().ParentFile().Path())
 					valueImportPath := resolveImportPath(valuePath, td.BasePackage)
 
 					if valueImportPath != td.GoImportPath {
 						alias := generatePackageAlias(valuePath)
 						td.Imports[alias] = valueImportPath
-						valueTypeName = alias + "." + string(valueField.Desc.Enum().Name())
+						valueTypeName = alias + "." + enumFlatName
 					} else {
-						valueTypeName = string(valueField.Desc.Enum().Name())
+						valueTypeName = enumFlatName
 					}
 				default:
 					valueTypeName = valueKind.String()
@@ -408,22 +408,36 @@ func camelToSnakeUpper(s string) string {
 	return strings.ToUpper(result.String())
 }
 
+func (td *TemplateData) collectNestedEnums(messages []*protogen.Message) []Enum {
+	var result []Enum
+	for _, m := range messages {
+		if len(m.Enums) > 0 {
+			result = append(result, td.getEnums(m.Enums)...)
+		}
+		if len(m.Messages) > 0 {
+			result = append(result, td.collectNestedEnums(m.Messages)...)
+		}
+	}
+	return result
+}
+
 func (td *TemplateData) getEnums(enums []*protogen.Enum) []Enum {
 	var data []Enum
 
 	for _, e := range enums {
+		flatName := strings.ReplaceAll(e.GoIdent.GoName, "_", "")
 		s := Enum{
-			Name:    e.GoIdent.GoName,
+			Name:    flatName,
 			Comment: e.Comments.Leading.String(),
 		}
 
 		for _, value := range e.Values {
 			v := EnumValue{
-				Name:    strcase.ToCamel(strings.TrimPrefix(value.GoIdent.GoName, s.Name+"_")),
+				Name:    strcase.ToCamel(strings.TrimPrefix(value.GoIdent.GoName, e.GoIdent.GoName+"_")),
 				Comment: value.Comments.Leading.String(),
 			}
 
-			v.ID = strings.ToLower(strings.TrimPrefix(strings.TrimPrefix(value.GoIdent.GoName, s.Name+"_"), camelToSnakeUpper(s.Name)+"_"))
+			v.ID = strings.ToLower(strings.TrimPrefix(strings.TrimPrefix(value.GoIdent.GoName, e.GoIdent.GoName+"_"), camelToSnakeUpper(e.GoIdent.GoName)+"_"))
 
 			s.Values = append(s.Values, v)
 		}
