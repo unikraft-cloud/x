@@ -21,8 +21,8 @@ github.com/gabriel-vasile/mimetype v1.4.12 h1:e9hWvmLYvtp846tLHam2o++qitpguFiYCK
 github.com/gabriel-vasile/mimetype v1.4.12/go.mod h1:d+9Oxyo1wTzWdyVUPMmXFvp4F9tea18J8ufA774AB3s=
 github.com/getsentry/sentry-go v0.44.1 h1:/cPtrA5qB7uMRrhgSn9TYtcEF36auGP3Y6+ThvD/yaI=
 github.com/getsentry/sentry-go v0.44.1/go.mod h1:XDotiNZbgf5U8bPDUAfvcFmOnMQQceESxyKaObSssW0=
-github.com/getsentry/sentry-go/gin v0.43.0 h1:39PH91LqoFxhvyaLGhgeahmGnVG5xn5jOWKQrBz/eRE=
-github.com/getsentry/sentry-go/gin v0.43.0/go.mod h1:Uyn8n0wYW9JDPxbRY1i5mYVuN/NPLw2CB1/1gmIVXX4=
+github.com/getsentry/sentry-go/gin v0.44.1 h1:bDuwK3vPJyyzAT/bruK4KoC70iPM1uLfcj3rgvgpjbw=
+github.com/getsentry/sentry-go/gin v0.44.1/go.mod h1:bjUIMmdItEhvYthiKLsA+I6p07iK/Eb2CTyQCflOh/E=
 github.com/getsentry/sentry-go/zerolog v0.33.0 h1:WCi0/WrFKled95xWeSDhFIEbt3H8GmfpA70N/4DIbOQ=
 github.com/getsentry/sentry-go/zerolog v0.33.0/go.mod h1:oBCfKYCms/pqtF7UKDIhDdkYoqCgrhKVBhRrerm1ZnY=
 github.com/gin-contrib/cors v1.7.7 h1:Oh9joP463x7Mw72vhvJ61YQm8ODh9b04YR7vsOErD0Q=
