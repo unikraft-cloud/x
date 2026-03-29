@@ -7,7 +7,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/sys v0.42.0
-	tailscale.com v1.96.3
+	tailscale.com v1.96.5
 	unikraft.com/x/ptr v0.0.0-20260108134909-16540cbbe59c
 )
 
