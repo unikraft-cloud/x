@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/buger/jsonparser v1.1.2
 	github.com/getsentry/sentry-go v0.44.1
-	github.com/rs/zerolog v1.34.0
+	github.com/rs/zerolog v1.35.0
 	github.com/sirupsen/logrus v1.9.4
 )
 
