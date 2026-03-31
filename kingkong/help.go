@@ -173,11 +173,6 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 		return
 	}
 
-	if node.Detail != "" {
-		w.Print("")
-		w.Wrap(node.Detail)
-	}
-
 	if len(node.Positional) > 0 {
 		w.Print("")
 		w.Print(Underline("Arguments") + ":")
@@ -275,13 +270,17 @@ func printNodeDetail(w *helpWriter, node *kong.Node, hide bool) {
 }
 
 func printNodeHelp(w *helpWriter, node *kong.Node) {
-	if node.Help == "" {
+	if node.Help == "" && node.Detail == "" {
 		return
 	}
 	if len(*w.lines) > 0 {
 		w.Print("")
 	}
-	w.Wrap(node.Help)
+	if node.Detail != "" {
+		w.Wrap(node.Detail)
+	} else {
+		w.Wrap(node.Help)
+	}
 	w.Print("")
 }
 

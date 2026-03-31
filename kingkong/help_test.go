@@ -115,6 +115,35 @@ func TestHelpGolden(t *testing.T) {
 	golden.Assert(t, normalized, "help.golden")
 }
 
+func TestHelpDescriptionDetailOverrides(t *testing.T) {
+	t.Setenv("COLUMNS", "120")
+
+	var cli struct{}
+	buf := &bytes.Buffer{}
+
+	app, err := kong.New(
+		&cli,
+		kong.Name("kingkong"),
+		kong.Description("Short description that should be replaced."),
+		DescriptionDetail("Detailed description appears at the top."),
+		kong.Help(HelpPrinter("v0.0.0-test")),
+		kong.HelpOptions{
+			ValueFormatter: helpValueFormatter,
+			WrapUpperBound: 120,
+		},
+		kong.Writers(buf, buf),
+		kong.Exit(func(code int) {
+			panic(exitCode{code: code})
+		}),
+	)
+	require.NoError(t, err)
+
+	output := captureHelpOutput(t, app, buf)
+	normalized := normalizeHelpOutput(output)
+
+	golden.Assert(t, normalized, "help-detail.golden")
+}
+
 func TestCollapsedFlagPlaceholders(t *testing.T) {
 	type collapseCLI struct {
 		Foo string `help:"Foo value." placeholder:"<value>" collapse:"pair"`

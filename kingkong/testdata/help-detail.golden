@@ -1,0 +1,10 @@
+Detailed description appears at the top.
+
+Usage:
+  kingkong [flags]
+
+Version:
+  v0.0.0-test ({{GOOS}}/{{GOARCH}})
+
+  -h, --help
+          Show context-sensitive help.
