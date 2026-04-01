@@ -21,6 +21,12 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// This file provides functions for loading and saving images to/from OCI layouts.
+// This implements the OCI image layout spec at https://github.com/opencontainers/image-spec/blob/main/image-layout.md
+//
+// This is essentially equivalent to the tarball archive loaders/savers, but
+// unpacked and managing an index file. It's very useful for debugging :)
+
 func LoadOCILayout(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
 	store, err := local.NewStore(path)
 	if err != nil {

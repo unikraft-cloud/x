@@ -24,8 +24,15 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// LoadDockerImage loads a Docker image from a remote registry.
-func LoadDockerImage(ctx context.Context, named reference.Named, remote remotes.Resolver, platform platforms.MatchComparer) (*Image, error) {
+// This file provides functions for loading and saving images to/from remote
+// registries using containerd's remotes package. This implements the
+// underlying distribution spec at https://github.com/opencontainers/distribution-spec.
+//
+// This is the standard way to interact with a unikraft image, both the ones in
+// our global harbor (at index.unikraft.io), as well as direct push.
+
+// LoadRegistryImage loads a image from a remote registry.
+func LoadRegistryImage(ctx context.Context, named reference.Named, remote remotes.Resolver, platform platforms.MatchComparer) (*Image, error) {
 	named = reference.TagNameOnly(named)
 
 	name, desc, err := remote.Resolve(ctx, named.String())
@@ -55,8 +62,8 @@ func LoadDockerImage(ctx context.Context, named reference.Named, remote remotes.
 	return img, nil
 }
 
-// LoadAllDockerImages loads all available Docker images from a remote registry.
-func LoadAllDockerImages(ctx context.Context, named reference.Named, remote remotes.Resolver, platform platforms.MatchComparer) ([]*Image, error) {
+// LoadAllRegistryImages loads all available images from a remote registry.
+func LoadAllRegistryImages(ctx context.Context, named reference.Named, remote remotes.Resolver, platform platforms.MatchComparer) ([]*Image, error) {
 	named = reference.TagNameOnly(named)
 
 	name, desc, err := remote.Resolve(ctx, named.String())
@@ -88,8 +95,8 @@ func LoadAllDockerImages(ctx context.Context, named reference.Named, remote remo
 	return imgs, nil
 }
 
-// SaveDockerImage saves a Docker image to a remote registry.
-func SaveDockerImage(ctx context.Context, named reference.Named, remote remotes.Resolver, image ...*Image) (reference.Named, ocispec.Descriptor, error) {
+// SaveRegistryImage saves a image to a remote registry.
+func SaveRegistryImage(ctx context.Context, named reference.Named, remote remotes.Resolver, image ...*Image) (reference.Named, ocispec.Descriptor, error) {
 	named = reference.TagNameOnly(named)
 
 	pusher, err := remote.Pusher(ctx, named.String())
@@ -105,8 +112,8 @@ func SaveDockerImage(ctx context.Context, named reference.Named, remote remotes.
 	return named, desc, nil
 }
 
-// DeleteDockerImage deletes a Docker image from a remote registry.
-func DeleteDockerImage(ctx context.Context, named reference.Named, remote remotes.Resolver, hosts docker.RegistryHosts, headers http.Header) error {
+// DeleteRegistryImage deletes a image from a remote registry.
+func DeleteRegistryImage(ctx context.Context, named reference.Named, remote remotes.Resolver, hosts docker.RegistryHosts, headers http.Header) error {
 	named = reference.TagNameOnly(named)
 
 	name, desc, err := remote.Resolve(ctx, named.String())
@@ -160,7 +167,7 @@ func DeleteDockerImage(ctx context.Context, named reference.Named, remote remote
 
 	var firstErr error
 	for _, host := range deleteHosts {
-		err := deleteDockerManifest(ctx, host, headers, refHost, repository, desc.Digest)
+		err := deleteRegistryManifest(ctx, host, headers, refHost, repository, desc.Digest)
 		if err == nil {
 			return nil
 		}
@@ -181,7 +188,7 @@ func filterHostsByCapability(hosts []docker.RegistryHost, cap docker.HostCapabil
 	return filtered
 }
 
-func deleteDockerManifest(ctx context.Context, host docker.RegistryHost, headers http.Header, refHost string, repository string, dgst digest.Digest) error {
+func deleteRegistryManifest(ctx context.Context, host docker.RegistryHost, headers http.Header, refHost string, repository string, dgst digest.Digest) error {
 	requestHeaders := http.Header{}
 	if headers != nil {
 		requestHeaders = headers.Clone()

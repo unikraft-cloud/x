@@ -75,7 +75,7 @@ func (accessor *Accessor) Load(ctx context.Context, src *URI, platform platforms
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
-		return LoadDockerImage(ctx, named, accessor.remote, platform)
+		return LoadRegistryImage(ctx, named, accessor.remote, platform)
 	case URISchemeOCILayout:
 		path, tag := parsePathTag(src.Path)
 		return LoadOCILayoutNamed(ctx, path, tag, platform)
@@ -93,7 +93,7 @@ func (accessor *Accessor) LoadAll(ctx context.Context, src *URI, platform platfo
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
-		return LoadAllDockerImages(ctx, named, accessor.remote, platform)
+		return LoadAllRegistryImages(ctx, named, accessor.remote, platform)
 	case URISchemeOCILayout:
 		path, tag := parsePathTag(src.Path)
 		return LoadAllOCILayoutsNamed(ctx, path, tag, platform)
@@ -111,7 +111,7 @@ func (accessor *Accessor) Save(ctx context.Context, dest *URI, img ...*Image) er
 		if err != nil {
 			return fmt.Errorf("parsing image reference %q: %w", dest, err)
 		}
-		_, _, err = SaveDockerImage(ctx, named, accessor.remote, img...)
+		_, _, err = SaveRegistryImage(ctx, named, accessor.remote, img...)
 		return err
 	case URISchemeOCILayout:
 		path, tag := parsePathTag(dest.Path)
@@ -137,7 +137,7 @@ func (accessor *Accessor) Delete(ctx context.Context, target *URI) error {
 		if err != nil {
 			return fmt.Errorf("parsing image reference %q: %w", target, err)
 		}
-		return DeleteDockerImage(ctx, named, accessor.remote, accessor.registryHosts, accessor.registryHeaders)
+		return DeleteRegistryImage(ctx, named, accessor.remote, accessor.registryHosts, accessor.registryHeaders)
 	case URISchemeOCILayout:
 		path, tag := parsePathTag(target.Path)
 		if tag == "" {

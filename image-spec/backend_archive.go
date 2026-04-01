@@ -17,6 +17,12 @@ import (
 	"github.com/containerd/platforms"
 )
 
+// This files provides functions for loading and saving images to/from tarball files using
+// containerd's archive package.
+//
+// This is convenient for moving images around, as well as an intermediate
+// format for building images before pushing them.
+
 // LoadTarball loads an image from a tarball (OCI or Docker format).
 func LoadTarball(ctx context.Context, tarballPath string, platform platforms.MatchComparer) (*Image, error) {
 	f, err := os.Open(tarballPath)
