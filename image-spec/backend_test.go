@@ -198,6 +198,92 @@ func TestBuildImageMultiPlatform(t *testing.T) {
 	}
 }
 
+func TestDeleteImage(t *testing.T) {
+	ctx := t.Context()
+
+	t.Run("tarball", func(t *testing.T) {
+		workDir := t.TempDir()
+		tarPath := filepath.Join(workDir, "image.tar")
+
+		// Save an image to a tarball
+		require.NoError(t, SaveTarball(ctx, tarPath, testImage))
+
+		// Verify the tarball exists
+		_, err := os.Stat(tarPath)
+		require.NoError(t, err)
+
+		// Delete the tarball
+		require.NoError(t, os.Remove(tarPath))
+
+		// Verify the tarball is deleted
+		_, err = os.Stat(tarPath)
+		require.True(t, os.IsNotExist(err))
+	})
+
+	t.Run("oci-layout", func(t *testing.T) {
+		contentDir := t.TempDir()
+
+		// Save multiple images with different tags
+		_, err := SaveOCILayoutNamed(ctx, contentDir, "tag1", testImage)
+		require.NoError(t, err)
+		_, err = SaveOCILayoutNamed(ctx, contentDir, "tag2", testImage)
+		require.NoError(t, err)
+		_, err = SaveOCILayoutNamed(ctx, contentDir, "tag3", testImage)
+		require.NoError(t, err)
+
+		// Verify all tags exist in the index
+		indexPath := filepath.Join(contentDir, ocispec.ImageIndexFile)
+		indexData, err := os.ReadFile(indexPath)
+		require.NoError(t, err)
+		var index ocispec.Index
+		require.NoError(t, json.Unmarshal(indexData, &index))
+		require.Len(t, index.Manifests, 3)
+
+		// Helper to check tags in index
+		hasTag := func(index *ocispec.Index, tag string) bool {
+			for _, m := range index.Manifests {
+				if m.Annotations[ocispec.AnnotationRefName] == tag {
+					return true
+				}
+			}
+			return false
+		}
+
+		require.True(t, hasTag(&index, "tag1"))
+		require.True(t, hasTag(&index, "tag2"))
+		require.True(t, hasTag(&index, "tag3"))
+
+		// Delete tag2
+		require.NoError(t, DeleteOCILayoutNamed(contentDir, "tag2"))
+
+		// Verify tag2 is removed but tag1 and tag3 remain
+		indexData, err = os.ReadFile(indexPath)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(indexData, &index))
+		require.Len(t, index.Manifests, 2)
+		require.True(t, hasTag(&index, "tag1"))
+		require.False(t, hasTag(&index, "tag2"))
+		require.True(t, hasTag(&index, "tag3"))
+
+		// Delete tag1
+		require.NoError(t, DeleteOCILayoutNamed(contentDir, "tag1"))
+
+		// Verify only tag3 remains
+		indexData, err = os.ReadFile(indexPath)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(indexData, &index))
+		require.Len(t, index.Manifests, 1)
+		require.False(t, hasTag(&index, "tag1"))
+		require.False(t, hasTag(&index, "tag2"))
+		require.True(t, hasTag(&index, "tag3"))
+
+		// Delete non-existent tag should fail
+		err = DeleteOCILayoutNamed(contentDir, "nonexistent")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not found")
+	})
+}
+
 func requireTarPayload(t *testing.T, blob []byte, target string, expected []byte) {
 	t.Helper()
 

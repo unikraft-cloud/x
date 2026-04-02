@@ -27,6 +27,7 @@ import (
 type CLI struct {
 	Inspect InspectCmd `cmd:"" help:"Inspect an image"`
 	Copy    CopyCmd    `cmd:"" help:"Copy an image"`
+	Delete  DeleteCmd  `cmd:"" help:"Delete an image"`
 }
 
 type InspectCmd struct {
@@ -37,13 +38,12 @@ type InspectCmd struct {
 
 func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 	insecure := c.Insecure == "source" || c.Insecure == "all"
-
 	uri, err := imagespec.GuessURI(c.Image)
 	if err != nil {
 		return fmt.Errorf("parsing image reference: %w", err)
 	}
 
-	accessor := imagespec.NewAccessor(withResolver(insecure))
+	accessor := newAccessor(insecure)
 	imgs, err := accessor.LoadAll(ctx, uri, platforms.All)
 	if err != nil {
 		return err
@@ -163,7 +163,6 @@ type CopyCmd struct {
 
 func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 	insecure := c.Insecure == "source" || c.Insecure == "all"
-
 	src, err := imagespec.GuessURI(c.Source)
 	if err != nil {
 		return fmt.Errorf("parsing image source: %w", err)
@@ -173,7 +172,7 @@ func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 		return fmt.Errorf("parsing image destination: %w", err)
 	}
 
-	accessor := imagespec.NewAccessor(withResolver(insecure))
+	accessor := newAccessor(insecure)
 	imgs, err := accessor.LoadAll(ctx, src, platforms.All)
 	if err != nil {
 		return err
@@ -187,12 +186,32 @@ func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 	}()
 
 	insecure = c.Insecure == "destination" || c.Insecure == "all"
-	accessor = imagespec.NewAccessor(withResolver(insecure))
+	accessor = newAccessor(insecure)
 	err = accessor.Save(ctx, dest, imgs...)
 	if err != nil {
 		return fmt.Errorf("saving image to destination: %w", err)
 	}
 
+	return nil
+}
+
+type DeleteCmd struct {
+	Image string `arg:"" name:"image" help:"Image reference or path"`
+
+	Insecure string `help:"Allow insecure connections when accessing remote images" enum:"source,all,none" default:"none"`
+}
+
+func (c *DeleteCmd) Run(ctx context.Context) error {
+	insecure := c.Insecure == "source" || c.Insecure == "all"
+	uri, err := imagespec.GuessURI(c.Image)
+	if err != nil {
+		return fmt.Errorf("parsing image reference: %w", err)
+	}
+
+	accessor := newAccessor(insecure)
+	if err := accessor.Delete(ctx, uri); err != nil {
+		return err
+	}
 	return nil
 }
 
