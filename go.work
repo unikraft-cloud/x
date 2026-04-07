@@ -15,6 +15,7 @@ use (
 	./limiter
 	./log
 	./middleware
+	./nats
 	./oidext
 	./ptr
 	./ringbuffer
