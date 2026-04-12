@@ -9,3 +9,4 @@ plugins:
   out: protoc-gen-go-struct/dist/flags
   opt:
   - base_package=github.com/example/project/api
+  - help_tag=true

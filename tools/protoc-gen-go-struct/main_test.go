@@ -43,6 +43,11 @@ func TestBufGenerate(t *testing.T) {
 			bufDir:        "testdata/well-known-types/",
 			generationDir: "dist/well-known-types",
 		},
+		{
+			name:          "flag",
+			bufDir:        "testdata/flag/",
+			generationDir: "dist/flags",
+		},
 	}
 
 	for _, tt := range tests {
