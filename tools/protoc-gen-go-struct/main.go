@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	flagext "unikraft.com/x/tools/protoc-gen-go-struct/flag"
+	tagsext "unikraft.com/x/tools/protoc-gen-go-struct/tags"
 )
 
 const pluginName = "unikraft.com/x/tools/protoc-gen-go-struct"
@@ -337,14 +337,9 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 
 			f.Tags = "json:\"" + encodedName + "\" yaml:\"" + encodedName + "\""
 
-			// Check for flag_name extension
-			if flagName, ok := flagext.GetFlagName(field.Desc.Options()); ok {
-				f.Tags += " flag:\"" + flagName + "\""
-			}
-
-			// Check for flag_default extension
-			if flagDefault, ok := flagext.GetFlagDefault(field.Desc.Options()); ok {
-				f.Tags += " default:\"" + flagDefault + "\""
+			// Append any custom tags defined via the repeated tags extension.
+			for _, tag := range tagsext.GetTags(field.Desc.Options()) {
+				f.Tags += " " + tag.GetKey() + ":\"" + tag.GetValue() + "\""
 			}
 
 			// Add help tag from proto comment if enabled
@@ -409,7 +404,8 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 
 // cleanComment extracts a clean, single-line help string from a protobuf
 // leading comment.  It strips the "// " prefix from each line, joins multiple
-// lines with a space, and trims surrounding whitespace.
+// lines with a space, trims surrounding whitespace, and removes backtick
+// characters that would break Go struct tags.
 func cleanComment(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -425,7 +421,10 @@ func cleanComment(raw string) string {
 			parts = append(parts, line)
 		}
 	}
-	return strings.Join(parts, " ")
+
+	result := strings.Join(parts, " ")
+	result = strings.ReplaceAll(result, "`", "'")
+	return result
 }
 
 func camelToSnakeUpper(s string) string {

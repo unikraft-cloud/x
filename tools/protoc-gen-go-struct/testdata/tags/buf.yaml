@@ -1,7 +1,9 @@
 version: v2
 modules:
 - path: .
-  name: buf.build/test/flags
+  name: buf.build/test/tags
+deps:
+- buf.build/unikraft/tools
 lint:
   use:
   - STANDARD

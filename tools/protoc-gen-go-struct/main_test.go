@@ -44,9 +44,9 @@ func TestBufGenerate(t *testing.T) {
 			generationDir: "dist/well-known-types",
 		},
 		{
-			name:          "flag",
-			bufDir:        "testdata/flag/",
-			generationDir: "dist/flags",
+			name:          "tags",
+			bufDir:        "testdata/tags/",
+			generationDir: "dist/tags",
 		},
 	}
 

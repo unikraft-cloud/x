@@ -1,0 +1,10 @@
+version: v2
+managed:
+  enabled: false
+
+plugins:
+- local: ["go", "run", "main.go"]
+  out: dist/tags
+  opt:
+  - base_package=unikraft.com/x/tools/protoc-gen-go-struct/testdata/tags
+  - help_tag=true

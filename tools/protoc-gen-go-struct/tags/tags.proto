@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026, Unikraft GmbH.
+// Licensed under the BSD-3-Clause License (the "License").
+// You may not use this file except in compliance with the License.
+
+syntax = "proto3";
+
+package com.unikraft.tools.protoc_gen_go_struct;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "unikraft.com/x/tools/protoc-gen-go-struct/tags";
+
+// Tag represents an arbitrary key-value pair that will be emitted as a Go
+// struct tag in the form key:"value".
+message Tag {
+  string key = 1;
+  string value = 2;
+}
+
+extend google.protobuf.FieldOptions {
+  // tags specifies additional Go struct tags for this field.
+  // Each entry becomes a key:"value" pair in the generated struct tag.
+  repeated Tag tags = 50102;
+}
