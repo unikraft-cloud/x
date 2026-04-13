@@ -3,8 +3,6 @@ module unikraft.com/x/log
 go 1.26.1
 
 require (
-	github.com/buger/jsonparser v1.1.2
-	github.com/getsentry/sentry-go v0.45.1
 	github.com/rs/zerolog v1.35.0
 	github.com/sirupsen/logrus v1.9.4
 	go.opentelemetry.io/otel/log v0.19.0
@@ -21,5 +19,4 @@ require (
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
 )
