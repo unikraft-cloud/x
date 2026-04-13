@@ -12,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +33,10 @@ import (
 // callers should defer it to avoid dropping buffered records on exit.
 func NewWithOTLP(ctx context.Context, sink io.Writer, typ Type, level Level) (*Logger, func(context.Context) error, error) {
 	noop := func(context.Context) error { return nil }
+	disabled, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv("OTEL_SDK_DISABLED")))
+	if disabled {
+		return New(sink, typ, level), noop, nil
+	}
 
 	res, err := resource.New(ctx,
 		resource.WithFromEnv(),
