@@ -81,6 +81,10 @@ func (p *Parser) ParseModels() []Model {
 		})
 	}
 
+	sort.Slice(models, func(i, j int) bool {
+		return models[i].SchemaName < models[j].SchemaName
+	})
+
 	return models
 }
 
