@@ -21,6 +21,7 @@ use (
 	./sanitize
 	./startstopper
 	./text
+	./telemetry
 	./version
 )
 
