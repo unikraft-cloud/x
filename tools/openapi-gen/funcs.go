@@ -732,6 +732,11 @@ func capitalizeEnum(s string) string {
 	if s == "" {
 		return s
 	}
+
+	// Remove hyphens for the all-lowercase check (e.g., "in-progress" ->
+	// "inprogress")
+	s = strings.ReplaceAll(s, "-", "")
+
 	// If the string is all lowercase letters (no underscores, spaces, etc.), uppercase it all
 	allLower := true
 	for _, r := range s {
@@ -743,6 +748,5 @@ func capitalizeEnum(s string) string {
 	if allLower {
 		return strings.ToUpper(s)
 	}
-	// Otherwise just capitalize first letter
 	return capitalize(s)
 }
