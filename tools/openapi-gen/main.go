@@ -17,7 +17,7 @@ type cli struct {
 	Input     string            `short:"i" help:"Path, URL, or Git ref (host/org/repo@ref#file=path) to OpenAPI spec." required:""`
 	Output    string            `short:"o" help:"Output directory for generated files." required:""`
 	Var       map[string]string `short:"v" help:"Set a template variable (e.g. --var package=myapi)." mapsep:","`
-	Templates string            `short:"t" help:"Directory with template overrides." type:"existingdir" required:""`
+	Templates string            `short:"t" help:"Directory or Git ref (host/org/repo@ref#dir=path) with template overrides." required:""`
 }
 
 func main() {
@@ -37,7 +37,17 @@ func run(cli *cli) error {
 		vars = make(map[string]string)
 	}
 
-	generator, err := NewGenerator(cli.Input, vars, cli.Templates)
+	templateDir := cli.Templates
+	if g := parseGitRef(templateDir); g != nil && g.dir != "" {
+		resolved, cleanup, err := resolveTemplateDirFromGit(g)
+		if err != nil {
+			return fmt.Errorf("error resolving templates from git: %w", err)
+		}
+		defer cleanup()
+		templateDir = resolved
+	}
+
+	generator, err := NewGenerator(cli.Input, vars, templateDir)
 	if err != nil {
 		return fmt.Errorf("error creating generator: %w", err)
 	}

@@ -32,12 +32,22 @@ go run unikraft.com/x/tools/openapi-gen@latest \
   -t ./templates/go-client
 ```
 
+The `--templates` flag likewise accepts a Git repository reference using `#dir=` to point at a directory:
+
+```sh
+go run unikraft.com/x/tools/openapi-gen@latest \
+  -i openapi.yaml \
+  -o ./gen \
+  -s package=myapi \
+  -t github.com/org/repo@main#dir=templates/go-client
+```
+
 | Flag          | Short | Description                                                  |
 | ------------- | ----- | ------------------------------------------------------------ |
 | `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)         |
 | `--output`    | `-o`  | Output directory for generated files (required)              |
 | `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)          |
-| `--templates` | `-t`  | Directory containing template overrides (optional)           |
+| `--templates` | `-t`  | Directory or Git ref to template overrides (required)        |
 
 ## Internals
 
