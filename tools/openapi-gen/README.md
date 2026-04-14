@@ -12,9 +12,19 @@ go run unikraft.com/x/tools/openapi-gen@latest \
   -t ./templates/go-client
 ```
 
+The `--input` flag also accepts an HTTP(S) URL:
+
+```sh
+go run unikraft.com/x/tools/openapi-gen@latest \
+  -i https://example.com/openapi.yaml \
+  -o ./gen \
+  -s package=myapi \
+  -t ./templates/go-client
+```
+
 | Flag          | Short | Description                                                  |
 | ------------- | ----- | ------------------------------------------------------------ |
-| `--input`     | `-i`  | Path to the OpenAPI spec file (required)                     |
+| `--input`     | `-i`  | Path or URL to the OpenAPI spec file (required)              |
 | `--output`    | `-o`  | Output directory for generated files (required)              |
 | `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)          |
 | `--templates` | `-t`  | Directory containing template overrides (optional)           |

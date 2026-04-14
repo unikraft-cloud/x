@@ -7,9 +7,13 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"gopkg.in/yaml.v3"
@@ -27,20 +31,60 @@ type Model struct {
 	Schema     *openapi3.Schema
 }
 
-// NewParser creates a new OpenAPI parser
-func NewParser(specPath string) (*Parser, error) {
+// isURL reports whether s looks like an HTTP(S) URL.
+func isURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+}
+
+// readSpec reads the OpenAPI specification bytes from a local file path or
+// an HTTP(S) URL.
+func readSpec(input string) ([]byte, error) {
+	if isURL(input) {
+		resp, err := http.Get(input) //nolint:gosec,noctx
+		if err != nil {
+			return nil, fmt.Errorf("fetching spec from URL: %w", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("fetching spec from URL: HTTP %d", resp.StatusCode)
+		}
+		return io.ReadAll(resp.Body)
+	}
+	return os.ReadFile(input)
+}
+
+// NewParser creates a new OpenAPI parser.  input may be a local file path
+// or an HTTP(S) URL.
+func NewParser(input string) (*Parser, error) {
+	data, err := readSpec(input)
+	if err != nil {
+		return nil, fmt.Errorf("reading OpenAPI spec: %w", err)
+	}
+
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
 
-	doc, err := loader.LoadFromFile(specPath)
-	if err != nil {
-		return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
+	var doc *openapi3.T
+	if isURL(input) {
+		u, err := url.Parse(input)
+		if err != nil {
+			return nil, fmt.Errorf("parsing spec URL: %w", err)
+		}
+		doc, err = loader.LoadFromDataWithPath(data, u)
+		if err != nil {
+			return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
+		}
+	} else {
+		doc, err = loader.LoadFromFile(input)
+		if err != nil {
+			return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
+		}
 	}
 
 	// HACK: we need to ensure operations are processed in a consistent order
 	// we need to do some YAML hackery to extract property order
 	// see https://github.com/getkin/kin-openapi/pull/695
-	propertyOrders, err := extractPropertyOrders(specPath)
+	propertyOrders, err := extractPropertyOrders(data)
 	if err != nil {
 		return nil, fmt.Errorf("extracting property orders: %w", err)
 	}
@@ -107,12 +151,7 @@ func schemaIsEmpty(schema *openapi3.Schema) bool {
 }
 
 // extractPropertyOrders parses the YAML to get property order for all schemas
-func extractPropertyOrders(specPath string) (map[string][]string, error) {
-	data, err := os.ReadFile(specPath)
-	if err != nil {
-		return nil, err
-	}
-
+func extractPropertyOrders(data []byte) (map[string][]string, error) {
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {
 		return nil, err

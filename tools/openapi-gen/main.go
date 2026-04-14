@@ -14,7 +14,7 @@ import (
 )
 
 type cli struct {
-	Input     string            `short:"i" help:"Path to OpenAPI spec file." required:"" type:"existingfile"`
+	Input     string            `short:"i" help:"Path or URL to OpenAPI spec file." required:""`
 	Output    string            `short:"o" help:"Output directory for generated files." required:""`
 	Var       map[string]string `short:"v" help:"Set a template variable (e.g. --var package=myapi)." mapsep:","`
 	Templates string            `short:"t" help:"Directory with template overrides." type:"existingdir" required:""`
