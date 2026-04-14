@@ -50,6 +50,9 @@ func readSpec(input string) ([]byte, error) {
 		}
 		return io.ReadAll(resp.Body)
 	}
+	if g := parseGitRef(input); g != nil {
+		return readSpecFromGit(g)
+	}
 	return os.ReadFile(input)
 }
 
@@ -65,7 +68,8 @@ func NewParser(input string) (*Parser, error) {
 	loader.IsExternalRefsAllowed = true
 
 	var doc *openapi3.T
-	if isURL(input) {
+	switch {
+	case isURL(input):
 		u, err := url.Parse(input)
 		if err != nil {
 			return nil, fmt.Errorf("parsing spec URL: %w", err)
@@ -74,7 +78,12 @@ func NewParser(input string) (*Parser, error) {
 		if err != nil {
 			return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
 		}
-	} else {
+	case parseGitRef(input) != nil:
+		doc, err = loader.LoadFromData(data)
+		if err != nil {
+			return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
+		}
+	default:
 		doc, err = loader.LoadFromFile(input)
 		if err != nil {
 			return nil, fmt.Errorf("loading OpenAPI spec: %w", err)

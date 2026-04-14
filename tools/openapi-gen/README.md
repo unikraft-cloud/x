@@ -22,9 +22,19 @@ go run unikraft.com/x/tools/openapi-gen@latest \
   -t ./templates/go-client
 ```
 
+Or a Git repository reference (cloned via SSH, falling back to HTTPS):
+
+```sh
+go run unikraft.com/x/tools/openapi-gen@latest \
+  -i github.com/org/repo@main#file=path/to/openapi.yaml \
+  -o ./gen \
+  -s package=myapi \
+  -t ./templates/go-client
+```
+
 | Flag          | Short | Description                                                  |
 | ------------- | ----- | ------------------------------------------------------------ |
-| `--input`     | `-i`  | Path or URL to the OpenAPI spec file (required)              |
+| `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)         |
 | `--output`    | `-o`  | Output directory for generated files (required)              |
 | `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)          |
 | `--templates` | `-t`  | Directory containing template overrides (optional)           |
