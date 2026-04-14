@@ -6,7 +6,9 @@
 package main
 
 import (
+	"fmt"
 	"slices"
+	"sort"
 	"strings"
 	"text/template"
 	"unicode"
@@ -74,6 +76,14 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 
 	// Helper to wrap comments at a certain width
 	funcs["wrapComment"] = tf.wrapComment
+
+	funcs["safeName"] = safeName
+	funcs["enumBaseType"] = tf.enumBaseType
+	funcs["enumValue"] = tf.enumValue
+	funcs["inlineEnums"] = tf.inlineEnums
+	funcs["sortedResponseCodes"] = sortedResponseCodes
+	funcs["sortedContentTypes"] = sortedContentTypes
+	funcs["uniqueTags"] = uniqueTags
 
 	return funcs
 }
@@ -162,6 +172,64 @@ func (tf *templateFuncs) collectImports(schema *openapi3.Schema) []string {
 // isEnum checks if schema is an enum
 func (tf *templateFuncs) isEnum(schema *openapi3.Schema) bool {
 	return schema != nil && len(schema.Enum) > 0
+}
+
+func (tf *templateFuncs) enumBaseType(schema *openapi3.Schema) string {
+	if schema == nil {
+		return "string"
+	}
+
+	switch {
+	case schema.Type.Is("integer"):
+		if schema.Format != "" {
+			return schema.Format
+		}
+		return "int"
+	case schema.Type.Is("number"):
+		if schema.Format == "float" {
+			return "float32"
+		}
+		return "float64"
+	case schema.Type.Is("boolean"):
+		return "bool"
+	default:
+		return "string"
+	}
+}
+
+func (tf *templateFuncs) enumValue(schema *openapi3.Schema, val any) string {
+	if schema != nil && !schema.Type.Is("string") {
+		return fmt.Sprintf("%v", val)
+	}
+	return fmt.Sprintf("%q", fmt.Sprintf("%v", val))
+}
+
+type inlineEnum struct {
+	Name   string
+	Schema *openapi3.Schema
+}
+
+func (tf *templateFuncs) inlineEnums(schemaName string, schema *openapi3.Schema) []inlineEnum {
+	if schema == nil {
+		return nil
+	}
+	var result []inlineEnum
+	for _, propName := range tf.propertyNamesOrdered(schemaName, schema) {
+		prop := tf.getProperty(schema, propName)
+		if prop == nil {
+			continue
+		}
+		if len(prop.Enum) > 0 && prop.Title != "" {
+			result = append(result, inlineEnum{Name: prop.Title, Schema: prop})
+		}
+		if prop.Type != nil && prop.Type.Is("array") && prop.Items != nil && prop.Items.Value != nil {
+			item := prop.Items.Value
+			if len(item.Enum) > 0 && item.Title != "" {
+				result = append(result, inlineEnum{Name: item.Title, Schema: item})
+			}
+		}
+	}
+	return result
 }
 
 // isType checks if schema is a specific type
@@ -560,6 +628,102 @@ func capitalize(s string) string {
 	}
 	r, size := utf8.DecodeRuneInString(s)
 	return string(unicode.ToUpper(r)) + s[size:]
+}
+
+var goReservedWords = []string{
+	"break",
+	"case",
+	"chan",
+	"const",
+	"continue",
+	"default",
+	"defer",
+	"else",
+	"fallthrough",
+	"for",
+	"func",
+	"go",
+	"goto",
+	"if",
+	"import",
+	"interface",
+	"map",
+	"package",
+	"range",
+	"return",
+	"select",
+	"struct",
+	"switch",
+	"type",
+	"var",
+}
+
+func safeName(s string) string {
+	if _, found := slices.BinarySearch(goReservedWords, s); found {
+		return "_" + s
+	}
+	return s
+}
+
+// ResponseEntry is a code/ref pair for deterministic template iteration.
+type ResponseEntry struct {
+	Code string
+	Ref  *openapi3.ResponseRef
+}
+
+// sortedResponseCodes returns response entries sorted by status code.
+func sortedResponseCodes(responses *openapi3.Responses) []ResponseEntry {
+	if responses == nil {
+		return nil
+	}
+	m := responses.Map()
+	entries := make([]ResponseEntry, 0, len(m))
+	for code, ref := range m {
+		entries = append(entries, ResponseEntry{Code: code, Ref: ref})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Code < entries[j].Code
+	})
+	return entries
+}
+
+// ContentEntry is a content-type/media pair for deterministic template iteration.
+type ContentEntry struct {
+	Type  string
+	Media *openapi3.MediaType
+}
+
+// sortedContentTypes returns content entries sorted by media type.
+func sortedContentTypes(content openapi3.Content) []ContentEntry {
+	if content == nil {
+		return nil
+	}
+	entries := make([]ContentEntry, 0, len(content))
+	for ct, media := range content {
+		entries = append(entries, ContentEntry{Type: ct, Media: media})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Type < entries[j].Type
+	})
+	return entries
+}
+
+// uniqueTags returns deduplicated, sorted tags from operations.
+func uniqueTags(operations []PathOperation) []string {
+	seen := make(map[string]bool)
+	var tags []string
+	for _, op := range operations {
+		if op.Operation != nil && len(op.Operation.Tags) > 0 {
+			for _, tag := range op.Operation.Tags {
+				if !seen[tag] {
+					seen[tag] = true
+					tags = append(tags, tag)
+				}
+			}
+		}
+	}
+	sort.Strings(tags)
+	return tags
 }
 
 // capitalizeEnum handles enum constant naming for top-level enum schemas
