@@ -10,8 +10,10 @@ import (
 	"embed"
 	"fmt"
 	"go/format"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -78,7 +80,7 @@ type Generator struct {
 }
 
 // NewGenerator creates a new code generator
-func NewGenerator(specPath, packageName string) (*Generator, error) {
+func NewGenerator(specPath, packageName, templateDir string) (*Generator, error) {
 	parser, err := NewParser(specPath, packageName)
 	if err != nil {
 		return nil, fmt.Errorf("creating parser: %w", err)
@@ -86,15 +88,52 @@ func NewGenerator(specPath, packageName string) (*Generator, error) {
 
 	Preprocess(parser.doc, parser)
 
-	tmpl, err := template.
-		New("").
-		Funcs(templateFuncs{parser}.Funcs()).
-		ParseFS(templatesFS, "templates/*.tmpl")
+	tmpl, err := loadTemplates(parser, templateDir)
 	if err != nil {
-		return nil, fmt.Errorf("loading templates: %w", err)
+		return nil, err
 	}
 
 	return &Generator{parser: parser, templates: tmpl}, nil
+}
+
+func loadTemplates(parser *Parser, templateDir string) (*template.Template, error) {
+	tmpl := template.New("").
+		Funcs(templateFuncs{parser}.Funcs())
+
+	if templateDir == "" {
+		return tmpl.ParseFS(templatesFS, "templates/*.tmpl")
+	}
+
+	files, err := findTemplateFiles(templateDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no templates found in %s", templateDir)
+	}
+	return tmpl.ParseFiles(files...)
+}
+
+func findTemplateFiles(templateDir string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(templateDir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(entry.Name(), ".tmpl") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walking template directory: %w", err)
+	}
+
+	sort.Strings(files)
+	return files, nil
 }
 
 func (g *Generator) GenerateModels() []GeneratedFile {
