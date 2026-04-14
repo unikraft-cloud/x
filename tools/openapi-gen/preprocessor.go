@@ -47,6 +47,9 @@ func Preprocess(doc *openapi3.T, parser *Parser) {
 		p.gatherInlineModels(schemaRef.Value, name)
 	}
 
+	// Process inline request/response body schemas in operations
+	p.processOperationSchemas()
+
 	// Clean up orphaned schemas
 	p.removeOrphanedSchemas()
 }
@@ -315,6 +318,58 @@ func (p *preprocessor) removeOrphanedSchemas() {
 		}
 	}
 
+	// Also scan operation request/response bodies for references
+	for _, pathItem := range p.doc.Paths.Map() {
+		ops := []*openapi3.Operation{
+			pathItem.Get,
+			pathItem.Post,
+			pathItem.Put,
+			pathItem.Delete,
+			pathItem.Patch,
+		}
+
+		for _, op := range ops {
+			if op == nil {
+				continue
+			}
+
+			// Check request body
+			if op.RequestBody != nil && op.RequestBody.Value != nil {
+				for _, content := range op.RequestBody.Value.Content {
+					if content.Schema != nil {
+						if content.Schema.Ref != "" {
+							refName := extractTypeFromRef(content.Schema.Ref)
+							referenced[refName] = true
+						}
+						if content.Schema.Value != nil {
+							p.collectReferences(content.Schema.Value, referenced)
+						}
+					}
+				}
+			}
+
+			// Check responses
+			if op.Responses != nil {
+				for _, respRef := range op.Responses.Map() {
+					if respRef == nil || respRef.Value == nil {
+						continue
+					}
+					for _, content := range respRef.Value.Content {
+						if content.Schema != nil {
+							if content.Schema.Ref != "" {
+								refName := extractTypeFromRef(content.Schema.Ref)
+								referenced[refName] = true
+							}
+							if content.Schema.Value != nil {
+								p.collectReferences(content.Schema.Value, referenced)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Remove created schemas that are not referenced
 	for schemaName := range p.createdSchemas {
 		if referenced[schemaName] {
@@ -394,6 +449,139 @@ func (p *preprocessor) collectReferences(schema *openapi3.Schema, referenced map
 		}
 		if schema.AdditionalProperties.Schema.Value != nil {
 			p.collectReferences(schema.AdditionalProperties.Schema.Value, referenced)
+		}
+	}
+}
+
+// processOperationSchemas extracts inline schemas from request/response bodies
+func (p *preprocessor) processOperationSchemas() {
+	for _, pathItem := range p.doc.Paths.Map() {
+		ops := []*openapi3.Operation{
+			pathItem.Get,
+			pathItem.Post,
+			pathItem.Put,
+			pathItem.Delete,
+			pathItem.Patch,
+		}
+
+		for _, op := range ops {
+			if op == nil || op.OperationID == "" {
+				continue
+			}
+
+			// Process request body
+			if op.RequestBody != nil && op.RequestBody.Value != nil {
+				content := op.RequestBody.Value.Content.Get("application/json")
+				if content != nil && content.Schema != nil {
+					p.processInlineSchema(content.Schema, op.OperationID, "Request")
+				}
+
+				// Handle binary uploads - create a simple schema with type: string, format: binary
+				// This will be mapped to []byte or io.Reader in the Go code
+				binaryContent := op.RequestBody.Value.Content.Get("application/octet-stream")
+				if binaryContent != nil && binaryContent.Schema != nil && binaryContent.Schema.Value != nil {
+					// Don't create a separate schema for binary - just ensure it has a proper type
+					// The template will handle binary specially
+					if binaryContent.Schema.Value.Type == nil || !binaryContent.Schema.Value.Type.Is("string") {
+						binaryContent.Schema.Value.Type = &openapi3.Types{"string"}
+					}
+					if binaryContent.Schema.Value.Format == "" {
+						binaryContent.Schema.Value.Format = "binary"
+					}
+				}
+			}
+
+			// Process response bodies
+			if op.Responses != nil {
+				defaultResp := op.Responses.Default()
+				if defaultResp != nil && defaultResp.Value != nil {
+					respContent := defaultResp.Value.Content.Get("application/json")
+					if respContent != nil && respContent.Schema != nil {
+						p.processInlineSchema(respContent.Schema, op.OperationID, "Response")
+					}
+				}
+			}
+		}
+	}
+}
+
+// processInlineSchema converts an inline schema to a ref by creating a new schema
+func (p *preprocessor) processInlineSchema(schemaRef *openapi3.SchemaRef, opID, suffix string) {
+	if schemaRef == nil || schemaRef.Value == nil {
+		return
+	}
+
+	// Skip if it's already a ref
+	if schemaRef.Ref != "" {
+		return
+	}
+
+	schema := schemaRef.Value
+
+	// Only process inline object schemas with properties or arrays of objects
+	if schema.Type == nil {
+		return
+	}
+
+	if schema.Type.Is("object") && len(schema.Properties) > 0 {
+		// Create a new schema name based on the operation ID
+		schemaName := opID + suffix
+
+		// Clone the schema
+		inlineSchema := p.cloneSchema(schema)
+		p.setInlineSchemaTypeNames(inlineSchema, schemaName)
+
+		// Add to components/schemas
+		p.doc.Components.Schemas[schemaName] = &openapi3.SchemaRef{
+			Value: inlineSchema,
+		}
+
+		// Track that we created this schema
+		p.createdSchemas[schemaName] = true
+
+		// Extract property order from the inline schema
+		propOrder := make([]string, 0, len(schema.Properties))
+		for propName := range schema.Properties {
+			propOrder = append(propOrder, propName)
+		}
+		if len(propOrder) > 0 {
+			p.parser.SetPropertyOrder(schemaName, propOrder)
+		}
+
+		// Replace with a ref
+		schemaRef.Ref = "#/components/schemas/" + schemaName
+		schemaRef.Value = nil
+	} else if schema.Type.Is("array") && schema.Items != nil && schema.Items.Value != nil {
+		// Handle inline array item schemas
+		itemSchema := schema.Items.Value
+		if itemSchema.Type != nil && itemSchema.Type.Is("object") && len(itemSchema.Properties) > 0 {
+			// Create a new schema name for the array items
+			schemaName := opID + suffix + "Item"
+
+			// Clone the item schema
+			inlineSchema := p.cloneSchema(itemSchema)
+			p.setInlineSchemaTypeNames(inlineSchema, schemaName)
+
+			// Add to components/schemas
+			p.doc.Components.Schemas[schemaName] = &openapi3.SchemaRef{
+				Value: inlineSchema,
+			}
+
+			// Track that we created this schema
+			p.createdSchemas[schemaName] = true
+
+			// Extract property order
+			propOrder := make([]string, 0, len(itemSchema.Properties))
+			for propName := range itemSchema.Properties {
+				propOrder = append(propOrder, propName)
+			}
+			if len(propOrder) > 0 {
+				p.parser.SetPropertyOrder(schemaName, propOrder)
+			}
+
+			// Replace items with a ref
+			schema.Items.Ref = "#/components/schemas/" + schemaName
+			schema.Items.Value = nil
 		}
 	}
 }
