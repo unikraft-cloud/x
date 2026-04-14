@@ -25,12 +25,18 @@ const base = {
                 "chore",
             ],
         ],
+
         // enforce sentence case for subject
         "subject-case": [RuleConfigSeverity.Error, "always", ["sentence-case"]],
         // leading blanks aren't super useful
         "body-leading-blank": [RuleConfigSeverity.Disabled],
         // HACK: this detects false positives, see https://github.com/conventional-changelog/commitlint/issues/3129
         "footer-leading-blank": [RuleConfigSeverity.Disabled],
+
+        // line lengths
+        "header-max-length": [RuleConfigSeverity.Error, "always", 74],
+        "body-max-line-length": [RuleConfigSeverity.Error, "always", 74],
+        "footer-max-line-length": [RuleConfigSeverity.Error, "always", 74],
     },
 };
 
@@ -40,10 +46,7 @@ if (process.env.PR) {
         ...base,
         rules: {
             ...base.rules,
-
-            "header-max-length": [RuleConfigSeverity.Error, "always", 75],
-            "body-max-line-length": [RuleConfigSeverity.Error, "always", 75],
-            "footer-max-line-length": [RuleConfigSeverity.Error, "always", 75],
+            "header-max-length": [RuleConfigSeverity.Error, "always", 70],
         },
     };
 } else {
@@ -51,11 +54,6 @@ if (process.env.PR) {
         ...base,
         rules: {
             ...base.rules,
-
-            "header-max-length": [RuleConfigSeverity.Error, "always", 74],
-            "body-max-line-length": [RuleConfigSeverity.Error, "always", 74],
-            "footer-max-line-length": [RuleConfigSeverity.Error, "always", 74],
-
             "signed-off-by": [RuleConfigSeverity.Error, "always", "Signed-off-by:"],
         },
     };
