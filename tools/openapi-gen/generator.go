@@ -16,12 +16,23 @@ import (
 	"sort"
 	"strings"
 	"text/template"
-
-	"github.com/ettle/strcase"
 )
 
 //go:embed templates/*.tmpl
 var templatesFS embed.FS
+
+func embeddedTemplateNames() ([]string, error) {
+	files, err := fs.Glob(templatesFS, "templates/*.tmpl")
+	if err != nil {
+		return nil, fmt.Errorf("finding embedded templates: %w", err)
+	}
+
+	names := make([]string, 0, len(files))
+	for _, file := range files {
+		names = append(names, filepath.Base(file))
+	}
+	return names, nil
+}
 
 // GeneratedFile represents a file to be generated from a template
 type GeneratedFile struct {
@@ -46,6 +57,40 @@ func (f *GeneratedFile) Generate(templates *template.Template, outputDir string)
 		return nil
 	}
 
+	preamble, sections, ok, err := splitFileMarkers(buf.Bytes())
+	if err != nil {
+		return err
+	}
+	if ok {
+		baseFilename := outputFilename(f.Basename, f.TemplateName)
+		if len(bytes.TrimSpace(preamble)) != 0 {
+			formatted, err := format.Source(preamble)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", baseFilename, err)
+				fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", string(preamble))
+				return fmt.Errorf("formatting code: %w", err)
+			}
+			if err := os.WriteFile(filepath.Join(outputDir, baseFilename), formatted, 0o644); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+			fmt.Printf("Generated %s\n", baseFilename)
+		}
+		for _, section := range sections {
+			formatted, err := format.Source(section.content)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", section.name, err)
+				fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", string(section.content))
+				return fmt.Errorf("formatting code: %w", err)
+			}
+			filename := applyVariantToFilename(baseFilename, section.name)
+			if err := os.WriteFile(filepath.Join(outputDir, filename), formatted, 0o644); err != nil {
+				return fmt.Errorf("writing file: %w", err)
+			}
+			fmt.Printf("Generated %s\n", filename)
+		}
+		return nil
+	}
+
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", f.TemplateName, err)
@@ -53,17 +98,7 @@ func (f *GeneratedFile) Generate(templates *template.Template, outputDir string)
 		return fmt.Errorf("formatting code: %w", err)
 	}
 
-	filename := f.Basename
-	if filename == "" {
-		filename = strings.TrimSuffix(f.TemplateName, ".tmpl")
-	}
-	if !strings.Contains(filename, ".gen") {
-		if name, ext, ok := strings.Cut(filename, "."); ok {
-			filename = name + ".gen." + ext
-		} else {
-			filename += ".gen"
-		}
-	}
+	filename := outputFilename(f.Basename, f.TemplateName)
 
 	if err := os.WriteFile(filepath.Join(outputDir, filename), formatted, 0o644); err != nil {
 		return fmt.Errorf("writing file: %w", err)
@@ -73,10 +108,28 @@ func (f *GeneratedFile) Generate(templates *template.Template, outputDir string)
 	return nil
 }
 
+func outputFilename(basename, templateName string) string {
+	filename := basename
+	if filename == "" {
+		filename = strings.TrimSuffix(templateName, ".tmpl")
+	}
+	if !strings.Contains(filename, ".gen") {
+		if name, ext, ok := strings.Cut(filename, "."); ok {
+			filename = name + ".gen." + ext
+		} else {
+			filename += ".gen"
+		}
+	}
+	return filename
+}
+
 // Generator handles code generation from OpenAPI specs
 type Generator struct {
-	parser    *Parser
-	templates *template.Template
+	parser        *Parser
+	templates     *template.Template
+	templateNames []string
+	operations    []PathOperation
+	models        []Model
 }
 
 // NewGenerator creates a new code generator
@@ -88,30 +141,51 @@ func NewGenerator(specPath, packageName, templateDir string) (*Generator, error)
 
 	Preprocess(parser.doc, parser)
 
-	tmpl, err := loadTemplates(parser, templateDir)
+	tmpl, templateNames, err := loadTemplates(parser, templateDir)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Generator{parser: parser, templates: tmpl}, nil
+	return &Generator{
+		parser:        parser,
+		templates:     tmpl,
+		templateNames: templateNames,
+		operations:    parser.ParseOperations(),
+		models:        parser.ParseModels(),
+	}, nil
 }
 
-func loadTemplates(parser *Parser, templateDir string) (*template.Template, error) {
-	tmpl := template.New("").
-		Funcs(templateFuncs{parser}.Funcs())
+func loadTemplates(parser *Parser, templateDir string) (*template.Template, []string, error) {
+	tmpl := template.New("").Funcs(templateFuncs{parser}.Funcs())
 
-	if templateDir == "" {
-		return tmpl.ParseFS(templatesFS, "templates/*.tmpl")
+	if templateDir != "" {
+		files, err := findTemplateFiles(templateDir)
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(files) == 0 {
+			return nil, nil, fmt.Errorf("no templates found in %s", templateDir)
+		}
+		if _, err := tmpl.ParseFiles(files...); err != nil {
+			return nil, nil, fmt.Errorf("loading template overrides: %w", err)
+		}
+		names := make([]string, 0, len(files))
+		for _, file := range files {
+			names = append(names, filepath.Base(file))
+		}
+		return tmpl, names, nil
 	}
 
-	files, err := findTemplateFiles(templateDir)
+	if _, err := tmpl.ParseFS(templatesFS, "templates/*.tmpl"); err != nil {
+		return nil, nil, fmt.Errorf("loading templates: %w", err)
+	}
+
+	names, err := embeddedTemplateNames()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no templates found in %s", templateDir)
-	}
-	return tmpl.ParseFiles(files...)
+
+	return tmpl, names, nil
 }
 
 func findTemplateFiles(templateDir string) ([]string, error) {
@@ -136,56 +210,27 @@ func findTemplateFiles(templateDir string) ([]string, error) {
 	return files, nil
 }
 
-func (g *Generator) GenerateModels() []GeneratedFile {
-	modelFiles := g.parser.ParseModels()
-
-	files := make([]GeneratedFile, 0, len(modelFiles))
-	for _, mf := range modelFiles {
-		files = append(files, GeneratedFile{
-			TemplateName: "model.go.tmpl",
-			Data: map[string]any{
-				"PackageName": g.parser.packageName,
-				"SchemaName":  mf.SchemaName,
-				"Schema":      mf.Schema,
-			},
-			Basename: "model_" + strcase.ToSnake(mf.SchemaName) + ".gen.go",
-		})
+func (g *Generator) GenerateAll() []GeneratedFile {
+	files := []GeneratedFile{}
+	data := TemplateData{
+		PackageName: g.parser.packageName,
+		Operations:  g.operations,
+		Models:      g.models,
 	}
+
+	for _, templateName := range g.templateNames {
+		tmpl := g.templates.Lookup(templateName)
+		if tmpl == nil {
+			continue
+		}
+		files = append(files, GeneratedFile{TemplateName: templateName, Data: data})
+	}
+
 	return files
 }
 
-func (g *Generator) GenerateClient() GeneratedFile {
-	operations := g.parser.ParseOperations()
-
-	data := g.packageData()
-	data["Operations"] = operations
-	return GeneratedFile{TemplateName: "client.go.tmpl", Data: data}
-}
-
-func (g *Generator) GenerateClientMethodOpts() GeneratedFile {
-	operations := g.parser.ParseOperations()
-
-	data := g.packageData()
-	data["Operations"] = operations
-	return GeneratedFile{TemplateName: "client_method_opts.go.tmpl", Data: data}
-}
-
-func (g *Generator) GenerateRequest() GeneratedFile {
-	return GeneratedFile{TemplateName: "request.go.tmpl", Data: g.packageData()}
-}
-
-func (g *Generator) GenerateResponse() GeneratedFile {
-	return GeneratedFile{TemplateName: "response.go.tmpl", Data: g.packageData()}
-}
-
-func (g *Generator) GenerateClientOptions() GeneratedFile {
-	return GeneratedFile{TemplateName: "client_options.go.tmpl", Data: g.packageData()}
-}
-
-func (g *Generator) GenerateHTTPAPIErrors() GeneratedFile {
-	return GeneratedFile{TemplateName: "http_api_errors.go.tmpl", Data: g.packageData()}
-}
-
-func (g *Generator) packageData() map[string]any {
-	return map[string]any{"PackageName": g.parser.packageName}
+type TemplateData struct {
+	PackageName string
+	Operations  []PathOperation
+	Models      []Model
 }

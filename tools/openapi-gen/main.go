@@ -41,18 +41,7 @@ func run(cli *cli) error {
 		return fmt.Errorf("error creating output directory: %w", err)
 	}
 
-	var files []GeneratedFile
-
-	files = append(files, generator.GenerateModels()...)
-	files = append(files, generator.GenerateClient())
-	files = append(files, generator.GenerateClientMethodOpts())
-
-	files = append(files,
-		generator.GenerateRequest(),
-		generator.GenerateResponse(),
-		generator.GenerateClientOptions(),
-		generator.GenerateHTTPAPIErrors(),
-	)
+	files := generator.GenerateAll()
 
 	for _, file := range files {
 		if err := file.Generate(generator.templates, cli.Output); err != nil {
