@@ -23,8 +23,8 @@ type cli struct {
 func main() {
 	var cli cli
 	ctx := kong.Parse(&cli,
-		kong.Name("codegen"),
-		kong.Description("Generate Go SDK code from OpenAPI spec"),
+		kong.Name("openapi-gen"),
+		kong.Description("Generate code from templates and an OpenAPI spec"),
 		kong.Help(kingkong.HelpPrinter("")),
 	)
 	err := run(&cli)
