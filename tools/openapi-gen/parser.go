@@ -18,7 +18,6 @@ import (
 // Parser handles parsing OpenAPI specs into our template data structures
 type Parser struct {
 	doc            *openapi3.T
-	packageName    string
 	propertyOrders map[string][]string // schemaName -> ordered property names
 }
 
@@ -29,7 +28,7 @@ type Model struct {
 }
 
 // NewParser creates a new OpenAPI parser
-func NewParser(specPath, packageName string) (*Parser, error) {
+func NewParser(specPath string) (*Parser, error) {
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
 
@@ -48,7 +47,6 @@ func NewParser(specPath, packageName string) (*Parser, error) {
 
 	return &Parser{
 		doc:            doc,
-		packageName:    packageName,
 		propertyOrders: propertyOrders,
 	}, nil
 }
@@ -231,10 +229,17 @@ func extractPropertiesFromSchema(node *yaml.Node) []string {
 
 // PathOperation pairs an openapi3.Operation with its path and method
 type PathOperation struct {
-	Path        string
-	Method      string
-	Operation   *openapi3.Operation
-	PackageName string
+	Path      string
+	Method    string
+	Operation *openapi3.Operation
+	vars      map[string]string
+}
+
+func (o PathOperation) Var(key, fallback string) string {
+	if v, ok := o.vars[key]; ok {
+		return v
+	}
+	return fallback
 }
 
 // ParseOperations extracts all operations from the OpenAPI spec
@@ -264,10 +269,9 @@ func (p *Parser) ParseOperations() []PathOperation {
 				continue
 			}
 			operations = append(operations, PathOperation{
-				Path:        path,
-				Method:      o.method,
-				Operation:   o.op,
-				PackageName: p.packageName,
+				Path:      path,
+				Method:    o.method,
+				Operation: o.op,
 			})
 		}
 	}

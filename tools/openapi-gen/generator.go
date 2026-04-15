@@ -128,13 +128,13 @@ type Generator struct {
 	parser        *Parser
 	templates     *template.Template
 	templateNames []string
+	vars          map[string]string
 	operations    []PathOperation
 	models        []Model
 }
 
-// NewGenerator creates a new code generator
-func NewGenerator(specPath, packageName, templateDir string) (*Generator, error) {
-	parser, err := NewParser(specPath, packageName)
+func NewGenerator(specPath string, vars map[string]string, templateDir string) (*Generator, error) {
+	parser, err := NewParser(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating parser: %w", err)
 	}
@@ -150,6 +150,7 @@ func NewGenerator(specPath, packageName, templateDir string) (*Generator, error)
 		parser:        parser,
 		templates:     tmpl,
 		templateNames: templateNames,
+		vars:          vars,
 		operations:    parser.ParseOperations(),
 		models:        parser.ParseModels(),
 	}, nil
@@ -212,10 +213,17 @@ func findTemplateFiles(templateDir string) ([]string, error) {
 
 func (g *Generator) GenerateAll() []GeneratedFile {
 	files := []GeneratedFile{}
+
+	// Propagate vars to each operation so define blocks can access
+	// them via .Var inside templates.
+	for i := range g.operations {
+		g.operations[i].vars = g.vars
+	}
+
 	data := TemplateData{
-		PackageName: g.parser.packageName,
-		Operations:  g.operations,
-		Models:      g.models,
+		vars:       g.vars,
+		Operations: g.operations,
+		Models:     g.models,
 	}
 
 	for _, templateName := range g.templateNames {
@@ -230,7 +238,14 @@ func (g *Generator) GenerateAll() []GeneratedFile {
 }
 
 type TemplateData struct {
-	PackageName string
-	Operations  []PathOperation
-	Models      []Model
+	vars       map[string]string
+	Operations []PathOperation
+	Models     []Model
+}
+
+func (d TemplateData) Var(key, fallback string) string {
+	if v, ok := d.vars[key]; ok {
+		return v
+	}
+	return fallback
 }
