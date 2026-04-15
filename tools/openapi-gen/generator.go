@@ -7,7 +7,6 @@ package main
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"go/format"
 	"io/fs"
@@ -17,22 +16,6 @@ import (
 	"strings"
 	"text/template"
 )
-
-//go:embed templates/*.tmpl
-var templatesFS embed.FS
-
-func embeddedTemplateNames() ([]string, error) {
-	files, err := fs.Glob(templatesFS, "templates/*.tmpl")
-	if err != nil {
-		return nil, fmt.Errorf("finding embedded templates: %w", err)
-	}
-
-	names := make([]string, 0, len(files))
-	for _, file := range files {
-		names = append(names, filepath.Base(file))
-	}
-	return names, nil
-}
 
 // GeneratedFile represents a file to be generated from a template
 type GeneratedFile struct {
@@ -157,33 +140,28 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 }
 
 func loadTemplates(parser *Parser, templateDir string) (*template.Template, []string, error) {
-	tmpl := template.New("").Funcs(templateFuncs{parser}.Funcs())
-
-	if templateDir != "" {
-		files, err := findTemplateFiles(templateDir)
-		if err != nil {
-			return nil, nil, err
-		}
-		if len(files) == 0 {
-			return nil, nil, fmt.Errorf("no templates found in %s", templateDir)
-		}
-		if _, err := tmpl.ParseFiles(files...); err != nil {
-			return nil, nil, fmt.Errorf("loading template overrides: %w", err)
-		}
-		names := make([]string, 0, len(files))
-		for _, file := range files {
-			names = append(names, filepath.Base(file))
-		}
-		return tmpl, names, nil
+	if templateDir == "" {
+		return nil, nil, fmt.Errorf("template directory not specified")
 	}
 
-	if _, err := tmpl.ParseFS(templatesFS, "templates/*.tmpl"); err != nil {
-		return nil, nil, fmt.Errorf("loading templates: %w", err)
-	}
-
-	names, err := embeddedTemplateNames()
+	files, err := findTemplateFiles(templateDir)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(files) == 0 {
+		return nil, nil, fmt.Errorf("no templates found in %s", templateDir)
+	}
+
+	tmpl := template.New("").Funcs(templateFuncs{parser}.Funcs())
+
+	if _, err := tmpl.ParseFiles(files...); err != nil {
+		return nil, nil, fmt.Errorf("loading template overrides: %w", err)
+	}
+
+	names := make([]string, 0, len(files))
+	for _, file := range files {
+		names = append(names, filepath.Base(file))
 	}
 
 	return tmpl, names, nil
