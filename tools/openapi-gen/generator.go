@@ -24,6 +24,33 @@ type GeneratedFile struct {
 	Basename     string
 }
 
+func formatSource(src []byte, filename string) ([]byte, error) {
+	switch filepath.Ext(filename) {
+	case ".go":
+		formatted, err := format.Source(src)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", filename, err)
+			fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", string(src))
+			return nil, fmt.Errorf("formatting code: %w", err)
+		}
+		return formatted, nil
+	default:
+		return src, nil
+	}
+}
+
+func writeGenerated(data []byte, filename, outputDir string) error {
+	formatted, err := formatSource(data, filename)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, filename), formatted, 0o644); err != nil {
+		return fmt.Errorf("writing file: %w", err)
+	}
+	fmt.Printf("Generated %s\n", filename)
+	return nil
+}
+
 // Generate writes the generated file to the specified directory
 func (f *GeneratedFile) Generate(templates *template.Template, outputDir string) error {
 	tmpl := templates.Lookup(f.TemplateName)
@@ -36,7 +63,6 @@ func (f *GeneratedFile) Generate(templates *template.Template, outputDir string)
 		return fmt.Errorf("executing template: %w", err)
 	}
 	if len(bytes.TrimSpace(buf.Bytes())) == 0 {
-		// skip if template produced no output
 		return nil
 	}
 
@@ -47,48 +73,21 @@ func (f *GeneratedFile) Generate(templates *template.Template, outputDir string)
 	if ok {
 		baseFilename := outputFilename(f.Basename, f.TemplateName)
 		if len(bytes.TrimSpace(preamble)) != 0 {
-			formatted, err := format.Source(preamble)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", baseFilename, err)
-				fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", string(preamble))
-				return fmt.Errorf("formatting code: %w", err)
+			if err := writeGenerated(preamble, baseFilename, outputDir); err != nil {
+				return err
 			}
-			if err := os.WriteFile(filepath.Join(outputDir, baseFilename), formatted, 0o644); err != nil {
-				return fmt.Errorf("writing file: %w", err)
-			}
-			fmt.Printf("Generated %s\n", baseFilename)
 		}
 		for _, section := range sections {
-			formatted, err := format.Source(section.content)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", section.name, err)
-				fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", string(section.content))
-				return fmt.Errorf("formatting code: %w", err)
-			}
 			filename := applyVariantToFilename(baseFilename, section.name)
-			if err := os.WriteFile(filepath.Join(outputDir, filename), formatted, 0o644); err != nil {
-				return fmt.Errorf("writing file: %w", err)
+			if err := writeGenerated(section.content, filename, outputDir); err != nil {
+				return err
 			}
-			fmt.Printf("Generated %s\n", filename)
 		}
 		return nil
 	}
 
-	formatted, err := format.Source(buf.Bytes())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", f.TemplateName, err)
-		fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", buf.String())
-		return fmt.Errorf("formatting code: %w", err)
-	}
-
 	filename := outputFilename(f.Basename, f.TemplateName)
-
-	if err := os.WriteFile(filepath.Join(outputDir, filename), formatted, 0o644); err != nil {
-		return fmt.Errorf("writing file: %w", err)
-	}
-
-	fmt.Printf("Generated %s\n", filename)
-	return nil
+	return writeGenerated(buf.Bytes(), filename, outputDir)
 }
 
 func outputFilename(basename, templateName string) string {
