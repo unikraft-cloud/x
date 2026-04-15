@@ -7,12 +7,14 @@ modules:
   - tools/protoc-gen-go-struct/testdata/multiple-definitions
   - tools/protoc-gen-go-struct/testdata/self-reference
   - tools/protoc-gen-go-struct/testdata/simple
+  - tools/protoc-gen-go-struct/testdata/tags
   - tools/protoc-gen-go-struct/testdata/well-known-types
 - path: tools/protoc-gen-go-struct/testdata/flag
 - path: tools/protoc-gen-go-struct/testdata/simple
 - path: tools/protoc-gen-go-struct/testdata/multiple-definitions
 - path: tools/protoc-gen-go-struct/testdata/well-known-types
 - path: tools/protoc-gen-go-struct/testdata/self-reference
+- path: tools/protoc-gen-go-struct/testdata/tags
 lint:
   use:
   - STANDARD

@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	flagext "unikraft.com/x/tools/protoc-gen-go-struct/flag"
+	tagsext "unikraft.com/x/tools/protoc-gen-go-struct/tags"
 )
 
 const pluginName = "unikraft.com/x/tools/protoc-gen-go-struct"
@@ -31,6 +31,7 @@ type TemplateData struct {
 	BasePackage     string
 	NativeTime      bool
 	OmitPathParams  bool
+	HelpTag         bool
 	Version         string
 	Package         string
 	GoImportPath    string            // resolved Go import path for the current file
@@ -73,6 +74,7 @@ func main() {
 	basePackage := flags.String("base_package", "", "Base package to prefix imports")
 	nativeTime := flags.Bool("native_time", false, "Use time.Time instead of timestamppb.Timestamp")
 	omitPathParams := flags.Bool("omit_path_params", false, "Omit fields from input messages that are used as path parameters in HTTP methods")
+	helpTag := flags.Bool("help_tag", false, "Add a help struct tag to fields using the Protobuf comment")
 
 	protogen.Options{
 		ParamFunc: flags.Set,
@@ -82,7 +84,7 @@ func main() {
 				continue
 			}
 
-			err := generateFile(plugin, file, *basePackage, *nativeTime, *omitPathParams)
+			err := generateFile(plugin, file, *basePackage, *nativeTime, *omitPathParams, *helpTag)
 			if err != nil {
 				return err
 			}
@@ -92,12 +94,13 @@ func main() {
 	})
 }
 
-func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage string, nativeTime bool, omitPathParams bool) error {
+func generateFile(plugin *protogen.Plugin, file *protogen.File, basePackage string, nativeTime bool, omitPathParams bool, helpTag bool) error {
 	templateData := &TemplateData{
 		PluginName:      pluginName,
 		BasePackage:     basePackage,
 		NativeTime:      nativeTime,
 		OmitPathParams:  omitPathParams,
+		HelpTag:         helpTag,
 		Package:         string(file.GoPackageName),
 		GoImportPath:    resolveImportPath(string(file.Desc.Path()), basePackage),
 		Imports:         make(map[string]string),
@@ -334,14 +337,16 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 
 			f.Tags = "json:\"" + encodedName + "\" yaml:\"" + encodedName + "\""
 
-			// Check for flag_name extension
-			if flagName, ok := flagext.GetFlagName(field.Desc.Options()); ok {
-				f.Tags += " flag:\"" + flagName + "\""
+			// Append any custom tags defined via the repeated tags extension.
+			for _, tag := range tagsext.GetTags(field.Desc.Options()) {
+				f.Tags += " " + tag.GetKey() + ":\"" + tag.GetValue() + "\""
 			}
 
-			// Check for flag_default extension
-			if flagDefault, ok := flagext.GetFlagDefault(field.Desc.Options()); ok {
-				f.Tags += " default:\"" + flagDefault + "\""
+			// Add help tag from proto comment if enabled
+			if td.HelpTag {
+				if helpText := cleanComment(field.Comments.Leading.String()); helpText != "" {
+					f.Tags += " help:\"" + helpText + "\""
+				}
 			}
 
 			if field.Desc.IsList() {
@@ -395,6 +400,31 @@ func (td *TemplateData) getStructs(messages ...*protogen.Message) map[string]Str
 	}
 
 	return data
+}
+
+// cleanComment extracts a clean, single-line help string from a protobuf
+// leading comment.  It strips the "// " prefix from each line, joins multiple
+// lines with a space, trims surrounding whitespace, and removes backtick
+// characters that would break Go struct tags.
+func cleanComment(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+
+	var parts []string
+	for line := range strings.SplitSeq(raw, "\n") {
+		line = strings.TrimSpace(line)
+		line = strings.TrimPrefix(line, "//")
+		line = strings.TrimSpace(line)
+		if line != "" {
+			parts = append(parts, line)
+		}
+	}
+
+	result := strings.Join(parts, " ")
+	result = strings.ReplaceAll(result, "`", "'")
+	return result
 }
 
 func camelToSnakeUpper(s string) string {
