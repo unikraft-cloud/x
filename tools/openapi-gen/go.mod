@@ -1,6 +1,6 @@
-module unikraft.com/cloud/sdk/tools/codegen
+module unikraft.com/x/tools/openapi-gen
 
-go 1.24.0
+go 1.26.1
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
