@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/buger/jsonparser v1.1.2
-	github.com/getsentry/sentry-go v0.44.1
+	github.com/getsentry/sentry-go v0.45.1
 	github.com/rs/zerolog v1.35.0
 	github.com/sirupsen/logrus v1.9.4
 	go.opentelemetry.io/otel/log v0.19.0
