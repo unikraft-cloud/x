@@ -12,53 +12,25 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	otelLog "go.opentelemetry.io/otel/log"
-	sdklog "go.opentelemetry.io/otel/sdk/log"
-	"go.opentelemetry.io/otel/sdk/resource"
+	otellog "go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel/trace"
 )
 
-// NewWithOTLP constructs a Logger that fans log writes to both the provided
-// sink and an OTLP HTTP log exporter. Endpoint and credentials are read from
-// the standard OTEL_* environment variables by the SDK.
-//
-// The returned cleanup function flushes and shuts down the batch processor;
-// callers should defer it to avoid dropping buffered records on exit.
-func NewWithOTLP(ctx context.Context, sink io.Writer, typ Type, level Level) (*Logger, func(context.Context) error, error) {
-	noop := func(context.Context) error { return nil }
-	disabled, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv("OTEL_SDK_DISABLED")))
-	if disabled {
-		return New(sink, typ, level), noop, nil
+// NewWithTelemetry constructs a Logger that fans log writes to both the
+// provided sink and an OTLP HTTP log exporter. The logger provider must be
+// configured by unikraft.com/x/telemetry. The provided context is used for
+// extracting trace context when emitting logs.
+func NewWithTelemetry(ctx context.Context, sink io.Writer, typ Type, level Level) (*Logger, error) {
+	provider := otellog.GetLoggerProvider()
+	if provider == nil {
+		return New(sink, typ, level), fmt.Errorf("telemetry not initialized")
 	}
-
-	res, err := resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithTelemetrySDK(),
-		resource.WithHost(),
-	)
-	if err != nil {
-		New(sink, typ, level).Warn().Err(err).Msg("OTEL resource detection partial")
-	}
-	if res == nil {
-		res = resource.Empty()
-	}
-
-	exporter, err := otlploghttp.New(ctx)
-	if err != nil {
-		return New(sink, typ, level), noop, err
-	}
-
-	provider := sdklog.NewLoggerProvider(
-		sdklog.WithResource(res),
-		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter)),
-	)
 
 	otlpWriter := &otlpWriter{
 		ctx:    ctx,
@@ -78,7 +50,50 @@ func NewWithOTLP(ctx context.Context, sink io.Writer, typ Type, level Level) (*L
 		With().
 		Timestamp().
 		Logger()
-	return &logger, provider.Shutdown, nil
+	return &logger, nil
+}
+
+const (
+	TraceIDKey = "trace_id"
+	SpanIDKey  = "span_id"
+)
+
+// WithSpanContext returns a new logger with fields attached from the provided
+// SpanContext. This allows logs to be correlated with traces in OTLP backends.
+func WithSpanContext(logger *Logger, spanCtx trace.SpanContext) *Logger {
+	if !spanCtx.IsValid() {
+		return logger
+	}
+	l := logger.With().
+		Str(TraceIDKey, spanCtx.TraceID().String()).
+		Str(SpanIDKey, spanCtx.SpanID().String()).
+		Logger()
+	return &l
+}
+
+// ctxFromPayload attempts to extract trace context from the log payload.
+func ctxFromPayload(baseCtx context.Context, payload map[string]any) context.Context {
+	traceIDStr := readStringField(payload, TraceIDKey)
+	spanIDStr := readStringField(payload, SpanIDKey)
+
+	if traceIDStr == "" || spanIDStr == "" {
+		return baseCtx
+	}
+
+	traceID, err := trace.TraceIDFromHex(traceIDStr)
+	if err != nil {
+		return baseCtx
+	}
+	spanID, err := trace.SpanIDFromHex(spanIDStr)
+	if err != nil {
+		return baseCtx
+	}
+
+	spanCtx := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: traceID,
+		SpanID:  spanID,
+	})
+	return trace.ContextWithSpanContext(baseCtx, spanCtx)
 }
 
 // otlpWriter bridges zerolog's io.Writer interface to an OTel log record emitter.
@@ -128,6 +143,8 @@ func (w *otlpWriter) writeWithLevel(level zerolog.Level, p []byte) (int, error) 
 		record.SetErr(errors.New(errMsg))
 	}
 
+	ctx := ctxFromPayload(w.ctx, payload)
+
 	attrs := make([]otelLog.KeyValue, 0, len(payload))
 	for key, value := range payload {
 		if otlpSkipKey(key) {
@@ -139,7 +156,7 @@ func (w *otlpWriter) writeWithLevel(level zerolog.Level, p []byte) (int, error) 
 		record.AddAttributes(attrs...)
 	}
 
-	w.logger.Emit(w.ctx, record)
+	w.logger.Emit(ctx, record)
 	return len(p), nil
 }
 
