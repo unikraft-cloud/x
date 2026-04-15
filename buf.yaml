@@ -1,0 +1,21 @@
+version: v2
+modules:
+- path: tools
+  name: buf.build/unikraft/tools
+  excludes:
+  - tools/protoc-gen-go-struct/testdata/flag
+  - tools/protoc-gen-go-struct/testdata/multiple-definitions
+  - tools/protoc-gen-go-struct/testdata/self-reference
+  - tools/protoc-gen-go-struct/testdata/simple
+  - tools/protoc-gen-go-struct/testdata/well-known-types
+- path: tools/protoc-gen-go-struct/testdata/flag
+- path: tools/protoc-gen-go-struct/testdata/simple
+- path: tools/protoc-gen-go-struct/testdata/multiple-definitions
+- path: tools/protoc-gen-go-struct/testdata/well-known-types
+- path: tools/protoc-gen-go-struct/testdata/self-reference
+lint:
+  use:
+  - STANDARD
+  except:
+  - PACKAGE_DIRECTORY_MATCH
+  - PACKAGE_VERSION_SUFFIX
