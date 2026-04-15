@@ -1,4 +1,4 @@
-module unikraft.com/cloud/sdk/tools/codegen
+module unikraft.com/x/tools/openapi-gen
 
 go 1.24.0
 
