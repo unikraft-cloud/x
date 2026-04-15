@@ -30,6 +30,7 @@ use (
 use (
 	./tools/imgtool
 	./tools/kraftfile-schema
+	./tools/openapi-gen
 	./tools/protoc-gen-go-gin
 	./tools/protoc-gen-go-struct
 )
