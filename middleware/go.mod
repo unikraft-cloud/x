@@ -6,7 +6,7 @@ require (
 	codeberg.org/gruf/go-byteutil v1.3.0
 	codeberg.org/gruf/go-fastcopy v1.1.3
 	github.com/getsentry/sentry-go v0.45.1
-	github.com/getsentry/sentry-go/gin v0.44.1
+	github.com/getsentry/sentry-go/gin v0.45.1
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
 	go.opentelemetry.io/otel v1.43.0
