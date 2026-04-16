@@ -4,6 +4,7 @@ go 1.26.1
 // This list is alphabetical and should not be reordered.
 use (
 	./colors
+	./filters
 	./fingerprint
 	./guesstermwidth
 	./iata
