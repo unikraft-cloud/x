@@ -56,7 +56,10 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 
 		tracer := otel.Tracer("unikraft.com/x/middleware")
 		ctx, span := tracer.Start(ctx, "http.request", trace.WithSpanKind(trace.SpanKindServer))
-		span.SetAttributes(attribute.String("http.method", c.Request.Method))
+		span.SetAttributes(
+			attribute.String("http.method", c.Request.Method),
+			attribute.String("http.host", c.Request.Host),
+		)
 
 		// Inject logger with trace correlation fields
 		// These fields are extracted by the OTLP log writer to link logs to traces
@@ -79,6 +82,7 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 
 		attrs := []attribute.KeyValue{
 			attribute.String("http.method", c.Request.Method),
+			attribute.String("http.host", c.Request.Host),
 			attribute.String("http.route", route),
 			attribute.Int("http.status_code", status),
 		}
