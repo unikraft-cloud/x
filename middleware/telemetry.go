@@ -68,6 +68,7 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 		if requestID := RequestID(ctx); requestID != "" {
 			l := reqLogger.With().Str("request_id", requestID).Logger()
 			reqLogger = &l
+			span.SetAttributes(attribute.String("request_id", requestID))
 		}
 		ctx = log.WithLogger(ctx, reqLogger)
 		c.Request = c.Request.WithContext(ctx)
