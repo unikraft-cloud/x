@@ -27,6 +27,9 @@
             },
             "format": {
               "type": "string"
+            },
+            "type": {
+              "type": "string"
             }
           },
           "additionalProperties": true,

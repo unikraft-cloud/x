@@ -6,6 +6,7 @@
 package kraftfile
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -149,6 +150,7 @@ rootfs: ./Dockerfile
 rootfs:
   source: ./initramfs.erofs
   format: erofs
+  type:   erofs
 `
 	requireValidSchema(t, input)
 	doc, err = ParseBytes([]byte(input))
@@ -156,6 +158,47 @@ rootfs:
 	require.NotNil(t, doc.Rootfs)
 	require.Equal(t, "./initramfs.erofs", doc.Rootfs.Source)
 	require.Equal(t, FsTypeErofs, doc.Rootfs.Format)
+	require.Equal(t, SourceTypeErofs, doc.Rootfs.Type)
+}
+
+func TestParseRootfsSourceTypes(t *testing.T) {
+	tests := []struct {
+		name       string
+		typeValue  string
+		sourceType SourceType
+	}{
+		{"oci", "oci", SourceTypeOCI},
+		{"dir", "dir", SourceTypeDirectory},
+		{"file", "file", SourceTypeFile},
+		{"tarball", "tarball", SourceTypeTarball},
+		{"cpio", "cpio", SourceTypeCpio},
+		{"erofs", "erofs", SourceTypeErofs},
+		{"dockerfile", "dockerfile", SourceTypeDockerfile},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := fmt.Sprintf(`spec: v0.7
+rootfs:
+  source: ./initramfs
+  type: %s
+`, tt.typeValue)
+			requireValidSchema(t, input)
+			doc, err := ParseBytes([]byte(input))
+			require.NoError(t, err)
+			require.NotNil(t, doc.Rootfs)
+			require.Equal(t, tt.sourceType, doc.Rootfs.Type)
+		})
+	}
+}
+
+func TestParseRootfsInvalidSourceType(t *testing.T) {
+	input := `spec: v0.7
+rootfs:
+  source: ./initramfs
+  type: 123
+`
+	requireSchemaError(t, input, "type")
 }
 
 func TestParseComponentsAndLibraries(t *testing.T) {
