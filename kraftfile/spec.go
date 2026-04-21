@@ -95,6 +95,9 @@ type FS struct {
 
 	// Format specifies the output format of the fs image.
 	Format FsType `json:"format,omitempty"`
+
+	// Type specifies the type of the source for the fs.
+	Type SourceType `json:"type,omitempty"`
 }
 
 type FsType string
@@ -106,6 +109,22 @@ const (
 
 func (fsType FsType) String() string {
 	return string(fsType)
+}
+
+type SourceType string
+
+const (
+	SourceTypeOCI        = SourceType("oci")
+	SourceTypeDirectory  = SourceType("dir")
+	SourceTypeFile       = SourceType("file")
+	SourceTypeTarball    = SourceType("tarball")
+	SourceTypeCpio       = SourceType("cpio")
+	SourceTypeErofs      = SourceType("erofs")
+	SourceTypeDockerfile = SourceType("dockerfile")
+)
+
+func (sourceType SourceType) String() string {
+	return string(sourceType)
 }
 
 // Volumes supports a string or list of volume entries.
