@@ -544,6 +544,7 @@ func (p *preprocessor) processInlineSchema(schemaRef *openapi3.SchemaRef, opID, 
 		for propName := range schema.Properties {
 			propOrder = append(propOrder, propName)
 		}
+		sort.Strings(propOrder)
 		if len(propOrder) > 0 {
 			p.parser.SetPropertyOrder(schemaName, propOrder)
 		}
@@ -575,6 +576,7 @@ func (p *preprocessor) processInlineSchema(schemaRef *openapi3.SchemaRef, opID, 
 			for propName := range itemSchema.Properties {
 				propOrder = append(propOrder, propName)
 			}
+			sort.Strings(propOrder)
 			if len(propOrder) > 0 {
 				p.parser.SetPropertyOrder(schemaName, propOrder)
 			}
