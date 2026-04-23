@@ -286,7 +286,29 @@ func (fsType *FsType) UnmarshalJSON(data []byte) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("invalid fsType value type %T", raw)
+		return fmt.Errorf("invalid fs value type %T", raw)
+	}
+}
+
+func (srcType *SourceType) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	switch value := raw.(type) {
+	case nil:
+		return nil
+	case string:
+		switch value {
+		case "oci", "dir", "file", "tarball", "cpio", "erofs", "dockerfile":
+			*srcType = SourceType(value)
+		default:
+			return fmt.Errorf("invalid source type %q", value)
+		}
+		return nil
+	default:
+		return fmt.Errorf("invalid source value type %T", raw)
 	}
 }
 
