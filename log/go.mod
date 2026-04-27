@@ -3,7 +3,7 @@ module unikraft.com/x/log
 go 1.26.1
 
 require (
-	github.com/rs/zerolog v1.35.0
+	github.com/rs/zerolog v1.35.1
 	github.com/sirupsen/logrus v1.9.4
 	go.opentelemetry.io/otel/log v0.19.0
 	go.opentelemetry.io/otel/trace v1.43.0
