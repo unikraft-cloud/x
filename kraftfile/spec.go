@@ -107,6 +107,11 @@ const (
 	FsTypeErofs = FsType("erofs")
 )
 
+var FsTypes = []FsType{
+	FsTypeCpio,
+	FsTypeErofs,
+}
+
 func (fsType FsType) String() string {
 	return string(fsType)
 }
@@ -122,6 +127,16 @@ const (
 	SourceTypeErofs      = SourceType("erofs")
 	SourceTypeDockerfile = SourceType("dockerfile")
 )
+
+var SourceTypes = []SourceType{
+	SourceTypeOCI,
+	SourceTypeDirectory,
+	SourceTypeFile,
+	SourceTypeTarball,
+	SourceTypeCpio,
+	SourceTypeErofs,
+	SourceTypeDockerfile,
+}
 
 func (sourceType SourceType) String() string {
 	return string(sourceType)
