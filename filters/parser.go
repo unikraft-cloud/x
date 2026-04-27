@@ -20,19 +20,38 @@ The format is a comma separated list of expressions, in the form of
 `<fieldpath><op><value>`, known as selectors. All selectors must match the
 target object for the filter to be true.
 
-We define the operators "==" for equality, "!=" for not equal and "~=" for a
-regular expression. If the operator and value are not present, the matcher will
-test for the presence of a value, as defined by the target object.
+We define the following operators:
+
+  - "==" (or "=") for equality
+  - "!=" (or "!==") for not equal
+  - "~=" for a regular expression match
+  - "!~=" for a negated regular expression match
+
+If the operator and value are not present, the matcher will test for the
+presence of a value, as defined by the target object.
+
+A wildcard "*" may appear in a field path to iterate over all entries of a
+map or array field. Wildcards can be chained (e.g. "*.*") and may be followed
+by further sub-field paths (e.g. "authors.*.email"). With positive operators
+(==, ~=), the wildcard matches if any entry satisfies the condition. With
+negated operators (!=, !~=), it matches only if all entries satisfy the
+condition.
+
+Values after "~=" or "!~=" may be quoted with "/" or "|" in addition to
+double quotes, which is convenient for patterns containing quotes or
+backslashes (e.g. name~=/[abc]{0,2}/ or path~=|foo/bar|).
 
 The formal grammar is as follows:
 
-selectors := selector ("," selector)*
-selector  := fieldpath (operator value)
-fieldpath := field ('.' field)*
-field     := quoted | [A-Za-z] [A-Za-z0-9_]+
-operator  := "==" | "!=" | "~="
-value     := quoted | [^\s,]+
-quoted    := <go string syntax>
+	selectors := selector ("," selector)*
+	selector  := fieldpath (operator value)?
+	           | fieldpath? "*" ("." selector | operator value)?
+	fieldpath := field ("." field)*
+	field     := quoted | [A-Za-z] [A-Za-z0-9_]+
+	operator  := "=" | "==" | "!=" | "!==" | "~=" | "!~="
+	value     := quoted | regexp-quoted | [^\s,]+
+	quoted    := <go string syntax>
+	regexp-quoted := "/" ... "/" | "|" ... "|"
 */
 func Parse(s string) (Filter, error) {
 	// special case empty to match all
