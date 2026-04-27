@@ -9,6 +9,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -278,12 +279,10 @@ func (fsType *FsType) UnmarshalJSON(data []byte) error {
 	case nil:
 		return nil
 	case string:
-		switch value {
-		case "cpio", "erofs":
-			*fsType = FsType(value)
-		default:
+		if !slices.Contains(FsTypes, FsType(value)) {
 			return fmt.Errorf("invalid fs type %q", value)
 		}
+		*fsType = FsType(value)
 		return nil
 	default:
 		return fmt.Errorf("invalid fs value type %T", raw)
@@ -300,12 +299,10 @@ func (srcType *SourceType) UnmarshalJSON(data []byte) error {
 	case nil:
 		return nil
 	case string:
-		switch value {
-		case "oci", "dir", "file", "tarball", "cpio", "erofs", "dockerfile":
-			*srcType = SourceType(value)
-		default:
+		if !slices.Contains(SourceTypes, SourceType(value)) {
 			return fmt.Errorf("invalid source type %q", value)
 		}
+		*srcType = SourceType(value)
 		return nil
 	default:
 		return fmt.Errorf("invalid source value type %T", raw)
