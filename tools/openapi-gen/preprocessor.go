@@ -196,6 +196,15 @@ func (p *preprocessor) processProperty(parentSchema *openapi3.Schema, propName s
 	}
 	refSchema := refSchemaRef.Value
 
+	// Skip if the referenced schema is a pre-existing top-level component
+	// (not one we created during preprocessing). These should use the direct
+	// reference rather than creating inline copies. The allOf wrapper is only
+	// there to attach a description to the $ref.
+	if !p.createdSchemas[refSchemaName] {
+		parentSchema.Properties[propName] = wrapRefWithDescription(prop.AllOf[0].Ref, prop.Description)
+		return
+	}
+
 	// Skip if the referenced schema has no type and no properties (like GoogleProtobufValue)
 	// These should be mapped to interface{}
 	if refSchema.Type == nil && len(refSchema.Properties) == 0 && len(refSchema.AllOf) == 0 {
