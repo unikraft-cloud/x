@@ -72,7 +72,7 @@ type {{ pascalcase $op.OperationID }}Opts struct {
 {{- with $entry.Ref.Value.Content.Get "application/json" -}}
 {{- if .Schema -}}
 {{- if .Schema.Ref -}}
-{{- $successResp = refToType .Schema.Ref -}}
+{{- $successResp = refName .Schema.Ref -}}
 {{- else if .Schema.Value -}}
 {{- $successResp = schemaToGoType .Schema.Value -}}
 {{- end -}}
@@ -92,7 +92,7 @@ type {{ pascalcase $op.OperationID }}Opts struct {
 {{- if .Schema -}}
 {{- $hasBody = true -}}
 {{- if .Schema.Ref -}}
-{{- $bodyType = refToType .Schema.Ref -}}
+{{- $bodyType = refName .Schema.Ref -}}
 {{- else if .Schema.Value -}}
 {{- $bodyType = schemaToGoType .Schema.Value -}}
 {{- end -}}
@@ -104,12 +104,10 @@ type {{ pascalcase $op.OperationID }}Opts struct {
 {{ if $op.Deprecated }}// Deprecated: This operation is deprecated.
 {{ end -}}
 // {{ pascalcase $op.OperationID }} {{ $op.Summary }}
-//
-// {{ docsURL $op }}
 func (s *{{ pascalcase $svcTag }}Service) {{ pascalcase $op.OperationID }}(ctx context.Context
 {{- range $op.Parameters -}}
 {{- if .Value.Required -}}
-, {{ safeName (camelcase .Value.Name) }} {{ paramToGoType .Value }}
+, {{ goSafeName (camelcase .Value.Name) }} {{ paramToGoType .Value }}
 {{- end -}}
 {{- end -}}
 {{- if $hasBody -}}
@@ -124,7 +122,7 @@ error) {
 	pathParams := map[string]string{
 {{- range $op.Parameters }}
 {{- if eq .Value.In "path" }}
-		"{{ .Value.Name }}": fmt.Sprintf("%v", {{ safeName (camelcase .Value.Name) }}),
+		"{{ .Value.Name }}": fmt.Sprintf("%v", {{ goSafeName (camelcase .Value.Name) }}),
 {{- end }}
 {{- end }}
 	}
@@ -134,7 +132,7 @@ error) {
 {{- range $op.Parameters }}
 {{- if eq .Value.In "query" }}
 {{- if .Value.Required }}
-	addQueryParam(q, "{{ .Value.Name }}", {{ safeName (camelcase .Value.Name) }})
+	addQueryParam(q, "{{ .Value.Name }}", {{ goSafeName (camelcase .Value.Name) }})
 {{- else }}
 	if opts != nil && opts.{{ pascalcase .Value.Name }} != nil {
 		addQueryParam(q, "{{ .Value.Name }}", *opts.{{ pascalcase .Value.Name }})
@@ -165,7 +163,7 @@ error) {
 {{- range $op.Parameters }}
 {{- if eq .Value.In "header" }}
 {{- if .Value.Required }}
-	req.Header.Set("{{ .Value.Name }}", formatHeaderValue({{ safeName (camelcase .Value.Name) }}))
+	req.Header.Set("{{ .Value.Name }}", formatHeaderValue({{ goSafeName (camelcase .Value.Name) }}))
 {{- else }}
 	if opts != nil && opts.{{ pascalcase .Value.Name }} != nil {
 		req.Header.Set("{{ .Value.Name }}", formatHeaderValue(*opts.{{ pascalcase .Value.Name }}))

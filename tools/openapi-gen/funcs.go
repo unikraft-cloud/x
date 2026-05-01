@@ -23,6 +23,8 @@ import (
 // templateFuncs holds the parser and provides template helper functions
 type templateFuncs struct {
 	parser *Parser
+	models *[]Model
+	vars   *map[string]string
 }
 
 // Funcs returns all custom template functions
@@ -36,49 +38,29 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["kebabcase"] = strcase.ToKebab   // overrides sprig
 	funcs["screamingsnakecase"] = strcase.ToSNAKE
 
-	// Add custom functions
+	// Other string helpers
 	funcs["capitalize"] = capitalize
-	funcs["capitalizeEnum"] = capitalizeEnum
-
-	// Add schema helper functions
-	funcs["schemaToGoType"] = tf.schemaToGoType
-	funcs["collectImports"] = tf.collectImports
-
-	// Helper to check if schema is an enum
-	funcs["isEnum"] = tf.isEnum
-
-	// Helper to check if schema is a specific type
-	funcs["isType"] = tf.isType
-
-	// Helper to get OpenAPI type safely
-	funcs["getType"] = tf.getType
-
-	// Helper to get property names in the order they appear in YAML
-	funcs["propertyNamesOrdered"] = tf.propertyNamesOrdered
-
-	// Helper to get a property schema (checking allOf too)
-	funcs["getProperty"] = tf.getProperty
-
-	// Helper to check if a property is required (checking allOf too)
-	funcs["isRequired"] = tf.isRequired
-
-	// Helper to check if a specific property is defined within a oneOf
-	funcs["isInOneOf"] = tf.isInOneOf
-
-	// Helper to extract type from $ref
-	funcs["refToType"] = tf.refToType
-
-	// Helper to generate docs URL from operation
-	funcs["docsURL"] = tf.docsURL
-
-	// Helper to convert OpenAPI parameter to Go type
-	funcs["paramToGoType"] = tf.paramToGoType
-
-	// Helper to wrap comments at a certain width
 	funcs["wrapComment"] = tf.wrapComment
 
-	funcs["safeName"] = safeName
-	funcs["enumBaseType"] = tf.enumBaseType
+	// Type helpers
+	funcs["refName"] = extractTypeFromRef
+	funcs["getType"] = tf.getType
+	funcs["getProperty"] = tf.getProperty
+	funcs["getPropertyRequired"] = tf.getPropertyRequired
+
+	// Ordering helpers :cry:
+	funcs["propertyNamesOrdered"] = tf.propertyNamesOrdered
+
+	// Custom extensions
+	funcs["getTypePackage"] = tf.getTypePackage
+
+	// Add go helpers
+	funcs["schemaToGoType"] = tf.schemaToGoType
+	funcs["paramToGoType"] = tf.paramToGoType
+	funcs["enumBaseGoType"] = tf.enumGoBaseType
+	funcs["goSafeName"] = goSafeName
+
+	// Misc
 	funcs["enumValue"] = tf.enumValue
 	funcs["inlineEnums"] = tf.inlineEnums
 	funcs["sortedResponseCodes"] = sortedResponseCodes
@@ -86,115 +68,6 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["uniqueTags"] = uniqueTags
 
 	return funcs
-}
-
-// schemaToGoType converts an OpenAPI schema to a Go type string
-func (tf *templateFuncs) schemaToGoType(schema *openapi3.Schema) string {
-	return schemaToGoTypeWithParser(schema, tf.parser, false)
-}
-
-// paramToGoType converts OpenAPI parameter to Go type
-func (tf *templateFuncs) paramToGoType(param *openapi3.Parameter) string {
-	return schemaToGoTypeWithParser(param.Schema.Value, tf.parser, true)
-}
-
-// collectImports determines what imports are needed for a schema
-func (tf *templateFuncs) collectImports(schema *openapi3.Schema) []string {
-	if schema == nil {
-		return nil
-	}
-
-	imports := make(map[string]bool)
-	visited := make(map[*openapi3.Schema]bool)
-
-	var checkSchema func(*openapi3.Schema)
-	checkSchema = func(s *openapi3.Schema) {
-		if s == nil {
-			return
-		}
-
-		// Avoid infinite recursion
-		if visited[s] {
-			return
-		}
-		visited[s] = true
-
-		// Check for time.Time - only in properties that are inline (not refs)
-		if s.Type != nil && s.Type.Is("string") && s.Format == "date-time" {
-			imports["time"] = true
-		}
-
-		// Check properties - only inline values, not refs
-		// Refs are separate types with their own imports
-		for _, propRef := range s.Properties {
-			// Skip properties that are refs - they have their own files/imports
-			if propRef.Ref != "" {
-				continue
-			}
-			if propRef.Value != nil {
-				checkSchema(propRef.Value)
-			}
-		}
-
-		// Check array items - only if inline (not refs)
-		if s.Items != nil && s.Items.Ref == "" && s.Items.Value != nil {
-			checkSchema(s.Items.Value)
-		}
-
-		// DON'T check composed schemas (allOf/oneOf/anyOf) if they are refs
-		// Only check inline composed schemas
-		for _, ref := range s.AllOf {
-			if ref.Ref == "" && ref.Value != nil {
-				checkSchema(ref.Value)
-			}
-		}
-		for _, ref := range s.OneOf {
-			if ref.Ref == "" && ref.Value != nil {
-				checkSchema(ref.Value)
-			}
-		}
-		for _, ref := range s.AnyOf {
-			if ref.Ref == "" && ref.Value != nil {
-				checkSchema(ref.Value)
-			}
-		}
-	}
-
-	checkSchema(schema)
-
-	var result []string
-	for imp := range imports {
-		result = append(result, imp)
-	}
-	return result
-}
-
-// isEnum checks if schema is an enum
-func (tf *templateFuncs) isEnum(schema *openapi3.Schema) bool {
-	return schema != nil && len(schema.Enum) > 0
-}
-
-func (tf *templateFuncs) enumBaseType(schema *openapi3.Schema) string {
-	if schema == nil {
-		return "string"
-	}
-
-	switch {
-	case schema.Type.Is("integer"):
-		if schema.Format != "" {
-			return schema.Format
-		}
-		return "int"
-	case schema.Type.Is("number"):
-		if schema.Format == "float" {
-			return "float32"
-		}
-		return "float64"
-	case schema.Type.Is("boolean"):
-		return "bool"
-	default:
-		return "string"
-	}
 }
 
 func (tf *templateFuncs) enumValue(schema *openapi3.Schema, val any) string {
@@ -230,11 +103,6 @@ func (tf *templateFuncs) inlineEnums(schemaName string, schema *openapi3.Schema)
 		}
 	}
 	return result
-}
-
-// isType checks if schema is a specific type
-func (tf *templateFuncs) isType(schema *openapi3.Schema, typeName string) bool {
-	return schema != nil && schema.Type.Is(typeName)
 }
 
 // getType returns the OpenAPI type safely
@@ -363,19 +231,18 @@ func (tf *templateFuncs) getProperty(schema *openapi3.Schema, name string) *open
 	return propRef.Value
 }
 
-// isRequired checks if a property is required (checking allOf too)
-func (tf *templateFuncs) isRequired(schema *openapi3.Schema, propName string) bool {
+// getPropertyRequired checks if a property is required (checking allOf too).
+// Properties that exist only inside oneOf branches are never considered required,
+// since only one branch is active at runtime and they always need pointer types.
+func (tf *templateFuncs) getPropertyRequired(schema *openapi3.Schema, propName string) bool {
 	if schema == nil {
 		return false
 	}
 
-	// Check if this is an inline schema (created by preprocessor)
-	// Inline schemas treat oneOf branch-required fields as required
-	isInlineSchema := false
-	if schema.Extensions != nil {
-		if _, ok := schema.Extensions["x-inline-schema"]; ok {
-			isInlineSchema = true
-		}
+	// If the property is defined inside a oneOf branch, it's never required
+	// at the top level - only one branch is active at runtime.
+	if tf.isInOneOf(schema, propName) {
+		return false
 	}
 
 	// Check direct required
@@ -390,25 +257,6 @@ func (tf *templateFuncs) isRequired(schema *openapi3.Schema, propName string) bo
 			if allOfSchema != nil {
 				if slices.Contains(allOfSchema.Required, propName) {
 					return true
-				}
-
-				// For oneOf within allOf (discriminated unions), if this is an inline schema
-				// and a property is required in ANY branch, treat it as required overall.
-				// For standalone schemas, keep fields optional (pointer types).
-				if isInlineSchema && len(allOfSchema.OneOf) > 0 {
-					for _, oneOfRef := range allOfSchema.OneOf {
-						oneOfSchema := oneOfRef.Value
-						if oneOfSchema != nil {
-							// Check if this oneOf branch has the property
-							_, hasProperty := oneOfSchema.Properties[propName]
-							if hasProperty {
-								// Check if it's required in this branch
-								if slices.Contains(oneOfSchema.Required, propName) {
-									return true
-								}
-							}
-						}
-					}
 				}
 			}
 		}
@@ -449,24 +297,6 @@ func (tf *templateFuncs) isInOneOf(schema *openapi3.Schema, propName string) boo
 	return false
 }
 
-// refToType extracts type from $ref
-func (tf *templateFuncs) refToType(ref string) string {
-	return extractTypeFromRef(ref)
-}
-
-// docsURL generates docs URL from operation
-func (tf *templateFuncs) docsURL(op *openapi3.Operation) string {
-	if len(op.Tags) == 0 {
-		return ""
-	}
-	// Convert tag from PascalCase to kebab-case (e.g., ServiceGroups -> service-groups)
-	tag := strcase.ToKebab(op.Tags[0])
-	// Convert OperationID from PascalCase to kebab-case
-	opIDKebab := strcase.ToKebab(op.OperationID)
-	// FIXME: handle for controlplane
-	return "https://unikraft.com/docs/api/platform/v1/" + tag + "#" + opIDKebab
-}
-
 // wrapComment wraps text at a certain width, adding prefix to continuation lines
 func (tf *templateFuncs) wrapComment(text string, width int, prefix string) string {
 	if text == "" {
@@ -480,114 +310,70 @@ func (tf *templateFuncs) wrapComment(text string, width int, prefix string) stri
 	return strings.Join(lines, "\n")
 }
 
-// schemaToGoTypeWithParser converts an OpenAPI schema type to a Go type
-// This version has access to the parser to check if referenced schemas should be skipped
-func schemaToGoTypeWithParser(schema *openapi3.Schema, parser *Parser, useLegacyInt bool) string {
-	if schema == nil {
-		return "interface{}"
+// getTypePackage returns the x-package value for a type reference.
+// Accepts *openapi3.Schema, *openapi3.SchemaRef, *openapi3.Parameter, or string ($ref).
+// Returns empty string if no x-package is found.
+func (tf *templateFuncs) getTypePackage(v any) string {
+	ref := tf.extractRef(v)
+	if ref == "" {
+		return ""
 	}
 
-	// Handle allOf with a single $ref (common pattern for type aliasing)
-	if len(schema.AllOf) == 1 && schema.AllOf[0].Ref != "" {
-		refType := extractTypeFromRef(schema.AllOf[0].Ref)
+	typeName := extractTypeFromRef(ref)
+	if typeName == "" {
+		return ""
+	}
 
-		// Check if the referenced schema should be skipped (e.g., GoogleProtobufValue)
-		// If so, return interface{} instead
-		if refSchemaRef, ok := parser.doc.Components.Schemas[refType]; ok {
-			if schemaIsEmpty(refSchemaRef.Value) {
-				return "interface{}"
+	if schemaRef, ok := tf.parser.doc.Components.Schemas[typeName]; ok {
+		if schemaRef.Value != nil {
+			if pkg, _ := schemaRef.Value.Extensions["x-package"].(string); pkg != "" {
+				return pkg
 			}
 		}
-
-		return refType
 	}
 
-	// Delegate to the original function for the rest
-	return schemaToGoType(schema, useLegacyInt)
+	return ""
 }
 
-// schemaToGoType converts an OpenAPI schema type to a Go type
-func schemaToGoType(schema *openapi3.Schema, useLegacyInt bool) string {
-	if schema == nil {
-		return "interface{}"
+// extractRef extracts a $ref string from various OpenAPI types.
+func (tf *templateFuncs) extractRef(v any) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case *openapi3.SchemaRef:
+		if val == nil {
+			return ""
+		}
+		if val.Ref != "" {
+			return val.Ref
+		}
+		if val.Value != nil {
+			return tf.extractRef(val.Value)
+		}
+		return ""
+	case *openapi3.Schema:
+		if val == nil {
+			return ""
+		}
+		// allOf with a single $ref (common pattern: allOf: [- $ref: ...])
+		// Multi-element allOf (e.g., extend + extra props) is intentionally
+		// not matched — those represent composite types, not references.
+		if len(val.AllOf) == 1 && val.AllOf[0].Ref != "" {
+			return val.AllOf[0].Ref
+		}
+		// Array items ref
+		if val.Items != nil && val.Items.Ref != "" {
+			return val.Items.Ref
+		}
+		return ""
+	case *openapi3.Parameter:
+		if val == nil || val.Schema == nil {
+			return ""
+		}
+		return tf.extractRef(val.Schema)
+	default:
+		return ""
 	}
-
-	// Handle allOf with a single $ref (common pattern for type aliasing)
-	// Note: schemaToGoTypeWithParser handles this case with skip-schema checking,
-	// but we keep it here for direct callers of schemaToGoType
-	if len(schema.AllOf) == 1 && schema.AllOf[0].Ref != "" {
-		return extractTypeFromRef(schema.AllOf[0].Ref)
-	}
-
-	// Handle arrays
-	if schema.Type.Is("array") {
-		if schema.Items != nil && schema.Items.Ref != "" {
-			// Extract type name from $ref
-			refType := extractTypeFromRef(schema.Items.Ref)
-			return "[]" + refType
-		}
-		if schema.Items != nil {
-			itemType := schemaToGoType(schema.Items.Value, useLegacyInt)
-			return "[]" + itemType
-		}
-		return "[]interface{}"
-	}
-
-	// Handle inline enums
-	if len(schema.Enum) > 0 {
-		if schema.Title != "" {
-			return schema.Title
-		}
-		return "string"
-	}
-
-	// Handle object/map types
-	if schema.Type.Is("object") {
-		// Check if it has additionalProperties defined
-		if schema.AdditionalProperties.Schema != nil {
-			valueType := schemaToGoType(schema.AdditionalProperties.Schema.Value, useLegacyInt)
-			return "map[string]" + valueType
-		}
-		if schema.AdditionalProperties.Has != nil && *schema.AdditionalProperties.Has {
-			return "map[string]interface{}"
-		}
-		// If it has properties, it's a struct type
-		if len(schema.Properties) > 0 {
-			if schema.Title != "" {
-				return schema.Title
-			}
-		}
-		return "map[string]interface{}"
-	}
-
-	// Basic types
-	switch {
-	case schema.Type.Is("string"):
-		if schema.Format == "date-time" {
-			return "time.Time"
-		}
-		return "string"
-	case schema.Type.Is("integer"):
-		if useLegacyInt {
-			if schema.Format == "int32" || schema.Format == "uint32" ||
-				schema.Format == "int64" || schema.Format == "uint64" {
-				return "int32"
-			}
-		}
-		if schema.Format != "" {
-			return schema.Format
-		}
-		return "int"
-	case schema.Type.Is("number"):
-		if schema.Format == "float" {
-			return "float32"
-		}
-		return "float64"
-	case schema.Type.Is("boolean"):
-		return "bool"
-	}
-
-	return "interface{}"
 }
 
 // extractTypeFromRef extracts the type name from a $ref string
@@ -628,41 +414,6 @@ func capitalize(s string) string {
 	}
 	r, size := utf8.DecodeRuneInString(s)
 	return string(unicode.ToUpper(r)) + s[size:]
-}
-
-var goReservedWords = []string{
-	"break",
-	"case",
-	"chan",
-	"const",
-	"continue",
-	"default",
-	"defer",
-	"else",
-	"fallthrough",
-	"for",
-	"func",
-	"go",
-	"goto",
-	"if",
-	"import",
-	"interface",
-	"map",
-	"package",
-	"range",
-	"return",
-	"select",
-	"struct",
-	"switch",
-	"type",
-	"var",
-}
-
-func safeName(s string) string {
-	if _, found := slices.BinarySearch(goReservedWords, s); found {
-		return "_" + s
-	}
-	return s
 }
 
 // ResponseEntry is a code/ref pair for deterministic template iteration.
@@ -724,29 +475,4 @@ func uniqueTags(operations []PathOperation) []string {
 	}
 	sort.Strings(tags)
 	return tags
-}
-
-// capitalizeEnum handles enum constant naming for top-level enum schemas
-// (all-caps for single lowercase words, title-case otherwise)
-func capitalizeEnum(s string) string {
-	if s == "" {
-		return s
-	}
-
-	// Remove hyphens for the all-lowercase check (e.g., "in-progress" ->
-	// "inprogress")
-	s = strings.ReplaceAll(s, "-", "")
-
-	// If the string is all lowercase letters (no underscores, spaces, etc.), uppercase it all
-	allLower := true
-	for _, r := range s {
-		if r < 'a' || r > 'z' {
-			allLower = false
-			break
-		}
-	}
-	if allLower {
-		return strings.ToUpper(s)
-	}
-	return capitalize(s)
 }
