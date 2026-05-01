@@ -144,7 +144,7 @@ rootfs: ./Dockerfile
 	require.NoError(t, err)
 	require.NotNil(t, doc.Rootfs)
 	require.Equal(t, "./Dockerfile", doc.Rootfs.Source)
-	require.Equal(t, FsTypeCpio, doc.Rootfs.Format)
+	require.Empty(t, doc.Rootfs.Format)
 
 	input = `spec: v0.7
 rootfs:
