@@ -8,13 +8,14 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"go/format"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
+
+	"golang.org/x/tools/imports"
 )
 
 // GeneratedFile represents a file to be generated from a template
@@ -27,9 +28,9 @@ type GeneratedFile struct {
 func formatSource(src []byte, filename string) ([]byte, error) {
 	switch filepath.Ext(filename) {
 	case ".go":
-		formatted, err := format.Source(src)
+		formatted, err := imports.Process(filename, src, nil)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", filename, err)
+			fmt.Fprintf(os.Stderr, "Warning: goimports failed for %s: %v\n", filename, err)
 			fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", string(src))
 			return nil, fmt.Errorf("formatting code: %w", err)
 		}
