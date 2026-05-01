@@ -561,7 +561,7 @@ func (p *preprocessor) processInlineSchema(schemaRef *openapi3.SchemaRef, opID, 
 		// Replace with a ref
 		schemaRef.Ref = "#/components/schemas/" + schemaName
 		schemaRef.Value = nil
-	} else if schema.Type.Is("array") && schema.Items != nil && schema.Items.Value != nil {
+	} else if schema.Type.Is("array") && schema.Items != nil && schema.Items.Ref == "" && schema.Items.Value != nil {
 		// Handle inline array item schemas
 		itemSchema := schema.Items.Value
 		if itemSchema.Type != nil && itemSchema.Type.Is("object") && len(itemSchema.Properties) > 0 {
