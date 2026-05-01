@@ -265,7 +265,6 @@ func (fs *FS) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid fs value type %T", raw)
 	}
 
-	fs.Format = cmp.Or(fs.Format, FsTypeCpio)
 	return nil
 }
 
