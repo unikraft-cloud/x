@@ -42,12 +42,12 @@ go run unikraft.com/x/tools/openapi-gen@latest \
   -t github.com/org/repo@main#dir=templates/go-client
 ```
 
-| Flag          | Short | Description                                                  |
-| ------------- | ----- | ------------------------------------------------------------ |
-| `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)         |
-| `--output`    | `-o`  | Output directory for generated files (required)              |
-| `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)          |
-| `--templates` | `-t`  | Directory or Git ref to template overrides (required)        |
+| Flag          | Short | Description                                           |
+| ------------- | ----- | ----------------------------------------------------- |
+| `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)  |
+| `--output`    | `-o`  | Output directory for generated files (required)       |
+| `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)   |
+| `--templates` | `-t`  | Directory or Git ref to template overrides (required) |
 
 ## Internals
 
@@ -143,17 +143,17 @@ These return sorted slices for deterministic output:
 ## Custom templates
 
 Create a directory with `.tmpl` files and pass it via `--templates`.
-Each template produces one output file named after the template with `.tmpl` stripped and `.gen` inserted before the extension (e.g., `model.go.tmpl` → `model.gen.go`).
+Each template produces one output file named after the template.
 
 A template can emit multiple files by using `---` section markers:
 
 ```
 {{ /* preamble goes to the base file */ }}
 package {{ .Var "package" "main" }}
---- variant_a
+--- model_variant_a.gen.go
 package {{ .Var "package" "main" }}
 // variant_a content
---- variant_b
+--- model_variant_b.gen.go
 package {{ .Var "package" "main" }}
 // variant_b content
 ```

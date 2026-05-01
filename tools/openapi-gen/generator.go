@@ -78,8 +78,7 @@ func (f *GeneratedFile) Generate(templates *template.Template, outputDir string)
 			}
 		}
 		for _, section := range sections {
-			filename := applyVariantToFilename(baseFilename, section.name)
-			if err := writeGenerated(section.content, filename, outputDir); err != nil {
+			if err := writeGenerated(section.content, section.name, outputDir); err != nil {
 				return err
 			}
 		}

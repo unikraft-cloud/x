@@ -8,7 +8,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -63,19 +62,4 @@ func splitFileMarkers(content []byte) ([]byte, []fileSection, bool, error) {
 		return nil, nil, true, fmt.Errorf("file markers detected but no files found")
 	}
 	return bytes.Join(preambleLines, []byte("\n")), sections, true, nil
-}
-
-func applyVariantToFilename(filename, variant string) string {
-	if variant == "" {
-		return filename
-	}
-	if base, ok := strings.CutSuffix(filename, ".gen.go"); ok {
-		return base + "_" + variant + ".gen.go"
-	}
-
-	ext := filepath.Ext(filename)
-	if ext == "" {
-		return filename + "_" + variant
-	}
-	return strings.TrimSuffix(filename, ext) + "_" + variant + ext
 }
