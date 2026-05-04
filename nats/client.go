@@ -65,7 +65,6 @@ func (c *Client) connect(ctx context.Context) error {
 	natsOpts := []nats.Option{
 		// nats.UserInfo(s.config.NatsUser, s.config.NatsPassword),
 		nats.MaxReconnects(-1),
-		// TODO: can we override reconnect behavior?
 	}
 
 	nc, err := backoff.Retry(ctx, func() (*nats.Conn, error) {
