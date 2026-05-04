@@ -18,6 +18,7 @@ type Client struct {
 	config struct {
 		natsURL    string
 		natsStream string
+		natsToken  string
 	}
 
 	Jetstream jetstream.JetStream
@@ -49,7 +50,12 @@ func WithURL(url string) ClientOption {
 	}
 }
 
-// TODO: WithNatsCredentials
+// WithToken sets the authentication token for this client.
+func WithToken(token string) ClientOption {
+	return func(c *Client) {
+		c.config.natsToken = token
+	}
+}
 
 // WithStream sets the NATS stream to subscribe to.
 func WithStream(stream string) ClientOption {
@@ -63,7 +69,7 @@ func WithStream(stream string) ClientOption {
 func (c *Client) connect(ctx context.Context) error {
 	// set up connection
 	natsOpts := []nats.Option{
-		// nats.UserInfo(s.config.NatsUser, s.config.NatsPassword),
+		nats.Token(c.config.natsToken),
 		nats.MaxReconnects(-1),
 	}
 
