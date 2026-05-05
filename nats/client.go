@@ -36,7 +36,28 @@ func NewClient(ctx context.Context, opts ...ClientOption) (*Client, error) {
 		opt(client)
 	}
 
-	// TODO: validate options?
+	// validation
+
+	if client.config.natsURL == "" {
+		return nil, fmt.Errorf("invalid options: url is unset")
+	}
+
+	if client.config.natsToken == "" {
+		return nil, fmt.Errorf("invalid options: token is unset")
+	}
+
+	if client.config.natsStream == "" {
+		return nil, fmt.Errorf("invalid options: stream is unset")
+	}
+
+	if client.config.streamCreate {
+		if client.config.streamConfig == nil {
+			return nil, fmt.Errorf("invalid options: stream config is unset")
+		}
+		if client.config.streamConfig.Name != client.config.natsStream {
+			return nil, fmt.Errorf("invalid options: stream doesn't match stream config")
+		}
+	}
 
 	if err := client.connect(ctx); err != nil {
 		return nil, err
