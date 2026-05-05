@@ -16,9 +16,11 @@ import (
 
 type Client struct {
 	config struct {
-		natsURL    string
-		natsStream string
-		natsToken  string
+		natsURL      string
+		natsStream   string
+		natsToken    string
+		streamCreate bool
+		streamConfig *jetstream.StreamConfig
 	}
 
 	Jetstream jetstream.JetStream
@@ -64,6 +66,16 @@ func WithStream(stream string) ClientOption {
 	}
 }
 
+// WithCreateStream sets the NATS stream to subscribe to.
+func WithCreateStream(create bool, cfg ...jetstream.StreamConfig) ClientOption {
+	return func(c *Client) {
+		c.config.streamCreate = create
+		if create {
+			c.config.streamConfig = &cfg[0]
+		}
+	}
+}
+
 // init establishes the connection to the NATS server and checks that the
 // configured stream exists.
 func (c *Client) connect(ctx context.Context) error {
@@ -84,6 +96,13 @@ func (c *Client) connect(ctx context.Context) error {
 	c.Jetstream, err = jetstream.New(nc)
 	if err != nil {
 		return fmt.Errorf("establishing NATS connection: %w", err)
+	}
+
+	if c.config.streamCreate {
+		_, err := c.Jetstream.CreateStream(ctx, *c.config.streamConfig)
+		if err != nil {
+			return fmt.Errorf("creating stream: %w", err)
+		}
 	}
 
 	// check that the stream exists
