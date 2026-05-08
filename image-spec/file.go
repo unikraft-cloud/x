@@ -11,6 +11,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync/atomic"
 
 	"github.com/containerd/containerd/v2/core/content"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -20,8 +21,46 @@ type File interface {
 	Path() string
 	Open(ctx context.Context) (io.ReadCloser, int64, error)
 	Cleanup() error
+	Clone() (File, error)
 
 	Source() (ocispec.Descriptor, content.Provider)
+}
+
+// fileShared wraps any File with reference counting. Cleanup is deferred
+// until the last clone is cleaned up.
+type fileShared struct {
+	inner File
+	refs  atomic.Int32
+}
+
+func newFileShared(inner File) *fileShared {
+	s := &fileShared{inner: inner}
+	s.refs.Store(1)
+	return s
+}
+
+func (s *fileShared) Path() string {
+	return s.inner.Path()
+}
+
+func (s *fileShared) Open(ctx context.Context) (io.ReadCloser, int64, error) {
+	return s.inner.Open(ctx)
+}
+
+func (s *fileShared) Cleanup() error {
+	if s.refs.Add(-1) > 0 {
+		return nil
+	}
+	return s.inner.Cleanup()
+}
+
+func (s *fileShared) Clone() (File, error) {
+	s.refs.Add(1)
+	return s, nil
+}
+
+func (s *fileShared) Source() (ocispec.Descriptor, content.Provider) {
+	return s.inner.Source()
 }
 
 type staticFile struct {
@@ -48,6 +87,12 @@ func (f *staticFile) Cleanup() error {
 	return nil
 }
 
+func (f *staticFile) Clone() (File, error) {
+	data := make([]byte, len(f.data))
+	copy(data, f.data)
+	return NewStaticFile(f.path, data), nil
+}
+
 func (f *staticFile) Source() (ocispec.Descriptor, content.Provider) {
 	return ocispec.Descriptor{}, nil
 }
@@ -58,16 +103,11 @@ type osFile struct {
 }
 
 func NewOSFile(f *os.File) File {
-	return &osFile{
-		f: f,
-	}
+	return &osFile{f: f}
 }
 
 func NewTempOSFile(f *os.File) File {
-	return &osFile{
-		f:      f,
-		delete: true,
-	}
+	return newFileShared(&osFile{f: f, delete: true})
 }
 
 func (f *osFile) Path() string {
@@ -92,6 +132,14 @@ func (f *osFile) Cleanup() error {
 		err = errors.Join(err, os.Remove(f.f.Name()))
 	}
 	return err
+}
+
+func (f *osFile) Clone() (File, error) {
+	newFd, err := os.Open(f.f.Name())
+	if err != nil {
+		return nil, err
+	}
+	return NewOSFile(newFd), nil
 }
 
 func (f *osFile) Source() (ocispec.Descriptor, content.Provider) {
