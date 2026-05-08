@@ -145,6 +145,10 @@ func (f *ContentStoreFile) Cleanup() error {
 	return nil
 }
 
+func (f *ContentStoreFile) Clone() (File, error) {
+	return NewContentStoreFile(f.Store, f.Desc, f.Path_), nil
+}
+
 func (f *ContentStoreFile) Source() (ocispec.Descriptor, content.Provider) {
 	return f.Desc, f.Store
 }
