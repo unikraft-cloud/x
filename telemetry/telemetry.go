@@ -31,6 +31,9 @@ func Init(ctx context.Context) (func(context.Context) error, error) {
 	if disabled {
 		return noop, nil
 	}
+	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" {
+		return noop, nil
+	}
 
 	res, err := resource.New(ctx,
 		resource.WithFromEnv(),
