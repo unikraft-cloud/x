@@ -249,22 +249,84 @@ func (fs *FS) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	switch raw.(type) {
+	switch val := raw.(type) {
 	case nil:
 		return nil
 	case string:
-		if err := json.Unmarshal(data, &fs.Source); err != nil {
+		var path string
+		if err := json.Unmarshal(data, &path); err != nil {
 			return err
 		}
+		fs.Source = &FSSource{Path: path}
+		return nil
 	case map[string]any:
-		type alias FS
-		if err := json.Unmarshal(data, (*alias)(fs)); err != nil {
+		// Use a helper struct so we can inspect the raw source value before
+		// deciding whether it is a string (deprecated) or an FSSource object.
+		var tmp struct {
+			Source json.RawMessage `json:"source,omitempty"`
+			Format FsType          `json:"format,omitempty"`
+		}
+		if err := json.Unmarshal(data, &tmp); err != nil {
 			return err
 		}
+		fs.Format = tmp.Format
+
+		if tmp.Source == nil {
+			return fmt.Errorf("'source' is required")
+		}
+
+		var sourceRaw any
+		if err := json.Unmarshal(tmp.Source, &sourceRaw); err != nil {
+			return err
+		}
+		switch s := sourceRaw.(type) {
+		case string:
+			// Deprecated: source as a plain string path. Kept for backward
+			// compatibility. Also pick up the legacy top-level type field.
+			src := &FSSource{Path: s}
+			var legacy struct {
+				Type SourceType `json:"type,omitempty"`
+			}
+			if err := json.Unmarshal(data, &legacy); err != nil {
+				return err
+			}
+			src.Type = legacy.Type
+			fs.Source = src
+		case map[string]any:
+			// Reject the legacy top-level type field when source is already an
+			// object — it would be silently ignored, which is confusing.
+			if _, hasTopLevelType := val["type"]; hasTopLevelType {
+				return fmt.Errorf("top-level 'type' is not allowed when 'source' is an object; use 'source.type' instead")
+			}
+			var src FSSource
+			if err := json.Unmarshal(tmp.Source, &src); err != nil {
+				return err
+			}
+			fs.Source = &src
+		default:
+			return fmt.Errorf("invalid source value type %T", sourceRaw)
+		}
+		return nil
 	default:
 		return fmt.Errorf("invalid fs value type %T", raw)
 	}
+}
 
+func (src *FSSource) UnmarshalJSON(data []byte) error {
+	type alias FSSource
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	// Reject an explicitly-set type that contradicts the dockerfile field.
+	if a.Dockerfile != "" && a.Type != "" && a.Type != SourceTypeDockerfile {
+		return fmt.Errorf("type must be %q when dockerfile is set, got %q", SourceTypeDockerfile, a.Type)
+	}
+	// When dockerfile is set and type is omitted, infer type as "dockerfile".
+	if a.Dockerfile != "" && a.Type == "" {
+		a.Type = SourceTypeDockerfile
+	}
+	*src = FSSource(a)
 	return nil
 }
 

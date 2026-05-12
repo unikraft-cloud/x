@@ -23,7 +23,14 @@
         {
           "properties": {
             "source": {
-              "type": "string"
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/FSSource"
+                }
+              ]
             },
             "format": {
               "type": "string"
@@ -39,6 +46,31 @@
           ]
         }
       ]
+    },
+    "FSSource": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "dockerfile": {
+          "type": "string"
+        }
+      },
+      "if": {
+        "required": ["dockerfile"]
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "const": "dockerfile"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "type": "object"
     },
     "Library": {
       "oneOf": [

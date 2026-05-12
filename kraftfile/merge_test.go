@@ -166,7 +166,7 @@ func TestMergeLibraries(t *testing.T) {
 func TestMergeRootfsAndVolumes(t *testing.T) {
 	base := &Kraftfile{
 		Rootfs: &FS{
-			Source: "./base-rootfs",
+			Source: &FSSource{Path: "./base-rootfs"},
 			Format: FsTypeCpio,
 		},
 		Volumes: Volumes{
@@ -178,7 +178,8 @@ func TestMergeRootfsAndVolumes(t *testing.T) {
 	current.Merge(base)
 
 	require.NotNil(t, current.Rootfs)
-	require.Equal(t, "./base-rootfs", current.Rootfs.Source)
+	require.NotNil(t, current.Rootfs.Source)
+	require.Equal(t, "./base-rootfs", current.Rootfs.Source.Path)
 	require.Len(t, current.Volumes, 1)
 	require.Equal(t, "./data", current.Volumes[0].Source)
 }
