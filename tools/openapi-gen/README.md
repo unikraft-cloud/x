@@ -42,12 +42,17 @@ go run unikraft.com/x/tools/openapi-gen@latest \
   -t github.com/org/repo@main#dir=templates/go-client
 ```
 
-| Flag          | Short | Description                                           |
-| ------------- | ----- | ----------------------------------------------------- |
-| `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)  |
-| `--output`    | `-o`  | Output directory for generated files (required)       |
-| `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)   |
-| `--templates` | `-t`  | Directory or Git ref to template overrides (required) |
+| Flag          | Short | Description                                                          |
+| ------------- | ----- | -------------------------------------------------------------------- |
+| `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)                 |
+| `--output`    | `-o`  | Output directory for generated files (required)                      |
+| `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)                  |
+| `--templates` | `-t`  | Directory or Git ref to template overrides (required)                |
+| `--package`   |       | Filter to schemas/operations whose `x-package` matches this value    |
+
+When `--package` is set, only schemas and operations whose `x-package` extension
+matches the given value are passed to templates. The value is also exposed to
+templates as the `x-package` variable (i.e. `{{ .Var "x-package" "" }}`).
 
 ## Internals
 
@@ -138,9 +143,24 @@ These return sorted slices for deterministic output:
 ## Custom templates
 
 Create a directory with `.tmpl` files and pass it via `--templates`.
-Each template produces one output file named after the template.
 
-A template can emit multiple files by using `---` section markers:
+### Output filenames
+
+By default each template produces a single output file whose name is derived
+from the template filename:
+
+- The trailing `.tmpl` suffix is stripped.
+- If the result does not already contain `.gen`, it is inserted before the
+  file extension (e.g. `model.go.tmpl` → `model.gen.go`, `notes.tmpl` →
+  `notes.gen`).
+
+This keeps generated files easy to identify and to exclude from tooling.
+
+### Multi-file output via `---` markers
+
+A template can emit multiple files by using `---` section markers. The
+filename after `---` is used verbatim (no `.gen` insertion), so include the
+extension you want:
 
 ```
 {{ /* preamble goes to the base file */ }}
@@ -153,7 +173,11 @@ package {{ .Var "package" "main" }}
 // variant_b content
 ```
 
-This produces `model.gen.go` (preamble), `model_variant_a.gen.go`, and `model_variant_b.gen.go`.
+This produces `model.gen.go` (preamble, named via the default rule above),
+`model_variant_a.gen.go`, and `model_variant_b.gen.go`. Section filenames
+may include subdirectories (e.g. `subdir/foo.gen.go`); parent directories
+are created automatically. Absolute paths and paths that escape the output
+directory are rejected.
 
 ## License
 

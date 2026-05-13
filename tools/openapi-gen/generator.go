@@ -45,7 +45,23 @@ func writeGenerated(data []byte, filename, outputDir string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(outputDir, filename), formatted, 0o644); err != nil {
+	filename = filepath.Clean(filename)
+	if filepath.IsAbs(filename) {
+		return fmt.Errorf("filename %q cannot be absolute", filename)
+	}
+	if filename == "." || filename == ".." {
+		return fmt.Errorf("filename %q cannot point to relative dir", filename)
+	}
+	cleanOutputDir := filepath.Clean(outputDir)
+	target := filepath.Join(cleanOutputDir, filename)
+	rel, err := filepath.Rel(cleanOutputDir, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("filename %q cannot escape current dir", filename)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return fmt.Errorf("creating directory parent: %w", err)
+	}
+	if err := os.WriteFile(target, formatted, 0o644); err != nil {
 		return fmt.Errorf("writing file: %w", err)
 	}
 	fmt.Printf("Generated %s\n", filename)

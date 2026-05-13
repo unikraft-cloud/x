@@ -57,6 +57,11 @@ func (tf *templateFuncs) paramToGoType(param *openapi3.Parameter) string {
 	if param.Schema != nil && param.Schema.Ref != "" {
 		return extractTypeFromRef(param.Schema.Ref)
 	}
+	// Parameters can legally omit `schema` (e.g. when `content` is used
+	// instead); fall through to the nil-safe schemaToGoTypeWithParser.
+	if param.Schema == nil {
+		return "interface{}"
+	}
 	return schemaToGoTypeWithParser(param.Schema.Value, tf.parser, false)
 }
 
@@ -125,6 +130,9 @@ func schemaToGoType(schema *openapi3.Schema, useLegacyInt bool) string {
 	if schema.Type.Is("object") {
 		// Check if it has additionalProperties defined
 		if schema.AdditionalProperties.Schema != nil {
+			if schema.AdditionalProperties.Schema.Ref != "" {
+				return "map[string]" + extractTypeFromRef(schema.AdditionalProperties.Schema.Ref)
+			}
 			valueType := schemaToGoType(schema.AdditionalProperties.Schema.Value, useLegacyInt)
 			return "map[string]" + valueType
 		}
@@ -140,7 +148,12 @@ func schemaToGoType(schema *openapi3.Schema, useLegacyInt bool) string {
 		return "map[string]interface{}"
 	}
 
-	// Basic types
+	// Basic types. schema.Type may be nil (e.g. enum-only schemas, or
+	// composed schemas using oneOf/allOf without a type); in that case we
+	// fall through to the interface{} default below.
+	if schema.Type == nil {
+		return "interface{}"
+	}
 	switch {
 	case schema.Type.Is("string"):
 		if schema.Format == "date-time" {
@@ -172,6 +185,11 @@ func schemaToGoType(schema *openapi3.Schema, useLegacyInt bool) string {
 
 func (tf *templateFuncs) enumGoBaseType(schema *openapi3.Schema) string {
 	if schema == nil {
+		return "string"
+	}
+	// OpenAPI allows enums without an explicit `type`; treat them as
+	// string-backed.
+	if schema.Type == nil {
 		return "string"
 	}
 
