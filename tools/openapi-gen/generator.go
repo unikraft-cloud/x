@@ -8,13 +8,14 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"go/format"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
+
+	"golang.org/x/tools/imports"
 )
 
 // GeneratedFile represents a file to be generated from a template
@@ -27,9 +28,9 @@ type GeneratedFile struct {
 func formatSource(src []byte, filename string) ([]byte, error) {
 	switch filepath.Ext(filename) {
 	case ".go":
-		formatted, err := format.Source(src)
+		formatted, err := imports.Process(filename, src, nil)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: gofmt failed for %s: %v\n", filename, err)
+			fmt.Fprintf(os.Stderr, "Warning: goimports failed for %s: %v\n", filename, err)
 			fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", string(src))
 			return nil, fmt.Errorf("formatting code: %w", err)
 		}
@@ -44,7 +45,23 @@ func writeGenerated(data []byte, filename, outputDir string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(outputDir, filename), formatted, 0o644); err != nil {
+	filename = filepath.Clean(filename)
+	if filepath.IsAbs(filename) {
+		return fmt.Errorf("filename %q cannot be absolute", filename)
+	}
+	if filename == "." || filename == ".." {
+		return fmt.Errorf("filename %q cannot point to relative dir", filename)
+	}
+	cleanOutputDir := filepath.Clean(outputDir)
+	target := filepath.Join(cleanOutputDir, filename)
+	rel, err := filepath.Rel(cleanOutputDir, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("filename %q cannot escape current dir", filename)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return fmt.Errorf("creating directory parent: %w", err)
+	}
+	if err := os.WriteFile(target, formatted, 0o644); err != nil {
 		return fmt.Errorf("writing file: %w", err)
 	}
 	fmt.Printf("Generated %s\n", filename)
@@ -78,8 +95,7 @@ func (f *GeneratedFile) Generate(templates *template.Template, outputDir string)
 			}
 		}
 		for _, section := range sections {
-			filename := applyVariantToFilename(baseFilename, section.name)
-			if err := writeGenerated(section.content, filename, outputDir); err != nil {
+			if err := writeGenerated(section.content, section.name, outputDir); err != nil {
 				return err
 			}
 		}
@@ -123,22 +139,49 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 
 	Preprocess(parser.doc, parser)
 
-	tmpl, templateNames, err := loadTemplates(parser, templateDir)
+	g := &Generator{
+		parser:     parser,
+		vars:       vars,
+		operations: parser.ParseOperations(),
+		models:     parser.ParseModels(),
+	}
+
+	tmpl, templateNames, err := loadTemplates(parser, templateDir, &g.models, &g.vars)
 	if err != nil {
 		return nil, err
 	}
+	g.templates = tmpl
+	g.templateNames = templateNames
 
-	return &Generator{
-		parser:        parser,
-		templates:     tmpl,
-		templateNames: templateNames,
-		vars:          vars,
-		operations:    parser.ParseOperations(),
-		models:        parser.ParseModels(),
-	}, nil
+	return g, nil
 }
 
-func loadTemplates(parser *Parser, templateDir string) (*template.Template, []string, error) {
+// FilterByPackage keeps only operations and models whose x-package matches
+// the given package name.
+func (g *Generator) FilterByPackage(pkg string) {
+	// Filter operations
+	var filteredOps []PathOperation
+	for _, op := range g.operations {
+		if op.Operation == nil {
+			continue
+		}
+		if opPkg, _ := op.Operation.Extensions["x-package"].(string); opPkg == pkg {
+			filteredOps = append(filteredOps, op)
+		}
+	}
+	g.operations = filteredOps
+
+	// Filter models
+	var filteredModels []Model
+	for _, m := range g.models {
+		if m.Package == pkg {
+			filteredModels = append(filteredModels, m)
+		}
+	}
+	g.models = filteredModels
+}
+
+func loadTemplates(parser *Parser, templateDir string, models *[]Model, vars *map[string]string) (*template.Template, []string, error) {
 	if templateDir == "" {
 		return nil, nil, fmt.Errorf("template directory not specified")
 	}
@@ -152,7 +195,7 @@ func loadTemplates(parser *Parser, templateDir string) (*template.Template, []st
 		return nil, nil, fmt.Errorf("no templates found in %s", templateDir)
 	}
 
-	tmpl := template.New("").Funcs(templateFuncs{parser}.Funcs())
+	tmpl := template.New("").Funcs((&templateFuncs{parser: parser, models: models, vars: vars}).Funcs())
 
 	if _, err := tmpl.ParseFiles(files...); err != nil {
 		return nil, nil, fmt.Errorf("loading template overrides: %w", err)

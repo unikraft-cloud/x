@@ -18,6 +18,7 @@ type cli struct {
 	Output    string            `short:"o" help:"Output directory for generated files." required:""`
 	Var       map[string]string `short:"v" help:"Set a template variable (e.g. --var package=myapi)." mapsep:","`
 	Templates string            `short:"t" help:"Directory or Git ref (host/org/repo@ref#dir=path) with template overrides." required:""`
+	Package   string            `help:"Filter to only include schemas and operations with this x-package value."`
 }
 
 func main() {
@@ -37,6 +38,11 @@ func run(cli *cli) error {
 		vars = make(map[string]string)
 	}
 
+	// Store --package in vars for template access
+	if cli.Package != "" {
+		vars["x-package"] = cli.Package
+	}
+
 	templateDir := cli.Templates
 	if g := parseGitRef(templateDir); g != nil && g.dir != "" {
 		resolved, cleanup, err := resolveTemplateDirFromGit(g)
@@ -50,6 +56,10 @@ func run(cli *cli) error {
 	generator, err := NewGenerator(cli.Input, vars, templateDir)
 	if err != nil {
 		return fmt.Errorf("error creating generator: %w", err)
+	}
+
+	if cli.Package != "" {
+		generator.FilterByPackage(cli.Package)
 	}
 
 	if err := os.MkdirAll(cli.Output, 0o755); err != nil {

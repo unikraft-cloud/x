@@ -42,12 +42,17 @@ go run unikraft.com/x/tools/openapi-gen@latest \
   -t github.com/org/repo@main#dir=templates/go-client
 ```
 
-| Flag          | Short | Description                                                  |
-| ------------- | ----- | ------------------------------------------------------------ |
-| `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)         |
-| `--output`    | `-o`  | Output directory for generated files (required)              |
-| `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)          |
-| `--templates` | `-t`  | Directory or Git ref to template overrides (required)        |
+| Flag          | Short | Description                                                          |
+| ------------- | ----- | -------------------------------------------------------------------- |
+| `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)                 |
+| `--output`    | `-o`  | Output directory for generated files (required)                      |
+| `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)                  |
+| `--templates` | `-t`  | Directory or Git ref to template overrides (required)                |
+| `--package`   |       | Filter to schemas/operations whose `x-package` matches this value    |
+
+When `--package` is set, only schemas and operations whose `x-package` extension
+matches the given value are passed to templates. The value is also exposed to
+templates as the `x-package` variable (i.e. `{{ .Var "x-package" "" }}`).
 
 ## Internals
 
@@ -102,22 +107,20 @@ Templates have access to all [Sprig](https://masterminds.github.io/sprig/) funct
 | ---------------- | ----------------------------------- | ------------------------------------------------------ |
 | `schemaToGoType` | `schema → string`                   | Convert an OpenAPI schema to a Go type                 |
 | `paramToGoType`  | `param → string`                    | Convert an OpenAPI parameter to a Go type              |
-| `refToType`      | `ref → string`                      | Extract type name from a `$ref` string                 |
-| `isEnum`         | `schema → bool`                     | True if schema has enum values                         |
-| `isType`         | `schema, typeName → bool`           | True if schema matches the given OpenAPI type          |
-| `getType`        | `schema → string`                   | Return the OpenAPI type string                         |
-| `enumBaseType`   | `schema → string`                   | Underlying Go type for an enum (`string`, `int`, etc.) |
+| `refName`        | `ref → string`                      | Extract type name from a `$ref` string                 |
+| `getType`        | `schema → string`                   | Return the OpenAPI type string (nil-safe)              |
+| `enumBaseGoType` | `schema → string`                   | Underlying Go type for an enum (`string`, `int`, etc.) |
 | `enumValue`      | `schema, val → string`              | Format an enum constant value (quoted for strings)     |
 | `inlineEnums`    | `schemaName, schema → []inlineEnum` | Collect inline enum properties from a struct schema    |
 
 ### Property helpers
 
-| Function               | Signature                       | Description                                         |
-| ---------------------- | ------------------------------- | --------------------------------------------------- |
-| `propertyNamesOrdered` | `schemaName, schema → []string` | Property names in YAML source order                 |
-| `getProperty`          | `schema, name → *Schema`        | Get a property schema (traverses `allOf`)           |
-| `isRequired`           | `schema, name → bool`           | True if property is required (traverses `allOf`)    |
-| `isInOneOf`            | `schema, name → bool`           | True if property is defined inside a `oneOf` branch |
+| Function               | Signature                       | Description                                                    |
+| ---------------------- | ------------------------------- | -------------------------------------------------------------- |
+| `propertyNamesOrdered`  | `schemaName, schema → []string` | Property names in YAML source order                            |
+| `getProperty`           | `schema, name → *Schema`        | Get a property schema (traverses `allOf`)                      |
+| `getPropertyRequired`   | `schema, name → bool`           | True if property is required (traverses `allOf`)               |
+| `getTypePackage`        | `v → string`                    | Return `x-package` for a type ref (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
 
 ### Iteration helpers
 
@@ -134,31 +137,47 @@ These return sorted slices for deterministic output:
 | Function         | Signature                      | Description                                    |
 | ---------------- | ------------------------------ | ---------------------------------------------- |
 | `capitalize`     | `string → string`              | Uppercase first letter                         |
-| `capitalizeEnum` | `string → string`              | Uppercase enum value for use in constant names |
-| `safeName`       | `string → string`              | Prefix Go reserved words with `_`              |
+| `goSafeName`     | `string → string`              | Prefix Go reserved words with `_`              |
 | `wrapComment`    | `text, width, prefix → string` | Word-wrap with prefix on continuation lines    |
-| `docsURL`        | `operation → string`           | Generate a documentation URL for an operation  |
-| `collectImports` | `schema → []string`            | Determine required Go imports for a schema     |
 
 ## Custom templates
 
 Create a directory with `.tmpl` files and pass it via `--templates`.
-Each template produces one output file named after the template with `.tmpl` stripped and `.gen` inserted before the extension (e.g., `model.go.tmpl` → `model.gen.go`).
 
-A template can emit multiple files by using `---` section markers:
+### Output filenames
+
+By default each template produces a single output file whose name is derived
+from the template filename:
+
+- The trailing `.tmpl` suffix is stripped.
+- If the result does not already contain `.gen`, it is inserted before the
+  file extension (e.g. `model.go.tmpl` → `model.gen.go`, `notes.tmpl` →
+  `notes.gen`).
+
+This keeps generated files easy to identify and to exclude from tooling.
+
+### Multi-file output via `---` markers
+
+A template can emit multiple files by using `---` section markers. The
+filename after `---` is used verbatim (no `.gen` insertion), so include the
+extension you want:
 
 ```
 {{ /* preamble goes to the base file */ }}
 package {{ .Var "package" "main" }}
---- variant_a
+--- model_variant_a.gen.go
 package {{ .Var "package" "main" }}
 // variant_a content
---- variant_b
+--- model_variant_b.gen.go
 package {{ .Var "package" "main" }}
 // variant_b content
 ```
 
-This produces `model.gen.go` (preamble), `model_variant_a.gen.go`, and `model_variant_b.gen.go`.
+This produces `model.gen.go` (preamble, named via the default rule above),
+`model_variant_a.gen.go`, and `model_variant_b.gen.go`. Section filenames
+may include subdirectories (e.g. `subdir/foo.gen.go`); parent directories
+are created automatically. Absolute paths and paths that escape the output
+directory are rejected.
 
 ## License
 

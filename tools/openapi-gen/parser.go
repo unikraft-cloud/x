@@ -29,6 +29,7 @@ type Parser struct {
 type Model struct {
 	SchemaName string
 	Schema     *openapi3.Schema
+	Package    string // from x-package extension
 }
 
 // isURL reports whether s looks like an HTTP(S) URL.
@@ -126,9 +127,11 @@ func (p *Parser) ParseModels() []Model {
 		if schemaIsEmpty(schema) {
 			continue
 		}
+		pkg, _ := schema.Extensions["x-package"].(string)
 		models = append(models, Model{
 			SchemaName: name,
 			Schema:     schema,
+			Package:    pkg,
 		})
 	}
 
