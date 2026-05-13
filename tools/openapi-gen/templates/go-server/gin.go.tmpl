@@ -1,0 +1,471 @@
+{{- $allOps := .Operations -}}
+{{- $currentPkg := $.Var "x-package" "" -}}
+{{- $basePkg := $.Var "base_package" "github.com/unikraft-cloud/console/api" -}}
+{{- range $tagName := uniqueTags .Operations}}
+--- {{snakecase $tagName}}_gin.gen.go
+{{template "header" .}}
+package {{$.Var "package" ""}}
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"unikraft.com/x/log"
+{{- /* Collect external packages referenced by this tag's operations */}}
+{{- $extPkgs := dict}}
+{{- range $allOps}}
+{{- if has $tagName .Operation.Tags}}
+{{- $op := .Operation}}
+{{- if and $op.RequestBody $op.RequestBody.Value}}
+{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- if $content}}
+{{- if $content.Schema.Ref}}
+{{- $p := getTypePackage $content.Schema}}
+{{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- else if $content.Schema.Value}}
+{{- if and $content.Schema.Value.Type (eq (getType $content.Schema.Value) "array")}}
+{{- if $content.Schema.Value.Items.Ref}}
+{{- $p := getTypePackage $content.Schema.Value.Items}}
+{{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- if $op.Responses}}
+{{- $defaultResp := $op.Responses.Default}}
+{{- if and $defaultResp $defaultResp.Value}}
+{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- if $respContent}}
+{{- if $respContent.Schema.Ref}}
+{{- $p := getTypePackage $respContent.Schema}}
+{{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- end}}
+{{- end}}
+{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
+{{- if $sseContent}}
+{{- if $sseContent.Schema.Ref}}
+{{- $p := getTypePackage $sseContent.Schema}}
+{{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- /* Also scan query/path parameters for $ref types */}}
+{{- range $op.Parameters}}
+{{- if .Value.Schema}}
+{{- if .Value.Schema.Ref}}
+{{- $p := getTypePackage .Value.Schema}}
+{{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- range $pkg, $_ := $extPkgs}}
+	{{$pkg}}v1 "{{$basePkg}}/{{$pkg}}/v1"
+{{- end}}
+)
+
+
+{{- $serviceName := $tagName}}
+
+// {{$serviceName}} provides the API handlers.
+type {{$serviceName}} interface {
+{{- range $allOps}}
+{{- if has $tagName .Operation.Tags}}
+{{- $op := .Operation}}
+{{- $path := .Path}}
+{{- $method := .Method}}
+{{- $pathParams := list}}
+{{- $queryParams := list}}
+{{- range $op.Parameters}}
+{{- if eq .Value.In "path"}}
+{{- $pathParams = append $pathParams .Value}}
+{{- else if eq .Value.In "query"}}
+{{- $queryParams = append $queryParams .Value}}
+{{- end}}
+{{- end}}
+{{- $hasRequestBody := and $op.RequestBody $op.RequestBody.Value}}
+{{- $requestBodyType := ""}}
+{{- $requestBodySchema := ""}}
+{{- $requestBodyIsArray := false}}
+{{- if $hasRequestBody}}
+{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- if $content}}
+{{- if $content.Schema.Ref}}
+{{- $requestBodyType = refName $content.Schema.Ref}}
+{{- $requestBodySchema = $content.Schema}}
+{{- else if $content.Schema.Value}}
+{{- if and $content.Schema.Value.Type (eq (getType $content.Schema.Value) "array")}}
+{{- $requestBodyIsArray = true}}
+{{- if $content.Schema.Value.Items.Ref}}
+{{- $requestBodyType = refName $content.Schema.Value.Items.Ref}}
+{{- $requestBodySchema = $content.Schema.Value.Items}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- $responseType := ""}}
+{{- $responseSchema := ""}}
+{{- $isSSE := false}}
+{{- if $op.Responses}}
+{{- $defaultResp := $op.Responses.Default}}
+{{- if $defaultResp}}
+{{- if $defaultResp.Value}}
+{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- if $respContent}}
+{{- if $respContent.Schema.Ref}}
+{{- $responseType = refName $respContent.Schema.Ref}}
+{{- $responseSchema = $respContent.Schema}}
+{{- end}}
+{{- end}}
+{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
+{{- if $sseContent}}
+{{- $isSSE = true}}
+{{- if $sseContent.Schema.Ref}}
+{{- $responseType = refName $sseContent.Schema.Ref}}
+{{- $responseSchema = $sseContent.Schema}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- if $op.Description}}
+	// {{wrapComment $op.Description 77 "\t// "}}
+{{- end}}
+{{- /* Qualify request body type */}}
+{{- $qualifiedReqType := $requestBodyType}}
+{{- $reqPkg := getTypePackage $requestBodySchema}}
+{{- if and $reqPkg (ne $reqPkg $currentPkg)}}
+{{- $qualifiedReqType = printf "%sv1.%s" $reqPkg $requestBodyType}}
+{{- end}}
+{{- /* Qualify response type */}}
+{{- $qualifiedRespType := $responseType}}
+{{- $respPkg := getTypePackage $responseSchema}}
+{{- if and $respPkg (ne $respPkg $currentPkg)}}
+{{- $qualifiedRespType = printf "%sv1.%s" $respPkg $responseType}}
+{{- end}}
+{{- if $isSSE}}
+	{{$op.OperationID}}(g *gin.Context, cancel context.CancelFunc, req *{{$qualifiedReqType}}) <-chan *{{$qualifiedRespType}}
+{{- else}}
+	{{$op.OperationID}}(g *gin.Context
+{{- range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}
+{{- if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}
+{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) (*{{$qualifiedRespType}}, int, error)
+{{- end}}
+{{- end}}
+{{- end}}
+}
+
+type {{$serviceName}}Handler struct {
+	service {{$serviceName}}
+	resp    func(*gin.Context, int, any)
+}
+
+// Register{{$serviceName}} registers the HTTP handlers for the {{$serviceName}} service.
+func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp func(*gin.Context, int, any), middleware ...gin.HandlerFunc) {
+	handler := &{{$serviceName}}Handler{
+		service: service,
+		resp:    resp,
+	}
+
+	group := engine.Group("", middleware...)
+
+{{- range $allOps}}
+{{- if has $tagName .Operation.Tags}}
+{{- $op := .Operation}}
+{{- $path := .Path}}
+{{- $method := .Method}}
+	group.Handle("{{upper $method}}", "{{regexReplaceAll "\\{([^}]+)\\}" $path ":${1}"}}", handler.{{camelcase $op.OperationID}})
+{{- end}}
+{{- end}}
+}
+{{range $allOps}}
+{{- if has $tagName .Operation.Tags}}
+{{- $op := .Operation}}
+{{- $path := .Path}}
+{{- $method := .Method}}
+{{- $pathParams := list}}
+{{- $queryParams := list}}
+{{- range $op.Parameters}}
+{{- if eq .Value.In "path"}}
+{{- $pathParams = append $pathParams .Value}}
+{{- else if eq .Value.In "query"}}
+{{- $queryParams = append $queryParams .Value}}
+{{- end}}
+{{- end}}
+{{- $hasRequestBody := and $op.RequestBody $op.RequestBody.Value}}
+{{- $requestBodyType := ""}}
+{{- $requestBodySchema := ""}}
+{{- $requestBodyIsArray := false}}
+{{- if $hasRequestBody}}
+{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- if $content}}
+{{- if $content.Schema.Ref}}
+{{- $requestBodyType = refName $content.Schema.Ref}}
+{{- $requestBodySchema = $content.Schema}}
+{{- else if $content.Schema.Value}}
+{{- if and $content.Schema.Value.Type (eq (getType $content.Schema.Value) "array")}}
+{{- $requestBodyIsArray = true}}
+{{- if $content.Schema.Value.Items.Ref}}
+{{- $requestBodyType = refName $content.Schema.Value.Items.Ref}}
+{{- $requestBodySchema = $content.Schema.Value.Items}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- $responseType := ""}}
+{{- $responseSchema := ""}}
+{{- $isSSE := false}}
+{{- if $op.Responses}}
+{{- $defaultResp := $op.Responses.Default}}
+{{- if $defaultResp}}
+{{- if $defaultResp.Value}}
+{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- if $respContent}}
+{{- if $respContent.Schema.Ref}}
+{{- $responseType = refName $respContent.Schema.Ref}}
+{{- $responseSchema = $respContent.Schema}}
+{{- end}}
+{{- end}}
+{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
+{{- if $sseContent}}
+{{- $isSSE = true}}
+{{- if $sseContent.Schema.Ref}}
+{{- $responseType = refName $sseContent.Schema.Ref}}
+{{- $responseSchema = $sseContent.Schema}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- /* Qualify request body type */}}
+{{- $qualifiedReqType := $requestBodyType}}
+{{- $reqPkg := getTypePackage $requestBodySchema}}
+{{- if and $reqPkg (ne $reqPkg $currentPkg)}}
+{{- $qualifiedReqType = printf "%sv1.%s" $reqPkg $requestBodyType}}
+{{- end}}
+{{- /* Qualify response type */}}
+{{- $qualifiedRespType := $responseType}}
+{{- $respPkg := getTypePackage $responseSchema}}
+{{- if and $respPkg (ne $respPkg $currentPkg)}}
+{{- $qualifiedRespType = printf "%sv1.%s" $respPkg $responseType}}
+{{- end}}
+
+func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Context) {
+{{- /* Bind path params */}}
+{{- if $pathParams}}
+
+	var params struct {
+{{- range $pathParams}}
+		{{pascalcase .Name}} {{paramToGoType .}} `uri:"{{.Name}}"`
+{{- end}}
+	}
+	if err := g.ShouldBindUri(&params); err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to bind request body")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+{{- end}}
+{{- /* Bind request body */}}
+{{- if $hasRequestBody}}
+	bodyBytes, err := g.GetRawData()
+	if err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to read request body")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+
+	// Restore the body for further use.
+	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+{{- if $requestBodyIsArray}}
+
+	// Bind the body field directly
+	var body []*{{$qualifiedReqType}}
+	if err := json.NewDecoder(g.Request.Body).Decode(&body); err != nil && err != io.EOF {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to bind request body")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+
+	// Restore the body for further use.
+	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+{{- else}}
+
+	var req {{$qualifiedReqType}}
+	if err := g.ShouldBind(&req); err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to bind request body")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+
+	// Restore the body for further use.
+	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+{{- end}}
+{{- end}}
+{{- /* Bind query params */}}
+{{- if $queryParams}}
+	// Bind query parameters
+	var query struct {
+{{- range $queryParams}}
+{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}
+		{{pascalcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}} `form:"{{.Name}}"`
+{{- end}}
+	}
+	if err := g.ShouldBindQuery(&query); err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to bind query parameters")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, err)
+		}
+		return
+	}
+{{- end}}
+{{- /* Call the service method */}}
+{{- if $isSSE}}
+	// Handle streaming response with Server-Sent Events (SSE)
+	g.Header("Content-Type", "text/event-stream")
+	g.Header("Cache-Control", "no-cache")
+	g.Header("Connection", "keep-alive")
+	g.Header("X-Accel-Buffering", "no") // UKC's proxy is based on NGINX.
+
+	// Send an initial keep-alive comment to establish the connection.
+	if _, err := fmt.Fprintf(g.Writer, ": keepalive %s\n", time.Now().Format(time.RFC3339)); err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to send keepalive")
+	}
+
+	// Create a cancellable context
+	streamCtx, cancel := context.WithCancel(g.Request.Context())
+	defer cancel()
+
+	// Update the request context to the cancellable one
+	g.Request = g.Request.WithContext(streamCtx)
+
+	// Call the service method to get the stream channels
+	dataCh := handler.service.{{$op.OperationID}}(g, cancel, &req)
+
+	// Flush headers after calling the service.
+	g.Writer.Flush()
+
+	// Set up a heartbeat to keep the connection alive
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	// Send the events to the client
+	for {
+		select {
+		case <-g.Request.Context().Done():
+			// Client disconnected
+			cancel()
+			return
+
+		case <-streamCtx.Done():
+			// Context was cancelled or deadline exceeded
+			return
+
+		case <-ticker.C:
+			// Send a comment as a keepalive
+			if _, err := fmt.Fprintf(g.Writer, ": keepalive %s\n", time.Now().Format(time.RFC3339)); err != nil {
+				log.G(g.Request.Context()).
+					Warn().
+					Err(err).
+					Msg("failed to send keepalive")
+				return
+			}
+			g.Writer.Flush()
+
+		case data, ok := <-dataCh:
+			if !ok {
+				// Channel closed
+				return
+			}
+
+			// Convert the data to JSON
+			jsonData, err := json.Marshal(data)
+			if err != nil {
+				log.G(g.Request.Context()).
+					Warn().
+					Err(err).
+					Msg("failed to marshal event data")
+				continue
+			}
+
+			// Send the event
+			if _, err := fmt.Fprintf(g.Writer, "data: %s\n", jsonData); err != nil {
+				log.G(g.Request.Context()).
+					Warn().
+					Err(err).
+					Msg("failed to send event")
+				return
+			}
+			g.Writer.Flush()
+		}
+	}
+{{- else}}
+	resp, code, err := handler.service.{{$op.OperationID}}(g
+{{- range $pathParams}}, params.{{pascalcase .Name}}{{end}}
+{{- if $hasRequestBody}}{{if $requestBodyIsArray}}, body{{else}}, &req{{end}}{{end}}
+{{- range $queryParams}},
+		query.{{pascalcase .Name}}{{end}})
+	if err != nil {
+		if handler.resp != nil {
+			handler.resp(g, code, err)
+		} else {
+			g.JSON(code, err)
+		}
+	} else if handler.resp != nil {
+		handler.resp(g, code, resp)
+	} else {
+		g.JSON(code, resp)
+	}
+{{- end}}
+}
+{{- end}}
+{{- end}}
+{{- end}}

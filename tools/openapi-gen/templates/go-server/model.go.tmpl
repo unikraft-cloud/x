@@ -1,0 +1,41 @@
+{{- /* Emit a single struct file with all models */ -}}
+{{- if .Models}}
+--- struct.gen.go
+{{template "header" .}}
+package {{$.Var "package" ""}}
+
+{{- $currentPkg := $.Var "x-package" "" -}}
+{{- $basePkg := $.Var "base_package" "github.com/unikraft-cloud/console/api" -}}
+{{- $extPkgs := dict}}
+{{- range $model := .Models}}
+{{- /* Check each property for external type references */}}
+{{- range $propName := propertyNamesOrdered $model.SchemaName $model.Schema}}
+{{- $prop := getProperty $model.Schema $propName}}
+{{- if $prop}}
+{{- $typePkg := getTypePackage $prop}}
+{{- if and $typePkg (ne $typePkg $currentPkg)}}
+{{- $_ := set $extPkgs $typePkg true}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+
+import (
+	"time"
+{{- if $extPkgs}}
+
+{{- range $pkg, $_ := $extPkgs}}
+	{{$pkg}}v1 "{{$basePkg}}/{{$pkg}}/v1"
+{{- end}}
+{{- end}}
+)
+
+{{- range $model := .Models}}
+
+{{- if $model.Schema.Enum}}
+{{template "model_enum" $model}}
+{{- else}}
+{{template "model_simple" $model}}
+{{- end}}
+{{- end}}
+{{- end}}

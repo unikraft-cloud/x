@@ -1,0 +1,29 @@
+{{define "model_enum" -}}
+{{- $schema := .Schema -}}
+{{- $schemaName := .SchemaName -}}
+{{- if $schema.Description}}
+// {{$schema.Description | replace "\n" "\n// "}}
+{{- end}}
+type {{$schemaName}} string
+
+const (
+{{- range $schema.Enum}}
+	{{$schemaName}}{{capitalize (replace "-" "_" (printf "%v" .))}} {{$schemaName}} = {{printf "%q" .}}
+{{- end}}
+)
+
+// Values returns a slice of strings that represents all the possible values of
+// the {{$schemaName}} enum.
+func ({{$schemaName}}) Values() []{{$schemaName}} {
+	return []{{$schemaName}}{
+{{- range $schema.Enum}}
+		{{$schemaName}}{{capitalize (replace "-" "_" (printf "%v" .))}},
+{{- end}}
+	}
+}
+
+// String returns the {{$schemaName}} as a string.
+func (e {{$schemaName}}) String() string {
+	return string(e)
+}
+{{- end}}
