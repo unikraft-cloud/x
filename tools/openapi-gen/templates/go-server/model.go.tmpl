@@ -5,7 +5,7 @@
 package {{$.Var "package" ""}}
 
 {{- $currentPkg := $.Var "x-package" "" -}}
-{{- $basePkg := $.Var "base_package" "github.com/unikraft-cloud/console/api" -}}
+{{- $basePkg := $.Var "base_package" "api" -}}
 {{- $extPkgs := dict}}
 {{- range $model := .Models}}
 {{- /* Check each property for external type references */}}
