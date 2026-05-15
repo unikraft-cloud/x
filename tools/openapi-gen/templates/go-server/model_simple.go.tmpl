@@ -1,0 +1,79 @@
+{{define "model_simple" -}}
+{{- $schema := .Schema -}}
+{{- $schemaName := .SchemaName -}}
+{{- $currentPkg := .Package -}}
+{{- $propNames := propertyNamesOrdered $schemaName $schema -}}
+{{- if $schema.Description}}
+// {{$schema.Description | replace "\n" "\n// "}}
+{{- end}}
+{{- /* Inline enum types for fields */ -}}
+{{- range $propName := $propNames -}}
+{{- $prop := getProperty $schema $propName}}
+{{- $enumSchema := ""}}
+{{- $enumDescription := ""}}
+{{- if and $prop $prop.Enum}}
+{{- $enumSchema = $prop}}
+{{- $enumDescription = $prop.Description}}
+{{- else if and $prop (eq (getType $prop) "array") $prop.Items $prop.Items.Value $prop.Items.Value.Enum}}
+{{- $enumSchema = $prop.Items.Value}}
+{{- $enumDescription = $prop.Description}}
+{{- end}}
+{{- if $enumSchema}}
+{{- $enumTypeName := schemaToGoType $enumSchema }}
+{{- if $enumDescription -}}
+// {{$enumDescription | replace "\n" "\n// "}}
+{{end -}}
+type {{$enumTypeName}} string
+
+const (
+{{- range $enumSchema.Enum}}
+	{{$enumTypeName}}{{capitalize (replace "-" "_" (printf "%v" .))}} {{$enumTypeName}} = {{printf "%q" .}}
+{{- end}}
+)
+
+// Values returns all possible values of the {{$enumTypeName}} enum.
+func ({{$enumTypeName}}) Values() []{{$enumTypeName}} {
+	return []{{$enumTypeName}}{
+{{- range $enumSchema.Enum}}
+		{{$enumTypeName}}{{capitalize (replace "-" "_" (printf "%v" .))}},
+{{- end}}
+	}
+}
+
+// String returns the {{$enumTypeName}} as a string.
+func (e {{$enumTypeName}}) String() string {
+	return string(e)
+}
+{{ end }}
+
+{{- end}}
+type {{$schemaName}} struct {
+{{- range $propName := propertyNamesOrdered $schemaName $schema}}
+{{- $prop := getProperty $schema $propName}}
+{{- if $prop}}
+{{- if $prop.Description}}
+	// {{$prop.Description | replace "\n" "\n\t// "}}
+{{- end}}
+{{- $required := getPropertyRequired $schema $propName}}
+{{- $propGoName := pascalcase $propName}}
+{{- $openAPIType := getType $prop}}
+{{- $rawType := schemaToGoType $prop}}
+{{- $typePkg := getTypePackage $prop}}
+{{- $propType := $rawType}}
+{{- if and $typePkg (ne $typePkg $currentPkg)}}
+{{- $propType = regexReplaceAll "([A-Z]\\w+)$" $rawType (printf "%sv1.${1}" $typePkg)}}
+{{- end}}
+{{- if not $required}}
+	{{- if and (ne $openAPIType "array") (ne $openAPIType "object")}}
+		{{- if and $typePkg (ne $typePkg $currentPkg)}}
+		{{- $propType = printf "*%s" (regexReplaceAll "([A-Z]\\w+)$" $rawType (printf "%sv1.${1}" $typePkg))}}
+		{{- else}}
+		{{- $propType = printf "*%s" $rawType}}
+		{{- end}}
+	{{- end}}
+{{- end}}
+	{{$propGoName}} {{$propType}} `json:"{{$propName}}{{if not $required}},omitempty{{end}}" yaml:"{{$propName}}{{if not $required}},omitempty{{end}}"`
+{{- end}}
+{{- end}}
+}
+{{- end}}
