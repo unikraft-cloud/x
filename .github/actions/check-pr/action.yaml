@@ -5,40 +5,47 @@ description: Common steps for checking the format of PRs.
 runs:
   using: composite
   steps:
-  - name: Fetch commitlint config
-    env:
-      GIT_REPO: unikraft-cloud/x
-      GIT_REF: prod-staging
+  - name: Stage action files in workspace
+    id: stage
     shell: bash
     run: |
-      if [ ! -f commitlint.config.mjs ]; then
-        wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/commitlint.config.mjs"
-      fi
-      if [ ! -f package.json ]; then
-        wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/package.json"
-      fi
-      if [ ! -f package-lock.json ]; then
-        wget "https://raw.githubusercontent.com/${GIT_REPO}/${GIT_REF}/package-lock.json"
-      fi
+      stage_dir="${GITHUB_WORKSPACE}/.check-pr-action"
+      mkdir -p "${stage_dir}"
+      cp "${{ github.action_path }}/package.json" "${stage_dir}/"
+      cp "${{ github.action_path }}/pnpm-lock.yaml" "${stage_dir}/"
+      cp "${{ github.action_path }}/commitlint.config.mjs" "${stage_dir}/"
+      echo "dir=.check-pr-action" >> "${GITHUB_OUTPUT}"
+
+  - name: Setup pnpm
+    uses: pnpm/action-setup@v6
+    with:
+      version: 10
+      run_install: false
 
   - name: Setup node
     uses: actions/setup-node@v6
     with:
       node-version: lts/*
-      cache: npm
+      cache: pnpm
+      cache-dependency-path: ${{ steps.stage.outputs.dir }}/pnpm-lock.yaml
 
   - name: Setup commitlint
     shell: bash
-    run: npm install --include=dev
+    run: |
+      pnpm install \
+        --frozen-lockfile \
+        --ignore-workspace \
+        --dir "${GITHUB_WORKSPACE}/${{ steps.stage.outputs.dir }}"
 
   - name: Validate commits
     id: validate-commits
     shell: bash
     run: |
-      npx commitlint \
+      "${GITHUB_WORKSPACE}/${{ steps.stage.outputs.dir }}/node_modules/.bin/commitlint" \
         --verbose \
         --from ${{ github.event.pull_request.base.sha }} \
-        --to ${{ github.event.pull_request.head.sha }}
+        --to ${{ github.event.pull_request.head.sha }} \
+        --config "${GITHUB_WORKSPACE}/${{ steps.stage.outputs.dir }}/commitlint.config.mjs"
 
   - name: Validate PR
     id: validate-pr
@@ -47,4 +54,11 @@ runs:
       TITLE: ${{ github.event.pull_request.title }}
     shell: bash
     run: |
-      echo "$TITLE" | PR=yes npx commitlint --verbose
+      echo "$TITLE" | PR=yes "${GITHUB_WORKSPACE}/${{ steps.stage.outputs.dir }}/node_modules/.bin/commitlint" \
+        --verbose \
+        --config "${GITHUB_WORKSPACE}/${{ steps.stage.outputs.dir }}/commitlint.config.mjs"
+
+  - name: Cleanup staged action files
+    if: always() && steps.stage.outputs.dir != ''
+    shell: bash
+    run: rm -rf "${GITHUB_WORKSPACE}/${{ steps.stage.outputs.dir }}"
