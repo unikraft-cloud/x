@@ -10,7 +10,7 @@ require (
 	github.com/go-git/go-git/v5 v5.18.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-wordwrap v1.0.1
-	golang.org/x/tools v0.44.0
+	golang.org/x/tools v0.45.0
 	gopkg.in/yaml.v3 v3.0.1
 	unikraft.com/x/kingkong v0.0.0-20260105163520-49d071286efd
 )
@@ -59,11 +59,11 @@ require (
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	golang.org/x/crypto v0.50.0 // indirect
-	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	unikraft.com/x/colors v0.0.0-20260105163520-49d071286efd // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20250930190923-15fda4a56ffe // indirect
