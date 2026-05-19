@@ -1,6 +1,6 @@
 {{- $allOps := .Operations -}}
 {{- $currentPkg := $.Var "x-package" "" -}}
-{{- $basePkg := $.Var "base_package" "github.com/unikraft-cloud/console/api" -}}
+{{- $basePkg := $.Var "base_package" "api" -}}
 {{- range $tagName := uniqueTags .Operations}}
 --- {{snakecase $tagName}}_gin.gen.go
 {{template "header" .}}
