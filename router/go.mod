@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	codeberg.org/gruf/go-bytesize v1.0.4
-	github.com/a-h/templ v0.3.1001
+	github.com/a-h/templ v0.3.1020
 	github.com/gin-gonic/gin v1.12.0
 	unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9
 )
