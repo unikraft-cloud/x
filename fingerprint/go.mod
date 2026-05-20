@@ -1,13 +1,13 @@
 module unikraft.com/x/fingerprint
 
-go 1.26.1
+go 1.26.3
 
 require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/sys v0.44.0
-	tailscale.com v1.96.5
+	tailscale.com v1.98.2
 	unikraft.com/x/ptr v0.0.0-20260108134909-16540cbbe59c
 )
 
@@ -22,7 +22,6 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
-	golang.org/x/crypto v0.47.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621 // indirect
-	golang.org/x/mod v0.32.0 // indirect
 )
