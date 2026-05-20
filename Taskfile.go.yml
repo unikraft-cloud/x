@@ -159,32 +159,36 @@ tasks:
       {{.golangci_args}}
       {{.CLI_ARGS}}
 
+  license:
+    desc: "Check that every source file contains the required license fragment"
+    vars:
+      paths:
+        ref: .paths | default "."
+      include:
+        ref: .include | default "*.go"
+      exclude:
+        ref: .exclude | default "*.pb.go,*.gen.go"
+    cmd: >-
+      {{.go_bin}} run unikraft.com/x/tools/license-check
+      {{ with .include }}--include='{{.}}'{{ end }}
+      {{ with .exclude }}--exclude='{{.}}'{{ end }}
+      {{.license_check_args}}
+      {{.CLI_ARGS}}
+      {{.paths}}
+
   static-check:
     desc: "Run static checks: tidy?, fmt, lint"
     cmds:
     - task: tidy?
     - task: fmt
     - task: lint
-
-  license-check:
-    desc: "Check that every go file begins with an SPDX-License-Identifier"
-    cmds:
-      - |
-        missing=$(grep -rL '^// SPDX-License-Identifier:' . --include="*.go" --exclude="*.pb.go" --exclude-dir=.git --exclude-from=.gitignore --exclude=Taskfile.yml)
-        if [ -n "$missing" ]; then
-          echo "Files missing SPDX-License-Identifier header:"
-          echo "$missing"
-          exit 1
-        else
-          echo "All files have SPDX-License-Identifier header."
-        fi
+    - task: license
 
   # ci steps
 
   ci/check:
-    desc: "Tasks for CI check job: license-check, static-check"
+    desc: "Tasks for CI check job: static-check"
     cmds:
-    - task: license-check
     - task: static-check
       vars:
         golangci_args: --output.junit-xml.path=lint-results.xml

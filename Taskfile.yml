@@ -17,7 +17,9 @@ tasks:
     requires: { vars: [gotask] }
     vars:
       modules:
-        sh: go list -m -f {{"{{.Dir}}"}}
+        # List workspace modules, excluding the root module (which exists
+        # only to host go.mod replace directives for tools).
+        sh: go list -m -f '{{`{{if ne .Path "unikraft.com/x"}}{{.Dir}}{{end}}`}}' | grep -v '^$'
     cmds:
     - for: { var: modules }
       task: forone
@@ -43,15 +45,21 @@ tasks:
       go_module: unikraft.com/x/tools/imgtool
       package: ./tools/imgtool
 
+  license-check:
+  - task: go:build
+    vars:
+      go_module: unikraft.com/x/tools/license-check
+      package: ./tools/license-check
+
   tools:
   - task: protoc-gen-go-gin
   - task: protoc-gen-go-struct
   - task: imgtool
+  - task: license-check
 
   # ci tasks
 
   ci/check:
-  - task: go:license-check # already recursive
   - task: forall
     vars: { gotask: static-check }
 
