@@ -8,8 +8,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/alecthomas/kong"
+	"golang.org/x/sync/errgroup"
 	"unikraft.com/x/kingkong"
 )
 
@@ -68,10 +70,18 @@ func run(cli *cli) error {
 
 	files := generator.GenerateAll()
 
+	eg := new(errgroup.Group)
+	eg.SetLimit(runtime.GOMAXPROCS(0))
 	for _, file := range files {
-		if err := file.Generate(generator.templates, cli.Output); err != nil {
-			return fmt.Errorf("error generating %s: %w", file.Basename, err)
-		}
+		eg.Go(func() error {
+			if err := file.Generate(generator.templates, cli.Output); err != nil {
+				return fmt.Errorf("error generating %s: %w", file.Basename, err)
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 
 	fmt.Println("Code generation completed successfully!")
