@@ -143,22 +143,25 @@ rootfs: ./Dockerfile
 	doc, err := ParseBytes([]byte(input))
 	require.NoError(t, err)
 	require.NotNil(t, doc.Rootfs)
-	require.Equal(t, "./Dockerfile", doc.Rootfs.Source)
+	require.NotNil(t, doc.Rootfs.Source)
+	require.Equal(t, "./Dockerfile", doc.Rootfs.Source.Path)
 	require.Empty(t, doc.Rootfs.Format)
 
 	input = `spec: v0.7
 rootfs:
-  source: ./initramfs.erofs
+  source:
+    path: ./initramfs.erofs
+    type: erofs
   format: erofs
-  type:   erofs
 `
 	requireValidSchema(t, input)
 	doc, err = ParseBytes([]byte(input))
 	require.NoError(t, err)
 	require.NotNil(t, doc.Rootfs)
-	require.Equal(t, "./initramfs.erofs", doc.Rootfs.Source)
+	require.NotNil(t, doc.Rootfs.Source)
+	require.Equal(t, "./initramfs.erofs", doc.Rootfs.Source.Path)
 	require.Equal(t, FsTypeErofs, doc.Rootfs.Format)
-	require.Equal(t, SourceTypeErofs, doc.Rootfs.Type)
+	require.Equal(t, SourceTypeErofs, doc.Rootfs.Source.Type)
 }
 
 func TestParseRootfsSourceTypes(t *testing.T) {
@@ -166,39 +169,128 @@ func TestParseRootfsSourceTypes(t *testing.T) {
 		name       string
 		typeValue  string
 		sourceType SourceType
+		dockerfile string
 	}{
-		{"oci", "oci", SourceTypeOCI},
-		{"dir", "dir", SourceTypeDirectory},
-		{"file", "file", SourceTypeFile},
-		{"tarball", "tarball", SourceTypeTarball},
-		{"cpio", "cpio", SourceTypeCpio},
-		{"erofs", "erofs", SourceTypeErofs},
-		{"dockerfile", "dockerfile", SourceTypeDockerfile},
+		{"oci", "oci", SourceTypeOCI, ""},
+		{"dir", "dir", SourceTypeDirectory, ""},
+		{"file", "file", SourceTypeFile, ""},
+		{"tarball", "tarball", SourceTypeTarball, ""},
+		{"cpio", "cpio", SourceTypeCpio, ""},
+		{"erofs", "erofs", SourceTypeErofs, ""},
+		{"dockerfile", "dockerfile", SourceTypeDockerfile, ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := fmt.Sprintf(`spec: v0.7
 rootfs:
-  source: ./initramfs
-  type: %s
+  source:
+    path: ./initramfs
+    type: %s
 `, tt.typeValue)
 			requireValidSchema(t, input)
 			doc, err := ParseBytes([]byte(input))
 			require.NoError(t, err)
 			require.NotNil(t, doc.Rootfs)
-			require.Equal(t, tt.sourceType, doc.Rootfs.Type)
+			require.NotNil(t, doc.Rootfs.Source)
+			require.Equal(t, tt.sourceType, doc.Rootfs.Source.Type)
+			if tt.dockerfile != "" {
+				require.Equal(t, tt.dockerfile, doc.Rootfs.Source.Dockerfile)
+			}
 		})
 	}
+}
+
+func TestParseRootfsDockerfileField(t *testing.T) {
+	input := `spec: v0.7
+rootfs:
+  source:
+    dockerfile: ./custom/path/Dockerfile
+    type: dockerfile
+    path: .
+  format: erofs
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Rootfs)
+	require.NotNil(t, doc.Rootfs.Source)
+	require.Equal(t, "./custom/path/Dockerfile", doc.Rootfs.Source.Dockerfile)
+	require.Equal(t, SourceTypeDockerfile, doc.Rootfs.Source.Type)
+	require.Equal(t, ".", doc.Rootfs.Source.Path)
+	require.Equal(t, FsTypeErofs, doc.Rootfs.Format)
 }
 
 func TestParseRootfsInvalidSourceType(t *testing.T) {
 	input := `spec: v0.7
 rootfs:
-  source: ./initramfs
-  type: 123
+  source:
+    path: ./initramfs
+    type: 123
 `
 	requireSchemaError(t, input, "type")
+}
+
+func TestParseRootfsDeprecatedStringSource(t *testing.T) {
+	// Backward compatibility: source as a plain string in the object form.
+	input := `spec: v0.7
+rootfs:
+  source: ./initramfs.erofs
+  format: erofs
+  type: erofs
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Rootfs)
+	require.NotNil(t, doc.Rootfs.Source)
+	require.Equal(t, "./initramfs.erofs", doc.Rootfs.Source.Path)
+	require.Equal(t, FsTypeErofs, doc.Rootfs.Format)
+	// Legacy top-level type should be lifted into the source object.
+	require.Equal(t, SourceTypeErofs, doc.Rootfs.Source.Type)
+}
+
+func TestParseRootfsDockerfileWrongType(t *testing.T) {
+	input := `spec: v0.7
+rootfs:
+  source:
+    path: .
+    dockerfile: ./Dockerfile
+    type: erofs
+`
+	requireSchemaRejects(t, input)
+	_, err := ParseBytes([]byte(input))
+	require.Error(t, err)
+	require.ErrorContains(t, err, "type must be")
+}
+
+func TestParseRootfsDockerfileInfersType(t *testing.T) {
+	input := `spec: v0.7
+rootfs:
+  source:
+    path: .
+    dockerfile: ./Dockerfile
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Rootfs)
+	require.NotNil(t, doc.Rootfs.Source)
+	require.Equal(t, SourceTypeDockerfile, doc.Rootfs.Source.Type)
+	require.Equal(t, "./Dockerfile", doc.Rootfs.Source.Dockerfile)
+}
+
+func TestParseRootfsTopLevelTypeRejectedWithObjectSource(t *testing.T) {
+	input := `spec: v0.7
+rootfs:
+  source:
+    path: ./initramfs.erofs
+  format: erofs
+  type: erofs
+`
+	_, err := ParseBytes([]byte(input))
+	require.Error(t, err)
+	require.ErrorContains(t, err, "top-level 'type' is not allowed")
 }
 
 func TestParseComponentsAndLibraries(t *testing.T) {
@@ -325,6 +417,12 @@ func requireSchemaOK(t *testing.T, input string) {
 	t.Helper()
 	err := Validate([]byte(input))
 	require.NoError(t, err)
+}
+
+func requireSchemaRejects(t *testing.T, input string) {
+	t.Helper()
+	err := Validate([]byte(input))
+	require.Error(t, err)
 }
 
 func requireSchemaError(t *testing.T, input string, contains string) {

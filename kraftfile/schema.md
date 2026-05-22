@@ -195,8 +195,7 @@ The `rootfs` element CAN be specified to define the root filesystem.
 
 ### Short-hand syntax
 
-When specified as a string, the source path is provided directly.
-The output format defaults to `cpio`:
+When specified as a string, the value is treated as the source path (`source.path`).
 
 ```yaml
 spec: v0.7
@@ -213,38 +212,65 @@ The provided path can be one of the following:
 
 ### Long-hand syntax
 
-The long-hand syntax allows specifying additional attributes:
+The long-hand syntax allows specifying additional attributes.
+`source` is an object that groups the source path, type, and optional Dockerfile:
 
 ```yaml
 spec: v0.7
 
 rootfs:
-  source: ./initramfs.erofs
+  source:
+    path: ./initramfs.erofs
+    type: erofs
   format: erofs
-  type: dockerfile
 ```
 
-The long-hand syntax supports the following fields:
+The top-level `rootfs` fields are:
 
-| Field    | Type   | Description                                                        |
-| -------- | ------ | ------------------------------------------------------------------ |
-| `source` | string | **(required)** Path or reference to the filesystem source          |
-| `format` | string | Output format of the filesystem image: `cpio` (default) or `erofs` |
-| `type`   | string | Explicit source type (see below)                                   |
+| Field    | Type     | Description                                                        |
+| -------- | -------- | ------------------------------------------------------------------ |
+| `source` | object   | **(required)** Source configuration object (see below)             |
+| `format` | string   | Output format of the filesystem image: `cpio` (default) or `erofs` |
+
+> **Deprecated:** `source` can also be written as a plain string (`source: ./initramfs.erofs`) alongside a top-level `type:` field, matching the old format.
+> This form is deprecated. Use the structured `source:` object instead.
+
+#### `source` object fields
+
+| Field        | Type   | Description                                                                                                                                              |
+| ------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`       | string | Explicit source type (see below). Must be `"dockerfile"` if `dockerfile` is set                                                                          |
+| `path`       | string | Path or reference to the filesystem source (directory, archive, OCI image, Dockerfile context)                                                           |
+| `dockerfile` | string | Path to a custom Dockerfile. When set, `type` is automatically inferred as `"dockerfile"` if not explicitly provided. `path` serves as the build context |
+
+When `type: dockerfile` is used without `dockerfile:`, the Dockerfile path is left unset and resolved by the caller.
+
+#### Using a custom Dockerfile
+
+```yaml
+spec: v0.7
+
+rootfs:
+  source:
+    type: dockerfile
+    path: .
+    dockerfile: ./custom/path/Dockerfile
+  format: erofs
+```
 
 #### Source types
 
 The `type` field can be used to explicitly declare what kind of source is being provided:
 
-| Type         | Description                  |
-| ------------ | ---------------------------- |
-| `oci`        | An OCI image reference       |
-| `dir`        | A directory containing files |
-| `file`       | A single file                |
-| `tarball`    | A tarball archive            |
-| `cpio`       | An existing CPIO archive     |
-| `erofs`      | An existing EROFS image      |
-| `dockerfile` | A Dockerfile to be built     |
+| Type         | Description                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------- |
+| `oci`        | An OCI image reference                                                                                  |
+| `dir`        | A directory containing files                                                                            |
+| `file`       | A single file                                                                                           |
+| `tarball`    | A tarball archive                                                                                       |
+| `cpio`       | An existing CPIO archive                                                                                |
+| `erofs`      | An existing EROFS image                                                                                 |
+| `dockerfile` | A Dockerfile to be built. When `dockerfile:` is set, `type` is automatically inferred as `"dockerfile"` |
 
 When `type` is not specified, the source type is inferred from the path.
 
@@ -265,9 +291,10 @@ spec: v0.7
 
 roms:
   - ./extra-data/
-  - source: ./assets.erofs
+  - source:
+      path: ./assets.erofs
+      type: erofs
     format: erofs
-    type: erofs
 ```
 
 ## Top-level `unikraft` attribute

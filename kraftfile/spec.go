@@ -86,18 +86,27 @@ type Library struct {
 // FS defines a filesystem for the unikernel, which can be used to provide
 // additional files to the unikernel at runtime.
 type FS struct {
-	// Source defines the source of the fs, which can be:
-	// - a directory containing files to be included in the fs
-	// - a tarball containing files to be included in the fs
-	// - an existing packed fs
-	// - a dockerfile which can be used to build a fs image
-	Source string `json:"source,omitempty"`
+	// Source defines the source of the fs.
+	Source *FSSource `json:"source,omitempty"`
 
 	// Format specifies the output format of the fs image.
 	Format FsType `json:"format,omitempty"`
+}
 
+// FSSource defines the source configuration for a filesystem.
+type FSSource struct {
 	// Type specifies the type of the source for the fs.
+	// When Dockerfile is set, Type must be "dockerfile" (or left empty).
 	Type SourceType `json:"type,omitempty"`
+
+	// Path is the path to the source directory, file, archive, or OCI image.
+	// When Dockerfile is set, Path serves as the build context directory.
+	Path string `json:"path,omitempty"`
+
+	// source. Only valid when Type is "dockerfile" or omitted (in which case
+	// it is inferred as "dockerfile"). When omitted and Type is "dockerfile",
+	// resolution of the Dockerfile path is left to the caller.
+	Dockerfile string `json:"dockerfile,omitempty"`
 }
 
 type FsType string

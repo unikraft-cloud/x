@@ -147,6 +147,13 @@ func (FS) JSONSchemaExtend(schema *jsonschema.Schema) {
 	)
 }
 
+func (FSSource) JSONSchemaExtend(schema *jsonschema.Schema) {
+	if schema == nil {
+		return
+	}
+	schema.AdditionalProperties = jsonschema.TrueSchema
+}
+
 func (Volumes) JSONSchemaExtend(schema *jsonschema.Schema) {
 	applyOneOf(schema,
 		&jsonschema.Schema{Type: "string"},
