@@ -196,7 +196,6 @@ The `rootfs` element CAN be specified to define the root filesystem.
 ### Short-hand syntax
 
 When specified as a string, the value is treated as the source path (`source.path`).
-The output format defaults to `cpio`:
 
 ```yaml
 spec: v0.7
