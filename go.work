@@ -1,5 +1,7 @@
 go 1.26.1
 
+use .
+
 // Common modules.
 // This list is alphabetical and should not be reordered.
 use (
@@ -21,8 +23,8 @@ use (
 	./router
 	./sanitize
 	./startstopper
-	./text
 	./telemetry
+	./text
 	./version
 )
 
@@ -31,6 +33,7 @@ use (
 use (
 	./tools/imgtool
 	./tools/kraftfile-schema
+	./tools/license-check
 	./tools/openapi-gen
 	./tools/protoc-gen-go-gin
 	./tools/protoc-gen-go-struct
