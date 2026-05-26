@@ -8,7 +8,7 @@ type {{$schemaName}} string
 
 const (
 {{- range $schema.Enum}}
-	{{$schemaName}}{{capitalize (replace "-" "_" (printf "%v" .))}} {{$schemaName}} = {{printf "%q" .}}
+	{{$schemaName}}{{pascalcase (printf "%v" .)}} {{$schemaName}} = {{printf "%q" .}}
 {{- end}}
 )
 
@@ -17,7 +17,7 @@ const (
 func ({{$schemaName}}) Values() []{{$schemaName}} {
 	return []{{$schemaName}}{
 {{- range $schema.Enum}}
-		{{$schemaName}}{{capitalize (replace "-" "_" (printf "%v" .))}},
+		{{$schemaName}}{{pascalcase (printf "%v" .)}},
 {{- end}}
 	}
 }
