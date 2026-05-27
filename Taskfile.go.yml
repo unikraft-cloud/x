@@ -169,7 +169,7 @@ tasks:
       exclude:
         ref: .exclude | default "*.pb.go,*.gen.go"
     cmd: >-
-      {{.go_bin}} run unikraft.com/x/tools/license-check
+      {{.go_bin}} run unikraft.com/x/tools/license-check@prod-staging
       {{ with .include }}--include='{{.}}'{{ end }}
       {{ with .exclude }}--exclude='{{.}}'{{ end }}
       {{.license_check_args}}
