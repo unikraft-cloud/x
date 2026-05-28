@@ -31,6 +31,7 @@ use (
 // Common tools.
 // This list is alphabetical and should not be reordered.
 use (
+	./tools/csv-enum-gen
 	./tools/imgtool
 	./tools/kraftfile-schema
 	./tools/license-check
