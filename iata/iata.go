@@ -105,6 +105,7 @@ var (
 	IataANU = Iata{"ag", "Antigua and Barbuda", "anu", "Saint George", "St. John's", "V. C. Bird International Airport", 17.1367, -61.7927}
 	IataBBQ = Iata{"ag", "Antigua and Barbuda", "bbq", "Barbuda", "Codrington", "Barbuda Codrington Airport", 17.6358, -61.8286}
 	IataAXA = Iata{"ai", "Anguilla", "axa", "Anguilla", "The Valley", "Clayton J. Lloyd International Airport", 18.2048, -63.0551}
+	IataKFZ = Iata{"al", "Albania", "kfz", "", "Kukës", "", 42.0358, 20.4160}
 	IataEVN = Iata{"am", "Armenia", "evn", "Erevan", "Yerevan", "Zvartnots International Airport", 40.1473, 44.3959}
 	IataLWN = Iata{"am", "Armenia", "lwn", "Sirak", "Gyumri", "Gyumri Shirak Airport", 40.7504, 43.8593}
 	IataANL = Iata{"ao", "Angola", "anl", "Bie", "Andulo", "Andulo Airport", -11.4723, 16.7109}
@@ -131,6 +132,7 @@ var (
 	IataLZM = Iata{"ao", "Angola", "lzm", "Lunda Norte", "Cuango", "Cuango-Luzamba Airport", -9.11596, 18.0493}
 	IataMEG = Iata{"ao", "Angola", "meg", "Malange", "Malanje", "Malanje Airport", -9.52509, 16.3124}
 	IataMSZ = Iata{"ao", "Angola", "msz", "Namibe", "Moçâmedes", "Namibe Airport (Yuri Gagarin Airport)", -15.2612, 12.1468}
+	IataNBJ = Iata{"ao", "Angola", "nbj", "", "Luanda", "", -8.8882, 13.2453}
 	IataNDD = Iata{"ao", "Angola", "ndd", "Kwanza Sul", "Sumbe", "Sumbe Airport", -11.1679, 13.8475}
 	IataNDF = Iata{"ao", "Angola", "ndf", "Kwanza Norte", "N'dalatando", "N'dalatando Airport", -9.27519, 14.9772}
 	IataNOV = Iata{"ao", "Angola", "nov", "Huambo", "Huambo", "Albano Machado Airport", -12.8089, 15.7605}
@@ -155,6 +157,7 @@ var (
 	IataARR = Iata{"ar", "Argentina", "arr", "Chubut", "Alto Río Senguer", "Alto Rio Senguer Airport", -45.0136, -70.8122}
 	IataBHI = Iata{"ar", "Argentina", "bhi", "Buenos Aires", "Bahía Blanca", "Comandante Espora Airport", -38.725, -62.1693}
 	IataBRC = Iata{"ar", "Argentina", "brc", "Rio Negro", "Bariloche", "San Carlos de Bariloche Airport", -41.1512, -71.1575}
+	IataBUE = Iata{"ar", "Argentina", "bue", "", "Buenos Aires", "", -34.8222, -58.5358}
 	IataCCT = Iata{"ar", "Argentina", "cct", "Rio Negro", "Catriel", "Colonia Catriel Airport", -37.9102, -67.835}
 	IataCLX = Iata{"ar", "Argentina", "clx", "Formosa", "Clorinda", "Clorinda Airport", -25.3036, -57.7344}
 	IataCNQ = Iata{"ar", "Argentina", "cnq", "Corrientes", "Corrientes", "Doctor Fernando Piragine Niveyro International Airport", -27.4455, -58.7619}
@@ -185,6 +188,7 @@ var (
 	IataHOS = Iata{"ar", "Argentina", "hos", "Neuquen", "Chos Malal", "Chos Malal Airport", -37.4447, -70.2225}
 	IataIGB = Iata{"ar", "Argentina", "igb", "Rio Negro", "Ingeniero Jacobacci", "Ingeniero Jacobacci Airport (Capitan FAA H. R. Borden Airport)", -41.3209, -69.5749}
 	IataIGR = Iata{"ar", "Argentina", "igr", "Misiones", "Puerto Iguazú", "Cataratas del Iguazu International Airport", -25.7373, -54.4734}
+	IataING = Iata{"ar", "Argentina", "ing", "", "El Calafate", "", -50.3361, -72.2486}
 	IataIRJ = Iata{"ar", "Argentina", "irj", "La Rioja", "La Rioja", "Capitan Vicente Almandos Almonacid Airport", -29.3816, -66.7958}
 	IataJNI = Iata{"ar", "Argentina", "jni", "Buenos Aires", "Junín", "Junin Airport", -34.5459, -60.9306}
 	IataJSM = Iata{"ar", "Argentina", "jsm", "Chubut", "José de San Martín", "Jose de San Martin Airport", -44.0486, -70.4589}
@@ -213,6 +217,7 @@ var (
 	IataOYA = Iata{"ar", "Argentina", "oya", "Corrientes", "Goya", "Goya Airport", -29.1058, -59.2189}
 	IataOYO = Iata{"ar", "Argentina", "oyo", "Buenos Aires", "Tres Arroyos", "Tres Arroyos Airport", -38.3869, -60.3297}
 	IataPEH = Iata{"ar", "Argentina", "peh", "Buenos Aires", "Pehuajó", "Comodoro Pedro Zanni Airport", -35.8446, -61.8576}
+	IataPIG = Iata{"ar", "Argentina", "pig", "", "Pigüé", "", -37.5651, -62.4175}
 	IataPMQ = Iata{"ar", "Argentina", "pmq", "Santa Cruz", "Perito Moreno", "Perito Moreno Airport", -46.5379, -70.9787}
 	IataPMY = Iata{"ar", "Argentina", "pmy", "Chubut", "Puerto Madryn", "El Tehuelche Airport", -42.7592, -65.1027}
 	IataPRA = Iata{"ar", "Argentina", "pra", "Entre Rios", "Paraná", "General Justo Jose de Urquiza Airport", -31.7948, -60.4804}
@@ -267,6 +272,7 @@ var (
 	IataABH = Iata{"au", "Australia", "abh", "Queensland", "Alpha", "Alpha Airport", -23.6461, 146.584}
 	IataABM = Iata{"au", "Australia", "abm", "Queensland", "Bamaga", "Northern Peninsula Airport", -10.9508, 142.459}
 	IataABX = Iata{"au", "Australia", "abx", "New South Wales", "Albury", "Albury Airport", -36.0678, 146.958}
+	IataACF = Iata{"au", "Australia", "acf", "", "Brisbane", "", -27.5724, 153.0042}
 	IataADL = Iata{"au", "Australia", "adl", "South Australia", "Adelaide", "Adelaide Airport", -34.945, 138.531}
 	IataADO = Iata{"au", "Australia", "ado", "South Australia", "Andamooka", "Andamooka Airport", -30.4383, 137.137}
 	IataAGW = Iata{"au", "Australia", "agw", "Queensland", "Agnew", "Agnew Airport", -12.1456, 142.149}
@@ -727,6 +733,7 @@ var (
 	IataPTJ = Iata{"au", "Australia", "ptj", "Victoria", "Victoria", "Portland Airport", -38.3181, 141.471}
 	IataPUG = Iata{"au", "Australia", "pug", "South Australia", "Port Augusta", "Port Augusta Airport", -32.5069, 137.717}
 	IataPXH = Iata{"au", "Australia", "pxh", "South Australia", "Mount Eba", "Prominent Hill Airport", -29.716, 135.524}
+	IataQRR = Iata{"au", "Australia", "qrr", "", "Warren", "", -31.7333, 147.8030}
 	IataRAM = Iata{"au", "Australia", "ram", "Northern Territory", "", "Ramingining Airport", -12.3564, 134.898}
 	IataRBC = Iata{"au", "Australia", "rbc", "Victoria", "Robinvale", "Robinvale Airport", -34.65, 142.783}
 	IataRBS = Iata{"au", "Australia", "rbs", "Victoria", "Orbost", "Orbost Airport", -37.79, 148.61}
@@ -874,7 +881,9 @@ var (
 	IataZNE = Iata{"au", "Australia", "zne", "Western Australia", "Newman", "Newman Airport", -23.4178, 119.803}
 	IataZVG = Iata{"au", "Australia", "zvg", "Western Australia", "Springvale", "Springvale Airport (Western Australia)", -17.7869, 127.67}
 	IataAUA = Iata{"aw", "Aruba", "aua", "Aruba", "Oranjestad", "Queen Beatrix International Airport", 12.5014, -70.0152}
+	IataFZL = Iata{"az", "Azerbaijan", "fzl", "", "Fuzuli", "", 39.5946, 47.1961}
 	IataGBB = Iata{"az", "Azerbaijan", "gbb", "Qabala", "Gabala", "Qabala International Airport", 40.8267, 47.7125}
+	IataGNJ = Iata{"az", "Azerbaijan", "gnj", "", "Ganja", "", 40.7387, 46.3204}
 	IataGYD = Iata{"az", "Azerbaijan", "gyd", "Baki", "Baku", "Heydar Aliyev International Airport", 40.4675, 50.0467}
 	IataKVD = Iata{"az", "Azerbaijan", "kvd", "Ganca", "", "Ganja International Airport", 40.7377, 46.3176}
 	IataLLK = Iata{"az", "Azerbaijan", "llk", "Lankaran", "Lankaran", "Lankaran International Airport", 38.7464, 48.818}
@@ -1064,6 +1073,7 @@ var (
 	IataCFC = Iata{"br", "Brazil", "cfc", "Santa Catarina", "Caçador", "Cacador Airport", -26.7884, -50.9398}
 	IataCFO = Iata{"br", "Brazil", "cfo", "Mato Grosso", "Confresa", "Confresa Airport", -10.6344, -51.5636}
 	IataCGB = Iata{"br", "Brazil", "cgb", "Mato Grosso", "Cuiabá", "Marechal Rondon International Airport", -15.6529, -56.1167}
+	IataCGH = Iata{"br", "Brazil", "cgh", "", "São Paulo", "", -23.5749, -46.6766}
 	IataCGR = Iata{"br", "Brazil", "cgr", "Mato Grosso do Sul", "Campo Grande", "Campo Grande International Airport", -20.4687, -54.6725}
 	IataCIZ = Iata{"br", "Brazil", "ciz", "Amazonas", "Coari", "Coari Airport", -4.13406, -63.1326}
 	IataCKO = Iata{"br", "Brazil", "cko", "Parana", "Cornélio Procópio", "Cornelio Procopio Airport", -23.1525, -50.6025}
@@ -1145,6 +1155,8 @@ var (
 	IataITQ = Iata{"br", "Brazil", "itq", "Rio Grande do Sul", "Itaqui", "Itaqui Airport", -29.1731, -56.5367}
 	IataITR = Iata{"br", "Brazil", "itr", "Goias", "Itumbiara", "Itumbiara Airport", -18.4447, -49.2134}
 	IataIZA = Iata{"br", "Brazil", "iza", "Minas Gerais", "Juiz de Fora", "Presidente Itamar Franco Airport (Zona da Mata Regional Airport)", -21.5131, -43.1731}
+	IataJAW = Iata{"br", "Brazil", "jaw", "", "Araripina", "", -7.5864, -40.5354}
+	IataJBS = Iata{"br", "Brazil", "jbs", "", "São Borja", "", -28.6559, -55.9456}
 	IataJCB = Iata{"br", "Brazil", "jcb", "Santa Catarina", "Joaçaba", "Santa Terezinha Municipal Airport", -27.1714, -51.5533}
 	IataJCM = Iata{"br", "Brazil", "jcm", "Bahia", "Jacobina", "Jacobina Airport", -11.1632, -40.5531}
 	IataJCR = Iata{"br", "Brazil", "jcr", "Para", "Jacareacanga", "Jacareacanga Airport", -6.23316, -57.7769}
@@ -1159,8 +1171,10 @@ var (
 	IataJNA = Iata{"br", "Brazil", "jna", "Minas Gerais", "Januária", "Januaria Airport", -15.4738, -44.3855}
 	IataJOI = Iata{"br", "Brazil", "joi", "Santa Catarina", "Joinville", "Joinville-Lauro Carneiro de Loyola Airport", -26.2245, -48.7974}
 	IataJPA = Iata{"br", "Brazil", "jpa", "Paraiba", "João Pessoa", "Presidente Castro Pinto International Airport", -7.14583, -34.9486}
+	IataJPO = Iata{"br", "Brazil", "jpo", "", "Patos", "", -7.0390, -37.2516}
 	IataJPR = Iata{"br", "Brazil", "jpr", "Rondonia", "Ji-Paraná", "Jose Coleto Airport", -10.8708, -61.8465}
 	IataJRN = Iata{"br", "Brazil", "jrn", "Mato Grosso", "Juruena", "Juruena Airport", -10.3058, -58.4894}
+	IataJRT = Iata{"br", "Brazil", "jrt", "", "Brejo", "", -3.6608, -42.8142}
 	IataJTC = Iata{"br", "Brazil", "jtc", "Sao Paulo", "Bauru", "Moussa Nakhl Tobias-Bauru/Arealva State Airport", -22.1669, -49.0503}
 	IataJTI = Iata{"br", "Brazil", "jti", "Goias", "Jataí", "Jatai Airport", -17.8299, -51.773}
 	IataJUA = Iata{"br", "Brazil", "jua", "Mato Grosso", "Juara", "Mauro Luiz Frizon Airport", -11.2966, -57.5495}
@@ -1204,6 +1218,7 @@ var (
 	IataOBI = Iata{"br", "Brazil", "obi", "Para", "Óbidos", "Obidos Airport", -1.86717, -55.5144}
 	IataOIA = Iata{"br", "Brazil", "oia", "Para", "Ourilândia do Norte", "Ourilandia do Norte Airport", -6.7631, -51.0499}
 	IataOLC = Iata{"br", "Brazil", "olc", "Amazonas", "São Paulo De Olivença", "Senadora Eunice Michiles Airport", -3.46793, -68.9204}
+	IataOPP = Iata{"br", "Brazil", "opp", "", "Salinópolis", "", -0.6961, -47.3361}
 	IataOPS = Iata{"br", "Brazil", "ops", "Mato Grosso", "Sinop", "Presidente Joao Figueiredo Airport", -11.885, -55.5861}
 	IataORX = Iata{"br", "Brazil", "orx", "Para", "Oriximiná", "Oriximina Airport", -1.71408, -55.8362}
 	IataOTT = Iata{"br", "Brazil", "ott", "Mato Grosso", "Cotriguaçu", "Andre Maggi Airport", -9.89861, -58.5819}
@@ -1225,6 +1240,7 @@ var (
 	IataPIN = Iata{"br", "Brazil", "pin", "Amazonas", "Parintins", "Julio Belem", -2.67302, -56.7772}
 	IataPIV = Iata{"br", "Brazil", "piv", "Minas Gerais", "Pirapora", "Pirapora Airport", -17.3169, -44.8603}
 	IataPLL = Iata{"br", "Brazil", "pll", "Amazonas", "Manaus", "Manaus Air Force Base", -3.14604, -59.9863}
+	IataPLU = Iata{"br", "Brazil", "plu", "", "Belo Horizonte", "", -19.9081, -43.9426}
 	IataPMG = Iata{"br", "Brazil", "pmg", "Mato Grosso do Sul", "Ponta Porã", "Ponta Pora International Airport", -22.5496, -55.7026}
 	IataPMW = Iata{"br", "Brazil", "pmw", "Tocantins", "Palmas", "Palmas-Brigadeiro Lysias Rodrigues Airport", -10.2915, -48.357}
 	IataPNB = Iata{"br", "Brazil", "pnb", "Tocantins", "Porto Nacional", "Porto Nacional Airport", -10.7194, -48.3997}
@@ -1240,7 +1256,22 @@ var (
 	IataPTQ = Iata{"br", "Brazil", "ptq", "Para", "Porto de Moz", "Porto de Moz Airport", -1.74145, -52.2361}
 	IataPVH = Iata{"br", "Brazil", "pvh", "Rondonia", "Porto Velho", "Governador Jorge Teixeira de Oliveira International Airport", -8.70929, -63.9023}
 	IataPVI = Iata{"br", "Brazil", "pvi", "Parana", "Paranavaí", "Edu Chaves Airport", -23.0899, -52.4885}
+	IataQAC = Iata{"br", "Brazil", "qac", "", "Castro", "", -24.8077, -49.9597}
+	IataQCP = Iata{"br", "Brazil", "qcp", "", "Currais Novos", "", -6.2808, -36.5403}
+	IataQCR = Iata{"br", "Brazil", "qcr", "", "Curitibanos", "", -27.2868, -50.6048}
+	IataQDB = Iata{"br", "Brazil", "qdb", "", "Cachoeira do Sul", "", -30.2747, -52.9191}
+	IataQDC = Iata{"br", "Brazil", "qdc", "", "Dracena", "", -21.4605, -51.6069}
+	IataQDF = Iata{"br", "Brazil", "qdf", "", "Conselheiro Lafaiete", "", -20.7386, -43.7974}
+	IataQDV = Iata{"br", "Brazil", "qdv", "", "Jundiaí", "", -23.1708, -46.9275}
+	IataQGC = Iata{"br", "Brazil", "qgc", "", "Lençóis Paulista", "", -22.5784, -48.7746}
+	IataQHV = Iata{"br", "Brazil", "qhv", "", "Novo Hamburgo", "", -29.6789, -51.0899}
+	IataQID = Iata{"br", "Brazil", "qid", "", "Três Corações", "", -21.7891, -45.2682}
+	IataQIQ = Iata{"br", "Brazil", "qiq", "", "Rio Claro", "", -22.4308, -47.5623}
+	IataQIT = Iata{"br", "Brazil", "qit", "", "Itapetinga", "", -15.2445, -40.2772}
+	IataQMF = Iata{"br", "Brazil", "qmf", "", "Mafra", "", -26.1601, -49.8322}
+	IataQNV = Iata{"br", "Brazil", "qnv", "", "Nova Iguaçu", "", -22.7193, -43.4765}
 	IataQSC = Iata{"br", "Brazil", "qsc", "Sao Paulo", "São Carlos", "Mario Pereira Lopes Airport", -21.8754, -47.9037}
+	IataQVP = Iata{"br", "Brazil", "qvp", "", "Avaré", "", -23.0922, -48.9874}
 	IataRAO = Iata{"br", "Brazil", "rao", "Sao Paulo", "Ribeirão Preto", "Leite Lopes Airport", -21.1364, -47.7767}
 	IataRBB = Iata{"br", "Brazil", "rbb", "Amazonas", "Borba", "Borba Airport", -4.40634, -59.6024}
 	IataRBR = Iata{"br", "Brazil", "rbr", "Acre", "Rio Branco", "Placido de Castro International Airport", -9.86889, -67.8981}
@@ -1250,8 +1281,12 @@ var (
 	IataRIA = Iata{"br", "Brazil", "ria", "Rio Grande do Sul", "Santa Maria", "Santa Maria Airport (Rio Grande do Sul)", -29.7114, -53.6882}
 	IataRIG = Iata{"br", "Brazil", "rig", "Rio Grande do Sul", "Rio Grande", "Rio Grande Regional Airport", -32.0817, -52.1633}
 	IataROO = Iata{"br", "Brazil", "roo", "Mato Grosso", "Rondonópolis", "Maestro Marinho Franco Airport", -16.586, -54.7248}
+	IataRRJ = Iata{"br", "Brazil", "rrj", "", "Rio de Janeiro", "", -22.9453, -43.3304}
+	IataRTE = Iata{"br", "Brazil", "rte", "", "São Paulo", "", -23.5749, -46.6766}
 	IataRVD = Iata{"br", "Brazil", "rvd", "Goias", "Rio Verde", "General Leite de Castro Airport", -17.8347, -50.9561}
+	IataSAO = Iata{"br", "Brazil", "sao", "", "São Paulo", "", -23.5749, -46.6766}
 	IataSBJ = Iata{"br", "Brazil", "sbj", "Espirito Santo", "São Mateus", "Sao Mateus Airport", -18.7213, -39.8337}
+	IataSDU = Iata{"br", "Brazil", "sdu", "", "Rio de Janeiro", "", -22.9453, -43.3304}
 	IataSFK = Iata{"br", "Brazil", "sfk", "Para", "Siófok", "Soure Airport", -0.699431, -48.521}
 	IataSFV = Iata{"br", "Brazil", "sfv", "Sao Paulo", "Santa Fé do Sul", "Santa Fe do Sul Airport", -20.183, -50.917}
 	IataSJK = Iata{"br", "Brazil", "sjk", "Sao Paulo", "São José dos Campos", "Professor Urbano Ernesto Stumpf International Airport", -23.2292, -45.8615}
@@ -1326,6 +1361,7 @@ var (
 	IataNAS = Iata{"bs", "Bahamas", "nas", "New Providence", "Nassau", "Lynden Pindling International Airport", 25.039, -77.4662}
 	IataNMC = Iata{"bs", "Bahamas", "nmc", "Exuma", "Norman's Cay", "Norman's Cay Airport", 24.5943, -76.8202}
 	IataNSB = Iata{"bs", "Bahamas", "nsb", "Bimini", "Bimini", "North Seaplane Base", 25.767, -79.25}
+	IataPID = Iata{"bs", "Bahamas", "pid", "", "Paradise Island", "", 25.0781, -77.2987}
 	IataPWN = Iata{"bs", "Bahamas", "pwn", "Long Island", "Pitts Town", "Pitts Town Airport", 22.8297, -74.3461}
 	IataRCY = Iata{"bs", "Bahamas", "rcy", "Rum Cay", "Rum Cay", "Port Nelson Airport", 23.6844, -74.8362}
 	IataRSD = Iata{"bs", "Bahamas", "rsd", "South Eleuthera", "Rock Sound", "Rock Sound International Airport", 24.8951, -76.1769}
@@ -1353,6 +1389,7 @@ var (
 	IataMUB = Iata{"bw", "Botswana", "mub", "North West", "Maun", "Maun Airport", -19.9726, 23.4311}
 	IataORP = Iata{"bw", "Botswana", "orp", "Central", "Orapa", "Orapa Airport", -21.2667, 25.3167}
 	IataPKW = Iata{"bw", "Botswana", "pkw", "Central", "Selebi-Phikwe", "Selebi-Phikwe Airport", -22.0583, 27.8288}
+	IataQPH = Iata{"bw", "Botswana", "qph", "", "Palapye", "", -22.5641, 27.1367}
 	IataSVT = Iata{"bw", "Botswana", "svt", "North West", "Savuti", "Savuti Airport", -18.5206, 24.0767}
 	IataSWX = Iata{"bw", "Botswana", "swx", "North West", "Shakawe", "Shakawe Airport", -18.3739, 21.8326}
 	IataSXN = Iata{"bw", "Botswana", "sxn", "Central", "Sowa", "Sua Pan Airport", -20.5534, 26.1158}
@@ -1738,6 +1775,7 @@ var (
 	IataYTH = Iata{"ca", "Canada", "yth", "Manitoba", "Thompson", "Thompson Airport", 55.8011, -97.8642}
 	IataYTL = Iata{"ca", "Canada", "ytl", "Ontario", "Big Trout Lake", "Big Trout Lake Airport", 53.8178, -89.8969}
 	IataYTM = Iata{"ca", "Canada", "ytm", "Quebec", "La Macaza", "Mont Tremblant International Airport", 46.4094, -74.78}
+	IataYTO = Iata{"ca", "Canada", "yto", "", "Toronto", "", 43.7220, -79.4650}
 	IataYTP = Iata{"ca", "Canada", "ytp", "British Columbia", "Tofino", "Tofino Harbour Water Aerodrome", 49.155, -125.91}
 	IataYTQ = Iata{"ca", "Canada", "ytq", "Quebec", "Tasiujaq", "Tasiujaq Airport", 58.6678, -69.9558}
 	IataYTR = Iata{"ca", "Canada", "ytr", "Ontario", "Trenton", "CFB Trenton", 44.1189, -77.5281}
@@ -1982,9 +2020,11 @@ var (
 	IataBRN = Iata{"ch", "Switzerland", "brn", "Bern", "Bern", "Bern Airport", 46.9141, 7.49715}
 	IataBSL = Iata{"ch", "Switzerland", "bsl", "Basel-City", "Basel", "EuroAirport Basel Mulhouse Freiburg", 47.59, 7.52916}
 	IataBXO = Iata{"ch", "Switzerland", "bxo", "Nidwalden", "Buochs", "Buochs Airport", 46.9744, 8.39694}
+	IataEAP = Iata{"ch", "Switzerland", "eap", "", "Basel", "", 47.6007, 7.5211}
 	IataEML = Iata{"ch", "Switzerland", "eml", "Luzern", "Emmen", "Emmen Air Base", 47.0924, 8.30518}
 	IataGVA = Iata{"ch", "Switzerland", "gva", "Geneve", "Geneva", "Geneva Airport", 46.2381, 6.10895}
 	IataLUG = Iata{"ch", "Switzerland", "lug", "Ticino", "Lugano", "Lugano Airport", 46.0043, 8.91058}
+	IataMLH = Iata{"ch", "Switzerland", "mlh", "", "Basel", "", 47.6007, 7.5211}
 	IataSIR = Iata{"ch", "Switzerland", "sir", "Valais", "Sion", "Sion Airport", 46.2196, 7.32676}
 	IataSMV = Iata{"ch", "Switzerland", "smv", "Graubunden", "St. Moritz", "Samedan Airport (Engadin Airport)", 46.5341, 9.88411}
 	IataZRH = Iata{"ch", "Switzerland", "zrh", "Zurich", "Zurich", "Zurich Airport", 47.4647, 8.54917}
@@ -2032,6 +2072,7 @@ var (
 	IataCOW = Iata{"cl", "Chile", "cow", "Coquimbo", "Coquimbo", "Coquimbo Airport", -30.1989, -71.2469}
 	IataCPO = Iata{"cl", "Chile", "cpo", "Atacama", "Copiapó", "Desierto de Atacama Airport", -27.2612, -70.7792}
 	IataCPP = Iata{"cl", "Chile", "cpp", "Tarapaca", "Pica", "Coposa Airport", -20.75, -68.6833}
+	IataDPB = Iata{"cl", "Chile", "dpb", "", "Inútil Bay", "", 0, 0}
 	IataESR = Iata{"cl", "Chile", "esr", "Atacama", "El Salvador", "Ricardo Garcia Posada Airport", -26.3111, -69.7652}
 	IataFFU = Iata{"cl", "Chile", "ffu", "Los Lagos", "Futaleufú", "Futaleufu Airfield", -43.1892, -71.8511}
 	IataFRT = Iata{"cl", "Chile", "frt", "Los Lagos", "Frutillar", "Frutillar Airport", -41.117, -73.05}
@@ -2050,6 +2091,8 @@ var (
 	IataPUQ = Iata{"cl", "Chile", "puq", "Magallanes", "Punta Arenas", "Presidente Carlos Ibanez del Campo International Airport", -53.0026, -70.8546}
 	IataPUX = Iata{"cl", "Chile", "pux", "Los Lagos", "Puerto Varas", "El Mirador Airport", -41.3494, -72.9467}
 	IataPZS = Iata{"cl", "Chile", "pzs", "La Araucania", "Temuco", "Maquehue Airport", -38.7668, -72.6371}
+	IataQRC = Iata{"cl", "Chile", "qrc", "", "Rancagua", "", -34.1737, -70.7757}
+	IataQTR = Iata{"cl", "Chile", "qtr", "", "Quintero", "", -32.7902, -71.5217}
 	IataSCL = Iata{"cl", "Chile", "scl", "Region Metropolitana de Santiago", "Santiago", "Arturo Merino Benítez International Airport", -33.3928, -70.7856}
 	IataSMB = Iata{"cl", "Chile", "smb", "Magallanes", "Cerro Sombrero", "Franco Bianco Airport", -52.7367, -69.3336}
 	IataTLX = Iata{"cl", "Chile", "tlx", "Maule", "Talca", "Panguilemo Airport", -35.3778, -71.6017}
@@ -2140,6 +2183,7 @@ var (
 	IataDQA = Iata{"cn", "China", "dqa", "Heilongjiang", "Daqing", "Daqing Sartu Airport", 46.7464, 125.141}
 	IataDSN = Iata{"cn", "China", "dsn", "Nei Mongol", "Ordos City", "Ordos Ejin Horo Airport", 39.49, 109.861}
 	IataDTU = Iata{"cn", "China", "dtu", "Heilongjiang", "Wudalianchi", "Wudalianchi Airport", 48.445, 126.133}
+	IataDXJ = Iata{"cn", "China", "dxj", "", "Xiangxi Tujia and Miao Autonomous Prefecture", "", 0, 0}
 	IataDYG = Iata{"cn", "China", "dyg", "Hunan", "Zhangjiajie", "Zhangjiajie Hehua Airport", 29.1028, 110.443}
 	IataDZH = Iata{"cn", "China", "dzh", "Sichuan Sheng", "Dazhou (Dachuan)", "Dazhou Jinya Airport", 31.04, 107.44}
 	IataDZU = Iata{"cn", "China", "dzu", "Chongqing", "Dazu", "Dazu Air Base", 29.6362, 105.774}
@@ -2149,6 +2193,7 @@ var (
 	IataENY = Iata{"cn", "China", "eny", "Shaanxi", "Yan'an", "Yan'an Ershilipu Airport", 36.6369, 109.554}
 	IataERL = Iata{"cn", "China", "erl", "Nei Mongol", "Erenhot", "Erenhot Saiwusu International Airport", 43.4225, 112.097}
 	IataFOC = Iata{"cn", "China", "foc", "Fujian", "Fuzhou", "Fuzhou Changle International Airport", 25.9351, 119.663}
+	IataFQJ = Iata{"cn", "China", "fqj", "", "Fengqing County", "", 0, 0}
 	IataFUG = Iata{"cn", "China", "fug", "Anhui", "Fuyang", "Fuyang Xiguan Airport", 32.8822, 115.734}
 	IataFUO = Iata{"cn", "China", "fuo", "Guangdong", "Foshan", "Foshan Shadi Airport", 23.0833, 113.07}
 	IataFYJ = Iata{"cn", "China", "fyj", "Heilongjiang", "Fuyuan", "Fuyuan Dongji Airport", 48.1995, 134.366}
@@ -2159,6 +2204,7 @@ var (
 	IataGXH = Iata{"cn", "China", "gxh", "Gansu", "Xiahe County", "Gannan Xiahe Airport", 34.8105, 102.645}
 	IataGYS = Iata{"cn", "China", "gys", "Sichuan", "Guangyuan", "Guangyuan Panlong Airport", 32.3911, 105.702}
 	IataGYU = Iata{"cn", "China", "gyu", "Ningxia", "Guyuan", "Guyuan Liupanshan Airport", 36.0789, 106.217}
+	IataGZG = Iata{"cn", "China", "gzg", "", "Garzê County", "", 0, 0}
 	IataHAK = Iata{"cn", "China", "hak", "Hainan", "Haikou", "Haikou Meilan International Airport", 19.9349, 110.459}
 	IataHBQ = Iata{"cn", "China", "hbq", "Qinghai Sheng", "Qilian County", "Haibei Qilian Airport", 38.012, 100.644}
 	IataHCJ = Iata{"cn", "China", "hcj", "Guangxi", "Hechi", "Hechi Jinchengjiang Airport", 24.805, 107.7}
@@ -2166,6 +2212,7 @@ var (
 	IataHDG = Iata{"cn", "China", "hdg", "Hebei", "Handan", "Handan Airport", 36.5258, 114.426}
 	IataHEK = Iata{"cn", "China", "hek", "Heilongjiang", "Heihe", "Heihe Airport", 50.1716, 127.309}
 	IataHET = Iata{"cn", "China", "het", "Nei Mongol", "Hohhot", "Hohhot Baita International Airport", 40.8514, 111.824}
+	IataHEW = Iata{"cn", "China", "hew", "", "Dongyang", "", 37.8916, 23.7302}
 	IataHFE = Iata{"cn", "China", "hfe", "Anhui", "Hefei", "Hefei Xinqiao International Airport", 31.78, 117.298}
 	IataHGH = Iata{"cn", "China", "hgh", "Zhejiang", "Hangzhou", "Hangzhou Xiaoshan International Airport", 30.2295, 120.434}
 	IataHIA = Iata{"cn", "China", "hia", "Jiangsu", "Huai'an", "Huai'an Lianshui Airport", 33.7908, 119.125}
@@ -2177,6 +2224,7 @@ var (
 	IataHPG = Iata{"cn", "China", "hpg", "Hubei", "Shennongjia", "Shennongjia Hongping Airport", 31.626, 110.34}
 	IataHRB = Iata{"cn", "China", "hrb", "Heilongjiang", "Harbin", "Harbin Taiping International Airport", 45.6234, 126.25}
 	IataHSC = Iata{"cn", "China", "hsc", "Guangdong", "Shaoguan", "Shaoguan Guitou Airport", 24.9786, 113.421}
+	IataHSF = Iata{"cn", "China", "hsf", "", "Suifenhe", "", 44.4539, 130.8439}
 	IataHSJ = Iata{"cn", "China", "hsj", "Henan", "Zhengzhou", "Zhengzhou Shangjie Airport", 34.8422, 113.274}
 	IataHSN = Iata{"cn", "China", "hsn", "Zhejiang", "Zhoushan", "Zhoushan Putuoshan Airport", 29.9342, 122.362}
 	IataHTN = Iata{"cn", "China", "htn", "Xinjiang", "Hotan", "Hotan Airport", 37.0385, 79.8649}
@@ -2191,6 +2239,7 @@ var (
 	IataINC = Iata{"cn", "China", "inc", "Ningxia", "Yinchuan", "Yinchuan Hedong International Airport", 38.3228, 106.393}
 	IataIQM = Iata{"cn", "China", "iqm", "Xinjiang", "Qiemo County", "Qiemo Airport", 38.2336, 85.4656}
 	IataIQN = Iata{"cn", "China", "iqn", "Gansu", "Qingyang", "Qingyang Airport", 35.7997, 107.603}
+	IataJDE = Iata{"cn", "China", "jde", "", "Jiande", "", 0, 0}
 	IataJDZ = Iata{"cn", "China", "jdz", "Jiangxi", "Jingdezhen", "Jingdezhen Luojia Airport", 29.3386, 117.176}
 	IataJGD = Iata{"cn", "China", "jgd", "Heilongjiang", "Jiagedaqi District", "Jiagedaqi Airport", 50.3714, 124.118}
 	IataJGN = Iata{"cn", "China", "jgn", "Gansu", "Jiayuguan City", "Jiayuguan Airport", 39.8569, 98.3414}
@@ -2204,6 +2253,7 @@ var (
 	IataJMJ = Iata{"cn", "China", "jmj", "Yunnan", "Lancang Lahu Autonomous County", "Lancang Jingmai Airport", 22.4158, 99.7864}
 	IataJMU = Iata{"cn", "China", "jmu", "Heilongjiang", "Jiamusi", "Jiamusi Dongjiao Airport", 46.8434, 130.465}
 	IataJNG = Iata{"cn", "China", "jng", "Shandong", "Jining", "Jining Qufu Airport", 35.2928, 116.347}
+	IataJNH = Iata{"cn", "China", "jnh", "", "Jiaxing", "", 0, 0}
 	IataJNZ = Iata{"cn", "China", "jnz", "Liaoning", "Jinzhou", "Jinzhou Bay Airport", 41.1014, 121.062}
 	IataJSJ = Iata{"cn", "China", "jsj", "Heilongjiang", "Tongjiang", "Jiansanjiang Airport", 47.11, 132.66}
 	IataJUH = Iata{"cn", "China", "juh", "Anhui", "Chizhou", "Chizhou Jiuhuashan Airport", 30.7403, 117.686}
@@ -2222,8 +2272,10 @@ var (
 	IataKRY = Iata{"cn", "China", "kry", "Xinjiang", "Karamay", "Karamay Airport", 45.4665, 84.9527}
 	IataKWE = Iata{"cn", "China", "kwe", "Guizhou", "Guiyang", "Guiyang Longdongbao International Airport", 26.5385, 106.801}
 	IataKWL = Iata{"cn", "China", "kwl", "Guangxi", "Guilin", "Guilin Liangjiang International Airport", 25.2181, 110.039}
+	IataLCS = Iata{"cn", "China", "lcs", "", "Jinghan Town", "", 0, 0}
 	IataLCX = Iata{"cn", "China", "lcx", "Fujian", "Liancheng County", "Longyan Guanzhishan Airport", 25.6747, 116.747}
 	IataLDS = Iata{"cn", "China", "lds", "Heilongjiang", "Yichun", "Yichun Lindu Airport", 47.7521, 129.019}
+	IataLFH = Iata{"cn", "China", "lfh", "", "Lanping Bai and Pumi Autonomous County", "", 0, 0}
 	IataLFQ = Iata{"cn", "China", "lfq", "Shaanxi", "Linfen", "Linfen Qiaoli Airport", 36.1326, 111.641}
 	IataLHK = Iata{"cn", "China", "lhk", "Hubei", "Xiangyang (Laohekou)", "Laohekou Airport", 32.3894, 111.695}
 	IataLHW = Iata{"cn", "China", "lhw", "Gansu", "Lanzhou", "Lanzhou Zhongchuan International Airport", 36.5152, 103.62}
@@ -2240,6 +2292,7 @@ var (
 	IataLYA = Iata{"cn", "China", "lya", "Henan", "Luoyang", "Luoyang Beijiao Airport", 34.7411, 112.388}
 	IataLYG = Iata{"cn", "China", "lyg", "Jiangsu", "Lianyungang", "Lianyungang Baitabu Airport", 34.5717, 118.874}
 	IataLYI = Iata{"cn", "China", "lyi", "Shandong", "Linyi", "Linyi Shubuling Airport", 35.0461, 118.412}
+	IataLZG = Iata{"cn", "China", "lzg", "", "Langzhong", "", 0, 0}
 	IataLZH = Iata{"cn", "China", "lzh", "Guangxi", "Liuzhou", "Liuzhou Bailian Airport", 24.2075, 109.391}
 	IataLZO = Iata{"cn", "China", "lzo", "Sichuan", "Hefei", "Luzhou Yunlong Airport", 29.03, 105.47}
 	IataLZY = Iata{"cn", "China", "lzy", "Xizang", "Nyingchi", "Nyingchi Mainling Airport", 29.3033, 94.3353}
@@ -2247,6 +2300,7 @@ var (
 	IataMIG = Iata{"cn", "China", "mig", "Sichuan", "Mianyang", "Mianyang Nanjiao Airport", 31.4281, 104.741}
 	IataMXZ = Iata{"cn", "China", "mxz", "Guangdong", "Meizhou", "Meixian Airport", 24.35, 116.133}
 	IataNAO = Iata{"cn", "China", "nao", "Sichuan", "Nanchong", "Nanchong Gaoping Airport", 30.7955, 106.163}
+	IataNAY = Iata{"cn", "China", "nay", "", "Beijing", "", 39.7822, 116.3863}
 	IataNBS = Iata{"cn", "China", "nbs", "Jilin", "Baekdu Mountain", "Changbaishan Airport", 42.0669, 127.602}
 	IataNDG = Iata{"cn", "China", "ndg", "Heilongjiang", "Qiqihar", "Qiqihar Sanjiazi Airport", 47.2396, 123.918}
 	IataNGB = Iata{"cn", "China", "ngb", "Zhejiang", "Ningbo", "Ningbo Lishe International Airport", 29.8267, 121.462}
@@ -2261,6 +2315,7 @@ var (
 	IataNZL = Iata{"cn", "China", "nzl", "Nei Mongol", "Zalantun", "Zhalantun Chengjisihan Airport", 47.8658, 122.768}
 	IataOHE = Iata{"cn", "China", "ohe", "Heilongjiang", "Mohe City", "Mohe Gulian Airport", 52.9128, 122.43}
 	IataPEK = Iata{"cn", "China", "pek", "Beijing", "Beijing", "Beijing Capital International Airport", 40.0725, 116.598}
+	IataPKX = Iata{"cn", "China", "pkx", "", "Beijing", "", 39.8765, 116.3671}
 	IataPNJ = Iata{"cn", "China", "pnj", "Shandong", "Yantai", "Penglai Shahekou Airport", 42.4464, 119.574}
 	IataPVG = Iata{"cn", "China", "pvg", "Shanghai", "Shanghai", "Shanghai Pudong International Airport", 31.1434, 121.805}
 	IataPZI = Iata{"cn", "China", "pzi", "Sichuan", "Panzhihua", "Panzhihua Bao'anying Airport", 26.54, 101.799}
@@ -2274,6 +2329,7 @@ var (
 	IataSHA = Iata{"cn", "China", "sha", "Shanghai", "Shanghai", "Shanghai Hongqiao International Airport", 31.1979, 121.336}
 	IataSHE = Iata{"cn", "China", "she", "Liaoning", "Shenyang", "Shenyang Taoxian International Airport", 41.6398, 123.483}
 	IataSHF = Iata{"cn", "China", "shf", "Xinjiang", "Shihezi", "Shihezi Huayuan Airport", 44.2421, 85.8905}
+	IataSHP = Iata{"cn", "China", "shp", "", "Qinhuangdao", "", 39.9687, 119.7306}
 	IataSHS = Iata{"cn", "China", "shs", "Hubei", "Jingzhou", "Shashi Airport", 30.3243, 112.28}
 	IataSIA = Iata{"cn", "China", "sia", "Shaanxi", "Xi'an", "Xi'an Xiguan Airport", 34.3767, 109.12}
 	IataSJW = Iata{"cn", "China", "sjw", "Hebei", "Shijiazhuang", "Shijiazhuang Zhengding International Airport", 38.2807, 114.697}
@@ -2412,6 +2468,7 @@ var (
 	IataGCA = Iata{"co", "Colombia", "gca", "Boyaca", "Guacamayas", "Guacamayas Airport", 2.28333, -74.95}
 	IataGGL = Iata{"co", "Colombia", "ggl", "Choco", "", "Gilgal Airport", 8.33333, -77.0833}
 	IataGIR = Iata{"co", "Colombia", "gir", "Tolima", "Girardot", "Santiago Vila Airport", 4.27624, -74.7967}
+	IataGLJ = Iata{"co", "Colombia", "glj", "", "Garzón", "", 2.2257, -75.6694}
 	IataGMC = Iata{"co", "Colombia", "gmc", "Meta", "Puerto Carreño", "Guerima Airport", 3.62918, -70.3233}
 	IataGPI = Iata{"co", "Colombia", "gpi", "Cauca", "Guapi", "Guapi Airport (Juan Casiano Airport)", 2.57013, -77.8986}
 	IataGRA = Iata{"co", "Colombia", "gra", "Cesar", "Puerto Mosquito", "Gamarra Airport", 8.34197, -73.7057}
@@ -2445,6 +2502,7 @@ var (
 	IataMOY = Iata{"co", "Colombia", "moy", "Boyaca", "Monterrey", "Monterrey Airport", 4.90693, -72.8948}
 	IataMQR = Iata{"co", "Colombia", "mqr", "Narino", "Mosquera", "Mosquera Airport", 2.64955, -78.3361}
 	IataMQU = Iata{"co", "Colombia", "mqu", "Tolima", "Mariquita", "Mariquita Airport", 5.21256, -74.8836}
+	IataMSK = Iata{"co", "Colombia", "msk", "", "Puerto Gaitán", "", 3.9323, -71.6679}
 	IataMTB = Iata{"co", "Colombia", "mtb", "Cordoba", "Montelíbano", "Montelibano Airport", 7.97174, -75.4325}
 	IataMTR = Iata{"co", "Colombia", "mtr", "Cordoba", "Montería", "Los Garzones Airport", 8.82374, -75.8258}
 	IataMVP = Iata{"co", "Colombia", "mvp", "Vaupes", "Mitú", "Fabio Alberto Leon Bentley Airport", 1.25366, -70.2339}
@@ -2562,6 +2620,9 @@ var (
 	IataMOA = Iata{"cu", "Cuba", "moa", "Holguin", "Moa", "Orestes Acosta Airport", 20.6539, -74.9222}
 	IataMZO = Iata{"cu", "Cuba", "mzo", "Granma", "Manzanillo", "Sierra Maestra Airport", 20.2881, -77.0892}
 	IataNBW = Iata{"cu", "Cuba", "nbw", "Guantanamo", "Guantanamo Bay Naval Station", "Guantanamo Bay Naval Base", 19.9065, -75.2071}
+	IataPST = Iata{"cu", "Cuba", "pst", "", "Guatemala", "", 20.7333, -75.6593}
+	IataQPD = Iata{"cu", "Cuba", "qpd", "", "Pinar del Río", "", 22.4211, -83.6784}
+	IataQSN = Iata{"cu", "Cuba", "qsn", "", "San Nicolás de Bari", "", 22.7565, -81.9207}
 	IataSCU = Iata{"cu", "Cuba", "scu", "Santiago de Cuba", "Santiago de Cuba", "Antonio Maceo International Airport", 19.9698, -75.8354}
 	IataSNJ = Iata{"cu", "Cuba", "snj", "Pinar del Rio", "Sandino", "San Julian Air Base", 22.0953, -84.152}
 	IataSNU = Iata{"cu", "Cuba", "snu", "Villa Clara", "Santa Clara", "Abel Santamaria Airport", 22.4922, -79.9436}
@@ -2589,9 +2650,11 @@ var (
 	IataECN = Iata{"cy", "Cyprus", "ecn", "Lefkosia", "Tymbou (Kirklar)", "Ercan International Airport", 35.1547, 33.4961}
 	IataGEC = Iata{"cy", "Cyprus", "gec", "Ammochostos", "Lefkoniko (Geçitkale)", "Gecitkale Air Base", 35.2359, 33.7244}
 	IataLCA = Iata{"cy", "Cyprus", "lca", "Larnaka", "Larnaca", "Larnaca International Airport", 34.8751, 33.6249}
+	IataNIC = Iata{"cy", "Cyprus", "nic", "", "Nicosia", "", 35.1550, 33.2729}
 	IataPFO = Iata{"cy", "Cyprus", "pfo", "Pafos", "Paphos District", "Paphos International Airport", 34.718, 32.4857}
 	IataBRQ = Iata{"cz", "Czech Republic", "brq", "Jihomoravsky kraj", "Brno", "Brno-Turany Airport", 49.1513, 16.6944}
 	IataGTW = Iata{"cz", "Czech Republic", "gtw", "Zlinsky kraj", "Holešov", "Holesov Airport", 49.3144, 17.5689}
+	IataHRA = Iata{"cz", "Czech Republic", "hra", "", "Mnichovo Hradiště", "", 34.3333, 73.2002}
 	IataJCL = Iata{"cz", "Czech Republic", "jcl", "Jihocesky kraj", "České Budějovice", "Ceske Budejovice Airport (Plana Airport)", 48.9464, 14.4275}
 	IataKLV = Iata{"cz", "Czech Republic", "klv", "Karlovarsky kraj", "Karlovy Vary", "Karlovy Vary Airport", 50.203, 12.915}
 	IataMKA = Iata{"cz", "Czech Republic", "mka", "Karlovarsky kraj", "Mariánské Lázně", "Marianske Lazne Airport", 49.9228, 12.7247}
@@ -2684,7 +2747,9 @@ var (
 	IataSGE = Iata{"de", "Germany", "sge", "Nordrhein-Westfalen", "Siegerland", "Siegerland Airport", 50.7077, 8.08297}
 	IataSPM = Iata{"de", "Germany", "spm", "Rheinland-Pfalz", "Trier", "Spangdahlem Air Base", 49.9727, 6.6925}
 	IataSTR = Iata{"de", "Germany", "str", "Baden-Wurttemberg", "Stuttgart", "Stuttgart Airport", 48.6899, 9.22196}
+	IataSXF = Iata{"de", "Germany", "sxf", "", "Berlin", "", 52.3800, 13.5225}
 	IataSZW = Iata{"de", "Germany", "szw", "Mecklenburg-Vorpommern", "", "Schwerin-Parchim International Airport", 53.427, 11.7834}
+	IataTHF = Iata{"de", "Germany", "thf", "", "Berlin", "", 52.4725, 13.4046}
 	IataTXL = Iata{"de", "Germany", "txl", "Berlin", "", "Berlin Tegel Airport", 52.5597, 13.2877}
 	IataURD = Iata{"de", "Germany", "urd", "Bayern", "Ebermannstadt", "Burg Feuerstein Airport", 49.7942, 11.1336}
 	IataVAC = Iata{"de", "Germany", "vac", "Niedersachsen", "Cloppenburg", "Varrelbusch Airport", 52.9083, 8.04056}
@@ -2725,6 +2790,7 @@ var (
 	IataCBJ = Iata{"do", "Dominican Republic", "cbj", "Pedernales", "Pedernales", "Cabo Rojo Airport", 17.929, -71.6448}
 	IataCOZ = Iata{"do", "Dominican Republic", "coz", "La Vega", "Constanza", "Constanza Airport", 18.9075, -70.7219}
 	IataEPS = Iata{"do", "Dominican Republic", "eps", "Samana", "Samaná Province", "Arroyo Barril Airport", 19.3214, -69.4959}
+	IataHEX = Iata{"do", "Dominican Republic", "hex", "", "Santo Domingo", "", 18.4697, -69.9694}
 	IataJBQ = Iata{"do", "Dominican Republic", "jbq", "Distrito Nacional (Santo Domingo)", "Santo Domingo", "La Isabela International Airport (Dr. Joaquin Balaguer Int'l)", 18.5725, -69.9856}
 	IataPOP = Iata{"do", "Dominican Republic", "pop", "Puerto Plata", "Puerto Plata", "Gregorio Luperon International Airport", 19.7579, -70.57}
 	IataPUJ = Iata{"do", "Dominican Republic", "puj", "La Altagracia", "Punta Cana", "Punta Cana International Airport", 18.5674, -68.3634}
@@ -2812,8 +2878,11 @@ var (
 	IataATZ = Iata{"eg", "Egypt", "atz", "Asyut", "Asyut", "Assiut Airport", 27.0465, 31.012}
 	IataAUE = Iata{"eg", "Egypt", "aue", "Janub Sina'", "Abou Redis", "Abu Rudeis Airport", 28.899, 33.2025}
 	IataCAI = Iata{"eg", "Egypt", "cai", "Al Qahirah", "Cairo", "Cairo International Airport", 30.1219, 31.4056}
+	IataCCE = Iata{"eg", "Egypt", "cce", "", "New Administrative Capital", "", 18.1001, -63.0474}
+	IataCWE = Iata{"eg", "Egypt", "cwe", "", "Cairo", "", 30.1164, 30.9155}
 	IataDAK = Iata{"eg", "Egypt", "dak", "Al Wadi al Jadid", "Dakhla Oasis", "Dakhla Oasis Airport", 25.4116, 29.0031}
 	IataDBB = Iata{"eg", "Egypt", "dbb", "Matruh", "El Alamein", "Al Alamain International Airport", 30.9245, 28.4614}
+	IataEGH = Iata{"eg", "Egypt", "egh", "", "El Gorah", "", 0, 0}
 	IataELT = Iata{"eg", "Egypt", "elt", "Janub Sina'", "At Tur", "El Tor Airport", 28.209, 33.6455}
 	IataEMY = Iata{"eg", "Egypt", "emy", "Al Minya", "El Minya", "El Minya Airport", 28.1013, 30.7303}
 	IataGSQ = Iata{"eg", "Egypt", "gsq", "Al Wadi al Jadid", "Sharq El Owainat", "Sharq Al-Owainat Airport", 22.5857, 28.7166}
@@ -2867,6 +2936,7 @@ var (
 	IataOZP = Iata{"es", "Spain", "ozp", "Andalucia", "Morón", "Moron Air Base", 37.1749, -5.61594}
 	IataPMI = Iata{"es", "Spain", "pmi", "Illes Balears", "Palma", "Palma de Mallorca Airport", 39.5517, 2.73881}
 	IataPNA = Iata{"es", "Spain", "pna", "Navarra, Comunidad Foral de", "Pamplona", "Pamplona Airport", 42.77, -1.64633}
+	IataQSA = Iata{"es", "Spain", "qsa", "", "Sabadell", "", 41.5209, 2.1051}
 	IataREU = Iata{"es", "Spain", "reu", "Catalunya", "Reus", "Reus Airport", 41.1474, 1.16717}
 	IataRGS = Iata{"es", "Spain", "rgs", "Castilla y Leon", "Burgos", "Burgos Airport", 42.3576, -3.62076}
 	IataRJL = Iata{"es", "Spain", "rjl", "La Rioja", "Logroño", "Logrono-Agoncilo", 42.461, -2.32224}
@@ -2878,6 +2948,8 @@ var (
 	IataSPC = Iata{"es", "Spain", "spc", "Canarias", "Santa Cruz de La Palma", "La Palma Airport", 28.6265, -17.7556}
 	IataSVQ = Iata{"es", "Spain", "svq", "Andalucia", "Seville", "Seville Airport", 37.418, -5.89311}
 	IataTEV = Iata{"es", "Spain", "tev", "Aragon", "Teruel", "Teruel Airport", 40.403, -1.2183}
+	IataTFN = Iata{"es", "Spain", "tfn", "", "Santa Cruz de Tenerife", "", 28.4524, -16.2883}
+	IataTFS = Iata{"es", "Spain", "tfs", "", "Santa Cruz de Tenerife", "", 28.4524, -16.2883}
 	IataTOJ = Iata{"es", "Spain", "toj", "Madrid, Comunidad de", "Madrid", "Madrid-Torrejon Airport", 40.4967, -3.44587}
 	IataVDE = Iata{"es", "Spain", "vde", "Canarias", "El Hierro Island", "El Hierro Airport", 27.8148, -17.8871}
 	IataVGO = Iata{"es", "Spain", "vgo", "Galicia", "Vigo", "Vigo-Peinador Airport", 42.2318, -8.62677}
@@ -3057,6 +3129,7 @@ var (
 	IataETZ = Iata{"fr", "France", "etz", "Grand-Est", "Metz", "Metz-Nancy-Lorraine Airport", 48.9821, 6.25132}
 	IataEVX = Iata{"fr", "France", "evx", "Normandie", "Fauville, Eure", "Evreux-Fauville Air Base", 49.0287, 1.21986}
 	IataFNI = Iata{"fr", "France", "fni", "Occitanie", "Nîmes", "Nimes-Ales-Camargue-Cevennes Airport (Garons Airport)", 43.7574, 4.41635}
+	IataFRJ = Iata{"fr", "France", "frj", "", "Fréjus", "", 43.4175, 6.7357}
 	IataFSC = Iata{"fr", "France", "fsc", "Corse", "Porto-Vecchio", "Figari-Sud Corse Airport", 41.5006, 9.09778}
 	IataGAT = Iata{"fr", "France", "gat", "Provence-Alpes-Cote-d'Azur", "Gap", "Gap-Tallard Airport", 44.455, 6.03778}
 	IataGFR = Iata{"fr", "France", "gfr", "Normandie", "Bréville-sur-Mer, Manche", "Granville-Mont-Saint-Michel Aerodrome (fr)", 48.8831, -1.56417}
@@ -3064,6 +3137,7 @@ var (
 	IataHZB = Iata{"fr", "France", "hzb", "Hauts-de-France", "Merville, Nord", "Merville-Calonne Airport", 50.6184, 2.64224}
 	IataIDY = Iata{"fr", "France", "idy", "Pays-de-la-Loire", "Île d'Yeu", "Ile d'Yeu Aerodrome", 46.7186, -2.39111}
 	IataLAI = Iata{"fr", "France", "lai", "Bretagne", "Lannion", "Lannion - Cote de Granit Airport", 48.7544, -3.47166}
+	IataLBG = Iata{"fr", "France", "lbg", "", "Paris", "", 48.8940, 2.3841}
 	IataLBI = Iata{"fr", "France", "lbi", "Occitanie", "Albi", "Le Sequestre Airport", 43.9139, 2.11306}
 	IataLBY = Iata{"fr", "France", "lby", "Pays-de-la-Loire", "La Baule-Escoublac", "La Baule-Escoublac Airport", 47.2894, -2.34639}
 	IataLDE = Iata{"fr", "France", "lde", "Occitanie", "Tarbes", "Tarbes-Lourdes-Pyrenees Airport", 43.1787, -0.006439}
@@ -3097,13 +3171,17 @@ var (
 	IataOBS = Iata{"fr", "France", "obs", "Auvergne-Rhone-Alpes", "Lanas, Ardèche", "Aubenas Aerodrome (Arddecheche Meridionale Aerodrom)", 44.5442, 4.37219}
 	IataORE = Iata{"fr", "France", "ore", "Centre-Val de Loire", "Orléans", "Orleans - Saint-Denis-de-l'Hotel port", 47.9878, 1.76056}
 	IataORY = Iata{"fr", "France", "ory", "Ile-de-France", "Paris", "Aéroport de Paris-Orly", 48.7231, 2.35944}
+	IataOUI = Iata{"fr", "France", "oui", "", "Ouessant", "", 0, 0}
+	IataPAR = Iata{"fr", "France", "par", "", "Paris", "", 48.9856, 2.4953}
 	IataPGF = Iata{"fr", "France", "pgf", "Occitanie", "Perpignan", "Perpignan-Rivesaltes Airport", 42.7404, 2.87067}
 	IataPGX = Iata{"fr", "France", "pgx", "Nouvelle-Aquitaine", "Périgueux", "Perigueux Bassillac Airport", 45.1981, 0.815556}
 	IataPIS = Iata{"fr", "France", "pis", "Nouvelle-Aquitaine", "Poitiers", "Poitiers-Biard Airport", 46.5877, 0.306666}
+	IataPOX = Iata{"fr", "France", "pox", "", "Pontoise", "", 0, 0}
 	IataPRP = Iata{"fr", "France", "prp", "Corse", "Propriano", "Propriano Airport", 41.6606, 8.88975}
 	IataPUF = Iata{"fr", "France", "puf", "Nouvelle-Aquitaine", "Pau", "Pau Pyrenees Airport", 43.38, -0.418611}
 	IataQIE = Iata{"fr", "France", "qie", "Provence-Alpes-Cote-d'Azur", "", "Istres-Le Tubé Air Base", 43.5244, 4.94167}
 	IataQXB = Iata{"fr", "France", "qxb", "Provence-Alpes-Cote-d'Azur", "Aix-en-Provence", "Aix-en-Provence Aerodrome", 43.5056, 5.36778}
+	IataQYR = Iata{"fr", "France", "qyr", "", "Troyes", "", 48.3221, 4.0167}
 	IataRCO = Iata{"fr", "France", "rco", "Nouvelle-Aquitaine", "Rochefort/Saint-Agnant", "Rochefort - Saint-Agnant Airport", 45.8878, -0.983056}
 	IataRDZ = Iata{"fr", "France", "rdz", "Occitanie", "Rodez", "Rodez-Marcillac Airport", 44.4079, 2.48267}
 	IataRHE = Iata{"fr", "France", "rhe", "Grand-Est", "", "Reims - Champagne Airport", 49.31, 4.05}
@@ -3238,11 +3316,13 @@ var (
 	IataLHR = Iata{"gb", "United Kingdom", "lhr", "England", "London", "Heathrow Airport", 51.4775, -0.461389}
 	IataLKZ = Iata{"gb", "United Kingdom", "lkz", "England", "Brandon, Suffolk", "RAF Lakenheath", 52.4093, 0.561}
 	IataLMO = Iata{"gb", "United Kingdom", "lmo", "Scotland", "Lossiemouth, Moray", "RAF Lossiemouth", 57.7052, -3.33917}
+	IataLON = Iata{"gb", "United Kingdom", "lon", "", "London", "", 51.5359, -0.1152}
 	IataLPL = Iata{"gb", "United Kingdom", "lpl", "England", "Liverpool", "Liverpool John Lennon Airport", 53.3336, -2.84972}
 	IataLSI = Iata{"gb", "United Kingdom", "lsi", "Scotland", "Shetland Islands", "Sumburgh Airport", 59.8814, -1.29389}
 	IataLTN = Iata{"gb", "United Kingdom", "ltn", "England", "London", "London Luton Airport", 51.8747, -0.368333}
 	IataLWK = Iata{"gb", "United Kingdom", "lwk", "Scotland", "Lerwick, Shetland Islands", "Tingwall Airport", 60.1919, -1.24361}
 	IataLYE = Iata{"gb", "United Kingdom", "lye", "England", "", "RAF Lyneham", 51.5051, -1.99343}
+	IataLYM = Iata{"gb", "United Kingdom", "lym", "", "Ashford", "", 51.0800, 1.0166}
 	IataLYX = Iata{"gb", "United Kingdom", "lyx", "England", "Lydd", "Lydd Airport (London Ashford Airport)", 50.9561, 0.939167}
 	IataMAN = Iata{"gb", "United Kingdom", "man", "England", "Manchester", "Manchester Airport", 53.3537, -2.27495}
 	IataMHZ = Iata{"gb", "United Kingdom", "mhz", "England", "Bury Saint Edmunds, Suffolk", "RAF Mildenhall", 52.3619, 0.486406}
@@ -3263,6 +3343,7 @@ var (
 	IataOXF = Iata{"gb", "United Kingdom", "oxf", "England", "Oxford", "Oxford Airport (London Oxford Airport)", 51.8369, -1.32}
 	IataPIK = Iata{"gb", "United Kingdom", "pik", "Scotland", "RAF Prestwick", "Glasgow Prestwick Airport", 55.5094, -4.58667}
 	IataPLH = Iata{"gb", "United Kingdom", "plh", "Devon", "", "Plymouth City Airport", 50.4228, -4.10583}
+	IataPME = Iata{"gb", "United Kingdom", "pme", "", "Portsmouth", "", 0, 0}
 	IataPPW = Iata{"gb", "United Kingdom", "ppw", "Scotland", "Papa Westray, Orkney Islands", "Papa Westray Airport", 59.3517, -2.90028}
 	IataPSL = Iata{"gb", "United Kingdom", "psl", "Scotland", "Perth, Perth and Kinross", "Perth Airport (Scone Airport)", 56.4392, -3.37222}
 	IataPSV = Iata{"gb", "United Kingdom", "psv", "Scotland", "", "Papa Stour Airport", 60.3217, -1.69306}
@@ -3272,6 +3353,7 @@ var (
 	IataQUG = Iata{"gb", "United Kingdom", "qug", "England", "Chichester, West Sussex", "Chichester/Goodwood Airport", 50.8594, -0.759167}
 	IataQUY = Iata{"gb", "United Kingdom", "quy", "England", "St Ives, Cambridgeshire", "RAF Wyton", 52.3572, -0.107833}
 	IataRCS = Iata{"gb", "United Kingdom", "rcs", "England", "Rochester, Kent", "Rochester Airport", 51.3519, 0.503333}
+	IataSCS = Iata{"gb", "United Kingdom", "scs", "", "Shetland Islands", "", 60.4328, -1.2961}
 	IataSEN = Iata{"gb", "United Kingdom", "sen", "England", "London", "London Southend Airport", 51.5703, 0.693333}
 	IataSKL = Iata{"gb", "United Kingdom", "skl", "Scotland", "Ashaig, Highland", "Broadford Airfield", 57.2414, -5.90966}
 	IataSOU = Iata{"gb", "United Kingdom", "sou", "England", "Southampton", "Southampton Airport", 50.9503, -1.3568}
@@ -3280,6 +3362,7 @@ var (
 	IataSTN = Iata{"gb", "United Kingdom", "stn", "England", "London", "London Stansted Airport", 51.885, 0.235}
 	IataSWS = Iata{"gb", "United Kingdom", "sws", "Wales", "Swansea", "Swansea Airport", 51.6053, -4.06783}
 	IataSYY = Iata{"gb", "United Kingdom", "syy", "Scotland", "Stornoway", "Stornoway Airport", 58.2156, -6.33111}
+	IataSZD = Iata{"gb", "United Kingdom", "szd", "", "Sheffield", "", 53.3945, -1.3931}
 	IataTRE = Iata{"gb", "United Kingdom", "tre", "Scotland", "Balemartine, Argyll and Bute", "Tiree Airport", 56.4992, -6.86917}
 	IataUNT = Iata{"gb", "United Kingdom", "unt", "Scotland", "", "Baltasound Airport", 60.7469, -0.854722}
 	IataUPV = Iata{"gb", "United Kingdom", "upv", "England", "Pewsey, Wiltshire", "RAF Upavon", 51.2862, -1.78202}
@@ -3442,6 +3525,7 @@ var (
 	IataPKM = Iata{"gy", "Guyana", "pkm", "Barima-Waini", "Port Kaituma", "Port Kaituma Airstrip", 8.333, -59.633}
 	IataPMT = Iata{"gy", "Guyana", "pmt", "Potaro-Siparuni", "Paramakatoi", "Paramakatoi Airport", 4.6975, -59.7125}
 	IataPRR = Iata{"gy", "Guyana", "prr", "Cuyuni-Mazaruni", "Paruima", "Paruima Airport", 5.81545, -61.0554}
+	IataQSX = Iata{"gy", "Guyana", "qsx", "", "New Amsterdam", "", 6.2443, -57.4742}
 	IataSDC = Iata{"gy", "Guyana", "sdc", "Essequibo Islands-West Demerara", "Williamson", "Sand Creek Airport", 2.9913, -59.51}
 	IataSKM = Iata{"gy", "Guyana", "skm", "East Berbice-Corentyne", "Skeldon", "Skeldon Airport", 5.8599, -57.1489}
 	IataUSI = Iata{"gy", "Guyana", "usi", "Barima-Waini", "Mabaruma", "Mabaruma Airport", 8.2, -59.7833}
@@ -3497,6 +3581,7 @@ var (
 	IataDEB = Iata{"hu", "Hungary", "deb", "Hajdu-Bihar", "Debrecen", "Debrecen International Airport", 47.4889, 21.6153}
 	IataMCQ = Iata{"hu", "Hungary", "mcq", "Gyor-Moson-Sopron", "Miskolc", "Miskolc Airport", 48.1369, 20.7914}
 	IataPEV = Iata{"hu", "Hungary", "pev", "Baranya", "Pécs", "Pecs-Pogany International Airport", 45.9909, 18.241}
+	IataQZD = Iata{"hu", "Hungary", "qzd", "", "Szeged", "", 46.2451, 20.0922}
 	IataSOB = Iata{"hu", "Hungary", "sob", "Zala", "Sármellék", "Heviz-Balaton Airport", 46.6864, 17.1591}
 	IataAAP = Iata{"id", "Indonesia", "aap", "Kalimantan Timur", "Samarinda", "APT Pranoto International Airport", -0.374448, 117.249}
 	IataAAS = Iata{"id", "Indonesia", "aas", "Papua", "Apalapsili", "Apalapsili Airport", -3.8832, 139.311}
@@ -3539,6 +3624,7 @@ var (
 	IataCPF = Iata{"id", "Indonesia", "cpf", "Jawa Tengah", "Blora", "Ngloram Airport", -7.19484, 111.548}
 	IataCXP = Iata{"id", "Indonesia", "cxp", "Jawa Tengah", "Cilacap", "Tunggul Wulung Airport", -7.64506, 109.034}
 	IataDEX = Iata{"id", "Indonesia", "dex", "Papua", "Dekai", "Nop Goliath Airport", -4.8557, 139.482}
+	IataDHX = Iata{"id", "Indonesia", "dhx", "", "Kediri", "", -7.7825, 111.9892}
 	IataDJB = Iata{"id", "Indonesia", "djb", "Jambi", "Jambi", "Sultan Thaha Airport", -1.63802, 103.644}
 	IataDJJ = Iata{"id", "Indonesia", "djj", "Papua", "Jayapura", "Sentani Airport", -2.57695, 140.516}
 	IataDOB = Iata{"id", "Indonesia", "dob", "Maluku", "Dobo-Warmar Island", "Dobo Airport", -5.77222, 134.212}
@@ -3559,6 +3645,9 @@ var (
 	IataGLX = Iata{"id", "Indonesia", "glx", "Maluku Utara", "Galela", "Gamarmalamo Airport", 1.83833, 127.786}
 	IataGNS = Iata{"id", "Indonesia", "gns", "Sulawesi Utara", "Gunungsitoli", "Binaka Airport", 1.16638, 97.7047}
 	IataGTO = Iata{"id", "Indonesia", "gto", "Gorontalo", "Gorontalo", "Jalaluddin Airport", 0.637119, 122.85}
+	IataGXA = Iata{"id", "Indonesia", "gxa", "", "Muara Teweh", "", -0.9425, 114.8940}
+	IataHLP = Iata{"id", "Indonesia", "hlp", "", "Jakarta", "", -6.1042, 106.7448}
+	IataIAX = Iata{"id", "Indonesia", "iax", "", "Miangas Island", "", 0, 0}
 	IataILA = Iata{"id", "Indonesia", "ila", "Papua", "Ilaga", "Illaga Airport", -3.97648, 137.622}
 	IataINX = Iata{"id", "Indonesia", "inx", "Papua Barat", "Inanwatan", "Inanwatan Airport", -2.1281, 132.161}
 	IataIUL = Iata{"id", "Indonesia", "iul", "Papua", "Ilu", "Ilu Airport", -3.7051, 138.2}
@@ -3590,11 +3679,13 @@ var (
 	IataLHI = Iata{"id", "Indonesia", "lhi", "Papua", "Lereh-Papua Island", "Lereh Airport", -3.0795, 139.952}
 	IataLII = Iata{"id", "Indonesia", "lii", "Papua", "Mulia-Papua Island", "Mulia Airport", -3.7018, 137.957}
 	IataLKA = Iata{"id", "Indonesia", "lka", "Nusa Tenggara Timur", "Tiwatobi", "Gewayantana Airport", -8.27442, 123.002}
+	IataLKI = Iata{"id", "Indonesia", "lki", "", "Simeulue", "", 46.8419, -92.1987}
 	IataLLJ = Iata{"id", "Indonesia", "llj", "South Sumatra", "Lubuk Linggau", "Silampari Airport", -3.28, 102.917}
 	IataLLN = Iata{"id", "Indonesia", "lln", "Papua", "Kelila", "Kelila Airport", -3.75, 138.667}
 	IataLLO = Iata{"id", "Indonesia", "llo", "Sulawesi Selatan", "Palopo", "Palopo Lagaligo Airport", -3.083, 120.245}
 	IataLOP = Iata{"id", "Indonesia", "lop", "Nusa Tenggara Barat", "Mataram", "Lombok International Airport", -8.75732, 116.277}
 	IataLPU = Iata{"id", "Indonesia", "lpu", "Kalimantan Utara", "Long Ampung", "Long Apung Airport", 1.70449, 114.97}
+	IataLSR = Iata{"id", "Indonesia", "lsr", "", "Southeast Aceh", "", 0, 0}
 	IataLSW = Iata{"id", "Indonesia", "lsw", "Aceh", "Lhokseumawe", "Malikus Saleh Airport", 5.22668, 96.9503}
 	IataLSX = Iata{"id", "Indonesia", "lsx", "Aceh", "Lhok Sukon-Sumatra Island", "Lhok Sukon Airport", 5.06951, 97.2592}
 	IataLUV = Iata{"id", "Indonesia", "luv", "Maluku", "Langgur", "Karel Sadsuitubun Airport", -5.76028, 132.759}
@@ -3639,6 +3730,7 @@ var (
 	IataPDG = Iata{"id", "Indonesia", "pdg", "Sumatera Barat", "Padang", "Minangkabau International Airport", -0.786917, 100.281}
 	IataPDO = Iata{"id", "Indonesia", "pdo", "Sumatera Selatan", "Talang Gudang-Sumatra Island", "Pendopo Airport", -3.28607, 103.88}
 	IataPGK = Iata{"id", "Indonesia", "pgk", "Kepulauan Bangka Belitung", "Pangkal Pinang", "Depati Amir Airport", -2.1622, 106.139}
+	IataPGQ = Iata{"id", "Indonesia", "pgq", "", "East Halmahera", "", 0, 0}
 	IataPKN = Iata{"id", "Indonesia", "pkn", "Kalimantan Tengah", "Pangkalanbun", "Iskandar Airport", -2.7052, 111.673}
 	IataPKU = Iata{"id", "Indonesia", "pku", "Riau", "Pekanbaru", "Sultan Syarif Kasim II International Airport", 0.460786, 101.445}
 	IataPKY = Iata{"id", "Indonesia", "pky", "Kalimantan Tengah", "Palangka Raya", "Tjilik Riwut Airport", -2.22513, 113.943}
@@ -3667,6 +3759,7 @@ var (
 	IataSGQ = Iata{"id", "Indonesia", "sgq", "Kalimantan Timur", "Sanggata", "Sangkimah Airport", 0.3847, 117.543}
 	IataSIQ = Iata{"id", "Indonesia", "siq", "Riau", "Singkep Island", "Dabo Singkep Airport", -0.479189, 104.579}
 	IataSIW = Iata{"id", "Indonesia", "siw", "Sulawesi Utara", "Parapat", "Sibisa Airport", 2.66667, 98.9333}
+	IataSKJ = Iata{"id", "Indonesia", "skj", "", "Singkawang", "", 56.5378, -154.1412}
 	IataSMQ = Iata{"id", "Indonesia", "smq", "Kalimantan Tengah", "Sampit", "H. Asan Airport", -2.49919, 112.975}
 	IataSOC = Iata{"id", "Indonesia", "soc", "Jawa Tengah", "Surakarta", "Adisumarmo International Airport", -7.51609, 110.757}
 	IataSOQ = Iata{"id", "Indonesia", "soq", "Papua Barat", "Sorong", "Dominique Edward Osok Airport", -0.894, 131.287}
@@ -3674,6 +3767,7 @@ var (
 	IataSQN = Iata{"id", "Indonesia", "sqn", "Maluku Utara", "Sanana", "Sanana Airport", -2.08051, 125.967}
 	IataSQR = Iata{"id", "Indonesia", "sqr", "Sulawesi Selatan", "Sorowako", "Soroako Airport", -2.5312, 121.358}
 	IataSRG = Iata{"id", "Indonesia", "srg", "Jawa Tengah", "Semarang", "Achmad Yani International Airport", -6.97273, 110.375}
+	IataSRI = Iata{"id", "Indonesia", "sri", "", "Samarinda", "", -0.4845, 117.1571}
 	IataSUB = Iata{"id", "Indonesia", "sub", "Jawa Timur", "Surabaya", "Juanda International Airport", -7.37983, 112.787}
 	IataSUP = Iata{"id", "Indonesia", "sup", "Jawa Timur", "Sumenep", "Trunojoyo Airport", -7.0242, 113.89}
 	IataSWQ = Iata{"id", "Indonesia", "swq", "Nusa Tenggara Barat", "Sumbawa Besar", "Sultan Muhammad Kaharuddin III Airport (Brangbiji Airport)", -8.48904, 117.412}
@@ -3753,6 +3847,8 @@ var (
 	IataAKD = Iata{"in", "India", "akd", "Maharashtra", "Akola", "Akola Airport", 20.699, 77.0586}
 	IataAMD = Iata{"in", "India", "amd", "Gujarat", "Ahmedabad", "Sardar Vallabhbhai Patel International Airport", 23.0772, 72.6347}
 	IataATQ = Iata{"in", "India", "atq", "Punjab", "Amritsar", "Sri Guru Ram Dass Jee International Airport", 31.7096, 74.7973}
+	IataAVR = Iata{"in", "India", "avr", "", "Amravati", "", 38.8833, -9.0301}
+	IataAYJ = Iata{"in", "India", "ayj", "", "Ayodhya", "", 0, 0}
 	IataBBI = Iata{"in", "India", "bbi", "Odisha", "Bhubaneswar", "Biju Patnaik International Airport", 20.2444, 85.8178}
 	IataBDQ = Iata{"in", "India", "bdq", "Gujarat", "Vadodara", "Vadodara Airport (Civil Airport Harni)", 22.3362, 73.2263}
 	IataBEK = Iata{"in", "India", "bek", "Andhra Pradesh", "Bareilly", "Bareilly Airport", 28.4221, 79.4508}
@@ -3778,18 +3874,22 @@ var (
 	IataDED = Iata{"in", "India", "ded", "Uttarakhand", "Dehradun", "Jolly Grant Airport", 30.1897, 78.1803}
 	IataDEL = Iata{"in", "India", "del", "Delhi", "New Delhi", "Indira Gandhi International Airport", 28.5665, 77.1031}
 	IataDEP = Iata{"in", "India", "dep", "Assam", "Daporijo", "Daporijo Airport", 27.9855, 94.2228}
+	IataDGH = Iata{"in", "India", "dgh", "", "Deoghar", "", 24.4468, 86.7050}
 	IataDHM = Iata{"in", "India", "dhm", "Himachal Pradesh", "Kangra", "Gaggal Airport", 32.1651, 76.2634}
 	IataDIB = Iata{"in", "India", "dib", "Assam", "Dibrugarh", "Dibrugarh Airport (Mohanbari Airport)", 27.4839, 95.0169}
 	IataDIU = Iata{"in", "India", "diu", "Daman and Diu", "Diu", "Diu Airport", 20.7131, 70.9211}
 	IataDMU = Iata{"in", "India", "dmu", "Nagaland", "Dimapur", "Dimapur Airport", 25.8839, 93.7711}
 	IataGAU = Iata{"in", "India", "gau", "Assam", "Guwahati", "Lokpriya Gopinath Bordoloi International Airport", 26.1061, 91.5859}
 	IataGAY = Iata{"in", "India", "gay", "Bihar", "Gaya", "Gaya Airport (Bodhgaya Airport)", 24.7443, 84.9512}
+	IataGDB = Iata{"in", "India", "gdb", "", "Gondia", "", 21.5268, 80.2903}
 	IataGOI = Iata{"in", "India", "goi", "Goa", "Goa", "Goa International Airport (Dabolim Airport)", 15.3808, 73.8314}
 	IataGOP = Iata{"in", "India", "gop", "Uttar Pradesh", "Gorakhpur", "Gorakhpur Airport", 26.7397, 83.4497}
+	IataGOX = Iata{"in", "India", "gox", "", "Mopa", "", 15.7443, 73.8606}
 	IataGUX = Iata{"in", "India", "gux", "Madhya Pradesh", "", "Guna Airport", 24.6547, 77.3473}
 	IataGWL = Iata{"in", "India", "gwl", "Madhya Pradesh", "Gwalior", "Rajmata Vijaya Raje Scindia Airport (Gwalior Airport)", 26.2933, 78.2278}
 	IataHBX = Iata{"in", "India", "hbx", "Karnataka", "Hubballi", "Hubli Airport", 15.3617, 75.0849}
 	IataHJR = Iata{"in", "India", "hjr", "Madhya Pradesh", "Khajuraho", "Civil Aerodrome Khajuraho", 24.8172, 79.9186}
+	IataHSR = Iata{"in", "India", "hsr", "", "Saurashtra", "", 0, 0}
 	IataHSS = Iata{"in", "India", "hss", "Haryana", "Hisar", "Hisar Airport", 29.1794, 75.7553}
 	IataHYD = Iata{"in", "India", "hyd", "Telangana", "Hyderabad", "Rajiv Gandhi International Airport", 17.2313, 78.4299}
 	IataIDR = Iata{"in", "India", "idr", "Madhya Pradesh", "Indore", "Devi Ahilyabai Holkar International Airport", 22.7218, 75.8011}
@@ -3816,6 +3916,7 @@ var (
 	IataIXU = Iata{"in", "India", "ixu", "Maharashtra", "Aurangabad", "Aurangabad Airport (Chikkalthana Airport)", 19.8627, 75.3981}
 	IataIXV = Iata{"in", "India", "ixv", "Arunachal Pradesh", "", "Along Airport", 28.1753, 94.802}
 	IataIXW = Iata{"in", "India", "ixw", "Jharkhand", "Jamshedpur", "Sonari Airport", 22.8132, 86.1688}
+	IataIXX = Iata{"in", "India", "ixx", "", "Bidar", "", 17.9081, 77.4871}
 	IataIXY = Iata{"in", "India", "ixy", "Gujarat", "Kandla", "Kandla Airport (Gandhidham Airport)", 23.1127, 70.1003}
 	IataIXZ = Iata{"in", "India", "ixz", "Andaman and Nicobar Islands", "Srivijayapuram", "Veer Savarkar International Airport (Port Blair Airport)", 11.6412, 92.7297}
 	IataJAI = Iata{"in", "India", "jai", "Rajasthan", "Jaipur", "Jaipur International Airport", 26.8242, 75.8122}
@@ -3826,6 +3927,7 @@ var (
 	IataJLR = Iata{"in", "India", "jlr", "Madhya Pradesh", "Jabalpur", "Jabalpur Airport (Dumna Airport)", 23.1778, 80.052}
 	IataJRH = Iata{"in", "India", "jrh", "Assam", "Jorhat", "Jorhat Airport (Rowriah Airport)", 26.7315, 94.1755}
 	IataJSA = Iata{"in", "India", "jsa", "Odisha", "Jaisalmer", "Jaisalmer Airport", 26.8887, 70.865}
+	IataKJB = Iata{"in", "India", "kjb", "", "Kurnool", "", 15.8276, 78.0229}
 	IataKLH = Iata{"in", "India", "klh", "Maharashtra", "Kolhapur", "Kolhapur Airport", 16.6647, 74.2894}
 	IataKNU = Iata{"in", "India", "knu", "Uttar Pradesh", "Kanpur", "Kanpur Airport (Chakeri Air Force Station)", 26.4043, 80.4101}
 	IataKQH = Iata{"in", "India", "kqh", "Rajasthan", "Ajmer", "Ajmer Kishangarh Airport", 26.6015, 74.8141}
@@ -3841,6 +3943,7 @@ var (
 	IataNAG = Iata{"in", "India", "nag", "Maharashtra", "Nagpur", "Dr. Babasaheb Ambedkar International Airport", 21.0922, 79.0472}
 	IataNDC = Iata{"in", "India", "ndc", "Maharashtra", "Nanded", "Shri Guru Gobind Singh Ji Airport", 19.1833, 77.3167}
 	IataNMB = Iata{"in", "India", "nmb", "Daman and Diu", "Daman", "Daman Airport", 20.4344, 72.8432}
+	IataNMI = Iata{"in", "India", "nmi", "", "Navi Mumbai", "", 19.0826, 73.0294}
 	IataNVY = Iata{"in", "India", "nvy", "Tamil Nadu", "Neyveli", "Neyveli Airport", 11.613, 79.5274}
 	IataPAB = Iata{"in", "India", "pab", "Chhattisgarh", "Bilaspur", "Bilaspur Airport", 21.9884, 82.111}
 	IataPAT = Iata{"in", "India", "pat", "Bihar", "Patna", "Lok Nayak Jayaprakash Airport", 25.5913, 85.088}
@@ -3850,6 +3953,7 @@ var (
 	IataPNY = Iata{"in", "India", "pny", "Puducherry", "Pondicherry", "Puducherry Airport", 11.968, 79.812}
 	IataPUT = Iata{"in", "India", "put", "Andhra Pradesh", "Puttaparthi", "Sri Sathya Sai Airport", 14.1493, 77.7911}
 	IataPYB = Iata{"in", "India", "pyb", "Odisha", "Jeypore", "Jeypore Airport", 18.88, 82.552}
+	IataPYG = Iata{"in", "India", "pyg", "", "Gangtok", "", 27.3557, 88.6142}
 	IataRAJ = Iata{"in", "India", "raj", "Gujarat", "Rajkot", "Rajkot Airport", 22.3092, 70.7795}
 	IataRDP = Iata{"in", "India", "rdp", "West Bengal", "Durgapur", "Kazi Nazrul Islam Airport", 23.6225, 87.243}
 	IataREW = Iata{"in", "India", "rew", "Madhya Pradesh", "Rewa", "Churhata Airport", 24.5034, 81.2203}
@@ -3862,6 +3966,7 @@ var (
 	IataRTC = Iata{"in", "India", "rtc", "Maharashtra", "Ratnagiri", "Ratnagiri Airport", 17.0136, 73.3278}
 	IataRUP = Iata{"in", "India", "rup", "Assam", "Rupsi", "Rupsi Airport", 26.1397, 89.91}
 	IataSAG = Iata{"in", "India", "sag", "Maharashtra", "Shirdi", "Shirdi Airport", 19.6886, 74.3789}
+	IataSDW = Iata{"in", "India", "sdw", "", "Sindhudurg Fort", "", 0, 0}
 	IataSHL = Iata{"in", "India", "shl", "Meghalaya", "Shillong", "Shillong Airport (Barapani Airport)", 25.7036, 91.9787}
 	IataSLV = Iata{"in", "India", "slv", "Himachal Pradesh", "Shimla", "Shimla Airport", 31.0818, 77.068}
 	IataSSE = Iata{"in", "India", "sse", "Maharashtra", "Solapur", "Solapur Airport", 17.628, 75.9348}
@@ -4027,6 +4132,7 @@ var (
 	IataBRI = Iata{"it", "Italy", "bri", "Puglia", "Bari", "Bari Karol Wojtyla Airport", 41.1389, 16.7606}
 	IataBZO = Iata{"it", "Italy", "bzo", "Trentino-Alto Adige", "Bolzano", "Bolzano Airport", 46.4602, 11.3264}
 	IataCAG = Iata{"it", "Italy", "cag", "Sardegna", "Cagliari", "Cagliari Elmas Airport", 39.2515, 9.05428}
+	IataCIA = Iata{"it", "Italy", "cia", "", "Rome", "", 41.8718, 12.4803}
 	IataCIY = Iata{"it", "Italy", "ciy", "Sicilia", "Comiso", "Comiso Airport", 36.9946, 14.6072}
 	IataCRV = Iata{"it", "Italy", "crv", "Calabria", "Crotone", "Crotone Airport (Sant'Anna Airport)", 38.9972, 17.0802}
 	IataCTA = Iata{"it", "Italy", "cta", "Sicilia", "Catania", "Catania-Fontanarossa Airport", 37.4668, 15.0664}
@@ -4044,17 +4150,22 @@ var (
 	IataLCV = Iata{"it", "Italy", "lcv", "Toscana", "Lucca", "Lucca-Tassignano Airport", 43.8258, 10.5779}
 	IataLIN = Iata{"it", "Italy", "lin", "Lombardia", "Milan", "Milan-Linate Airport", 45.4494, 9.2783}
 	IataLMP = Iata{"it", "Italy", "lmp", "Sicilia", "Lampedusa", "Lampedusa Airport", 35.4979, 12.6181}
+	IataMIL = Iata{"it", "Italy", "mil", "", "Milan", "", 45.6306, 8.7281}
 	IataMXP = Iata{"it", "Italy", "mxp", "Lombardia", "Milan", "Milan-Malpensa Airport", 45.6306, 8.72811}
 	IataNAP = Iata{"it", "Italy", "nap", "Campania", "Naples", "Naples International Airport", 40.886, 14.2908}
 	IataNSY = Iata{"it", "Italy", "nsy", "Sicilia", "", "Naval Air Station Sigonella", 37.4017, 14.9224}
 	IataOLB = Iata{"it", "Italy", "olb", "Sardegna", "Olbia", "Olbia Costa Smeralda Airport", 40.8987, 9.51763}
 	IataPEG = Iata{"it", "Italy", "peg", "Umbria", "Perugia", "Perugia San Francesco d'Assisi - Umbria International Airport", 43.0959, 12.5132}
+	IataPMF = Iata{"it", "Italy", "pmf", "", "Parma", "", 0, 0}
 	IataPMO = Iata{"it", "Italy", "pmo", "Sicilia", "Palermo", "Falcone-Borsellino Airport (Punta Raisi Airport)", 38.176, 13.091}
 	IataPNL = Iata{"it", "Italy", "pnl", "Sicilia", "Pantelleria", "Pantelleria Airport", 36.8165, 11.9689}
 	IataPSA = Iata{"it", "Italy", "psa", "Toscana", "Pisa", "Pisa International Airport (Galileo Galilei Airport)", 43.6839, 10.3927}
 	IataPSR = Iata{"it", "Italy", "psr", "Abruzzo", "Pescara", "Abruzzo Airport", 42.4317, 14.1811}
+	IataQAL = Iata{"it", "Italy", "qal", "", "Alessandria", "", 0, 0}
 	IataQAQ = Iata{"it", "Italy", "qaq", "Abruzzo", "L'Aquila", "L'Aquila-Preturo Airport", 42.3799, 13.3092}
+	IataQIB = Iata{"it", "Italy", "qib", "", "Milan", "", 45.5659, 9.0251}
 	IataQSR = Iata{"it", "Italy", "qsr", "Campania", "Salerno", "Salerno Costa d'Amalfi Airport (Pontecagnano Airport)", 40.6204, 14.9113}
+	IataQVA = Iata{"it", "Italy", "qva", "", "Varese", "", 45.7422, 8.8882}
 	IataRAN = Iata{"it", "Italy", "ran", "Emilia-Romagna", "Ravenna", "Ravenna Airport", 44.3639, 12.225}
 	IataREG = Iata{"it", "Italy", "reg", "Calabria", "Reggio Calabria", "Reggio di Calabria Airport", 38.0712, 15.6516}
 	IataRMI = Iata{"it", "Italy", "rmi", "Emilia-Romagna", "Rimini", "Federico Fellini International Airport", 44.0203, 12.6117}
@@ -4089,6 +4200,7 @@ var (
 	IataASJ = Iata{"jp", "Japan", "asj", "Kagoshima", "Amami", "Amami Airport", 28.4306, 129.713}
 	IataAXJ = Iata{"jp", "Japan", "axj", "Kumamoto", "Amakusa", "Amakusa Airfield", 32.4825, 130.159}
 	IataAXT = Iata{"jp", "Japan", "axt", "Akita", "Akita", "Akita Airport", 39.6156, 140.219}
+	IataCTS = Iata{"jp", "Japan", "cts", "", "Sapporo", "", -4.5602, 30.9126}
 	IataDNA = Iata{"jp", "Japan", "dna", "Okinawa", "Okinawa", "Kadena Air Base", 26.3556, 127.768}
 	IataFKJ = Iata{"jp", "Japan", "fkj", "Fukui", "Fukui", "Fukui Airport", 36.1428, 136.224}
 	IataFKS = Iata{"jp", "Japan", "fks", "Fukushima", "Fukushima", "Fukushima Airport", 37.2274, 140.431}
@@ -4109,6 +4221,7 @@ var (
 	IataIEJ = Iata{"jp", "Japan", "iej", "Okinawa", "Ie", "Iejima Airport", 26.722, 127.785}
 	IataIKI = Iata{"jp", "Japan", "iki", "Nagasaki", "Iki", "Iki Airport", 33.749, 129.785}
 	IataISG = Iata{"jp", "Japan", "isg", "Okinawa", "Yaeyama Islands", "New Ishigaki Airport", 24.3964, 124.245}
+	IataITM = Iata{"jp", "Japan", "itm", "", "Osaka", "", 34.6877, 135.4971}
 	IataIWJ = Iata{"jp", "Japan", "iwj", "Shimane", "Hagi", "Iwami Airport (Hagi-Iwami Airport)", 34.6764, 131.79}
 	IataIWK = Iata{"jp", "Japan", "iwk", "Yamaguchi", "Iwakuni", "Marine Corps Air Station Iwakuni", 34.1439, 132.236}
 	IataIWO = Iata{"jp", "Japan", "iwo", "Tokyo", "Ogasawara", "Iwo Jima Air Base", 24.784, 141.323}
@@ -4147,6 +4260,7 @@ var (
 	IataOIR = Iata{"jp", "Japan", "oir", "Hokkaido", "Okushiri Island", "Okushiri Airport", 42.0717, 139.433}
 	IataOIT = Iata{"jp", "Japan", "oit", "Oita", "Ōita-shi", "Oita Airport", 33.4794, 131.737}
 	IataOKA = Iata{"jp", "Japan", "oka", "Okinawa", "Naha", "Naha Airport", 26.1958, 127.646}
+	IataOKD = Iata{"jp", "Japan", "okd", "", "Sapporo", "", 43.1174, 141.3813}
 	IataOKE = Iata{"jp", "Japan", "oke", "Kagoshima", "Wadomari", "Okinoerabu Airport", 27.4255, 128.701}
 	IataOKI = Iata{"jp", "Japan", "oki", "Tottori", "Okinoshima", "Oki Airport", 36.1811, 133.325}
 	IataOKJ = Iata{"jp", "Japan", "okj", "Okayama", "Okayama", "Okayama Airport", 34.7569, 133.855}
@@ -4170,6 +4284,7 @@ var (
 	IataTRA = Iata{"jp", "Japan", "tra", "Okinawa", "Tarama", "Tarama Airport", 24.6539, 124.675}
 	IataTSJ = Iata{"jp", "Japan", "tsj", "Nagasaki", "Tsushima", "Tsushima Airport", 34.2849, 129.331}
 	IataTTJ = Iata{"jp", "Japan", "ttj", "Tottori", "Tottori", "Tottori Airport", 35.5301, 134.167}
+	IataTYO = Iata{"jp", "Japan", "tyo", "", "Tokyo", "", 35.6591, 140.0878}
 	IataUBJ = Iata{"jp", "Japan", "ubj", "Yamaguchi", "Ube", "Yamaguchi Ube Airport", 33.93, 131.279}
 	IataUEO = Iata{"jp", "Japan", "ueo", "Okinawa", "Kumejima", "Kumejima Airport", 26.3635, 126.714}
 	IataWKJ = Iata{"jp", "Japan", "wkj", "Hokkaido", "Wakkanai", "Wakkanai Airport", 45.4042, 141.801}
@@ -4216,7 +4331,9 @@ var (
 	IataVPG = Iata{"ke", "Kenya", "vpg", "Kilifi", "Kikambala", "Vipingo Airport", -3.80667, 39.7974}
 	IataWIL = Iata{"ke", "Kenya", "wil", "Nairobi City", "Nairobi", "Wilson Airport", -1.32172, 36.8148}
 	IataWJR = Iata{"ke", "Kenya", "wjr", "Wajir", "Wajir", "Wajir Airport", 1.73324, 40.0916}
+	IataBSZ = Iata{"kg", "Kyrgyzstan", "bsz", "", "Bishkek", "", 58.2342, -157.3690}
 	IataFRU = Iata{"kg", "Kyrgyzstan", "fru", "Chuy", "", "Manas International Airport", 43.0613, 74.4776}
+	IataIKU = Iata{"kg", "Kyrgyzstan", "iku", "", "Tamchy", "", 42.5856, 76.7012}
 	IataOSS = Iata{"kg", "Kyrgyzstan", "oss", "Osh", "Osh", "Osh Airport", 40.609, 72.7933}
 	IataBBM = Iata{"kh", "Cambodia", "bbm", "Baat Dambang", "Battambang", "Battambang Airport", 13.0956, 103.224}
 	IataKKZ = Iata{"kh", "Cambodia", "kkz", "Kaoh Kong", "Koh Kong", "Koh Kong Airport", 11.6134, 102.997}
@@ -4260,6 +4377,7 @@ var (
 	IataSKB = Iata{"kn", "Saint Kitts and Nevis", "skb", "Saint John Figtree", "Basseterre", "Robert L. Bradshaw International Airport", 17.3112, -62.7187}
 	IataDSO = Iata{"kp", "North Korea", "dso", "Hwanghae-namdo", "Chongpyong County", "Sondok Airport", 39.7452, 127.474}
 	IataFNJ = Iata{"kp", "North Korea", "fnj", "P'yongyang", "Pyongyang", "Pyongyang Sunan International Airport", 39.2241, 125.67}
+	IataHAE = Iata{"kp", "North Korea", "hae", "", "Haeju", "", 19.9560, -98.0634}
 	IataRGO = Iata{"kp", "North Korea", "rgo", "Hamgyong-bukto", "Chongjin", "Orang Airport", 41.4285, 129.648}
 	IataUJU = Iata{"kp", "North Korea", "uju", "P'yongan-bukto", "Uiju", "Uiju Airfield", 40.1546, 124.532}
 	IataWOS = Iata{"kp", "North Korea", "wos", "Kangwon-do", "Wonsan", "Wonsan Kalma International Airport", 39.1668, 127.486}
@@ -4268,6 +4386,7 @@ var (
 	IataCHN = Iata{"kr", "South Korea", "chn", "Gwangju-gwangyeoksi", "Jeonju", "Jeonju Airport", 35.8781, 127.119}
 	IataCJJ = Iata{"kr", "South Korea", "cjj", "Chungcheongbuk-do", "Cheongju", "Cheongju International Airport", 36.717, 127.499}
 	IataCJU = Iata{"kr", "South Korea", "cju", "Jeju-teukbyeoljachido", "Jeju", "Jeju International Airport", 33.5113, 126.493}
+	IataGMP = Iata{"kr", "South Korea", "gmp", "", "Seoul", "", 37.5260, 126.9745}
 	IataHIN = Iata{"kr", "South Korea", "hin", "Gyeongsangnam-do", "Sacheon", "Sacheon Airport", 35.0886, 128.072}
 	IataHMY = Iata{"kr", "South Korea", "hmy", "Chungcheongnam-do", "Seosan", "Seosan Air Base", 36.704, 126.486}
 	IataICN = Iata{"kr", "South Korea", "icn", "Gyeonggi-do", "Seoul", "Incheon International Airport", 37.4633, 126.44}
@@ -4306,6 +4425,7 @@ var (
 	IataEKB = Iata{"kz", "Kazakhstan", "ekb", "Pavlodar oblysy", "Ekibastuz", "Ekibastuz Airport", 51.591, 75.215}
 	IataGUW = Iata{"kz", "Kazakhstan", "guw", "Atyrau oblysy", "Atyrau", "Atyrau Airport", 47.1219, 51.8214}
 	IataHRC = Iata{"kz", "Kazakhstan", "hrc", "Aqmola oblysy", "Zhayrem", "Zhayrem Airport", 48.3974, 70.1915}
+	IataHSA = Iata{"kz", "Kazakhstan", "hsa", "", "Turkistan", "", 43.3242, 68.4044}
 	IataKGF = Iata{"kz", "Kazakhstan", "kgf", "Qaraghandy oblysy", "Karaganda", "Sary-Arka Airport", 49.6708, 73.3344}
 	IataKOV = Iata{"kz", "Kazakhstan", "kov", "Aqmola oblysy", "Kokshetau", "Kokshetau Airport", 53.3291, 69.5946}
 	IataKSN = Iata{"kz", "Kazakhstan", "ksn", "Qostanay oblysy", "Kostanay", "Kostanay Airport", 53.2069, 63.5503}
@@ -4322,6 +4442,7 @@ var (
 	IataUSJ = Iata{"kz", "Kazakhstan", "usj", "Almaty oblysy", "Usharal", "Usharal Airport", 46.1903, 80.8314}
 	IataUZR = Iata{"kz", "Kazakhstan", "uzr", "Shyghys Qazaqstan oblysy", "Urzhar", "Urzhar Airport", 47.0911, 81.6652}
 	IataAOU = Iata{"la", "Laos", "aou", "Attapu", "Attapư̄", "Attapeu International Airport", 14.7931, 107.045}
+	IataBOR = Iata{"la", "Laos", "bor", "", "Golden Triangle Special Economic Zone", "", 47.6556, 7.0108}
 	IataHOE = Iata{"la", "Laos", "hoe", "Bokeo", "Huay Xai", "Ban Huoeisay Airport", 20.2573, 100.437}
 	IataKOG = Iata{"la", "Laos", "kog", "Champasak", "", "Khong Island Airport", 17.9881, 102.563}
 	IataLPQ = Iata{"la", "Laos", "lpq", "Louangphabang", "Luang Prabang", "Luang Prabang International Airport", 19.8973, 102.161}
@@ -4404,6 +4525,7 @@ var (
 	IataTKO = Iata{"ls", "Lesotho", "tko", "Mokhotlong", "Tlokoeng", "Tlokoeng Airport", -29.233, 28.883}
 	IataUNE = Iata{"ls", "Lesotho", "une", "Qacha's Nek", "Qacha's Nek", "Qacha's Nek Airport", -30.1117, 28.6719}
 	IataUTG = Iata{"ls", "Lesotho", "utg", "Quthing", "Quthing", "Quthing Airport", -30.4075, 27.6933}
+	IataHLJ = Iata{"lt", "Lithuania", "hlj", "", "Šiauliai", "", 56.0706, 23.5581}
 	IataKUN = Iata{"lt", "Lithuania", "kun", "Kauno apskritis", "Kaunas", "Kaunas International Airport", 54.9639, 24.0848}
 	IataPLQ = Iata{"lt", "Lithuania", "plq", "Klaipedos apskritis", "Palanga", "Palanga International Airport", 55.9732, 21.0939}
 	IataPNV = Iata{"lt", "Lithuania", "pnv", "Panevezio apskritis", "Panevėžys", "Panevezys Air Base (Pajuostis Airport)", 55.7294, 24.4608}
@@ -4460,6 +4582,7 @@ var (
 	IataTTU = Iata{"ma", "Morocco", "ttu", "Tanger-Tetouan-Al Hoceima", "Tétouan", "Sania Ramel Airport", 35.5943, -5.32002}
 	IataUAR = Iata{"ma", "Morocco", "uar", "L'Oriental", "Bouarfa", "Bouarfa Airport", 32.5143, -1.98306}
 	IataVIL = Iata{"ma", "Morocco", "vil", "Laayoune-Sakia El Hamra (EH-partial)", "Dakhla", "Dakhla Airport", 23.7183, -15.932}
+	IataMCM = Iata{"mc", "Monaco", "mcm", "", "Monaco", "", 0, 0}
 	IataBZY = Iata{"md", "Moldova", "bzy", "Balti", "Bălți", "Balti International Airport", 47.8431, 27.7772}
 	IataRMO = Iata{"md", "Moldova", "rmo", "Chisinau", "Chișinău", "Chisinau International Airport", 46.9277, 28.931}
 	IataIVG = Iata{"me", "Montenegro", "ivg", "Berane", "Berane", "Dolac Airport", 42.839, 19.862}
@@ -4775,6 +4898,7 @@ var (
 	IataSLW = Iata{"mx", "Mexico", "slw", "Coahuila de Zaragoza", "Saltillo", "Plan de Guadalupe International Airport", 25.5495, -100.929}
 	IataSNQ = Iata{"mx", "Mexico", "snq", "Baja California", "San Quintín", "San Quintin Military Airstrip", 30.5288, -115.946}
 	IataSRL = Iata{"mx", "Mexico", "srl", "Baja California Sur", "Santa Rosalía", "Palo Verde Airport", 27.0927, -112.099}
+	IataSZT = Iata{"mx", "Mexico", "szt", "", "San Cristóbal de Las Casas", "", 16.6903, -92.5301}
 	IataTAM = Iata{"mx", "Mexico", "tam", "Tamaulipas", "Tampico", "General Francisco Javier Mina International Airport", 22.2964, -97.8659}
 	IataTAP = Iata{"mx", "Mexico", "tap", "Chiapas", "Tapachula de Córdova y Ordóñez", "Tapachula International Airport", 14.7943, -92.37}
 	IataTCN = Iata{"mx", "Mexico", "tcn", "Puebla", "Tehuacán", "Tehuacan Airport", 18.4972, -97.4199}
@@ -4982,6 +5106,7 @@ var (
 	IataMGA = Iata{"ni", "Nicaragua", "mga", "Managua", "Managua", "Augusto C. Sandino International Airport", 12.1415, -86.1682}
 	IataNCR = Iata{"ni", "Nicaragua", "ncr", "Rio San Juan", "San Carlos", "San Carlos Airport", 11.1334, -84.77}
 	IataNVG = Iata{"ni", "Nicaragua", "nvg", "Costa Caribe Sur", "", "Nueva Guinea Airport", 11.6667, -84.45}
+	IataOMT = Iata{"ni", "Nicaragua", "omt", "", "Rivas Department", "", 0, 0}
 	IataPUZ = Iata{"ni", "Nicaragua", "puz", "Costa Caribe Norte", "Puerto Cabezas", "Puerto Cabezas Airport", 14.0472, -83.3867}
 	IataRFS = Iata{"ni", "Nicaragua", "rfs", "Costa Caribe Norte", "La Rosita", "Rosita Airport", 13.8897, -84.4089}
 	IataRNI = Iata{"ni", "Nicaragua", "rni", "Costa Caribe Sur", "Corn Island", "Corn Island Airport", 12.1629, -83.0638}
@@ -5009,7 +5134,10 @@ var (
 	IataBNN = Iata{"no", "Norway", "bnn", "Nordland", "Brønnøysund", "Bronnoysund Airport", 65.4611, 12.2175}
 	IataBOO = Iata{"no", "Norway", "boo", "Nordland", "Bodø", "Bodo Airport", 67.2692, 14.3653}
 	IataBVG = Iata{"no", "Norway", "bvg", "Finnmark", "Berlevåg Municipality", "Berlevag Airport", 70.8714, 29.0342}
+	IataDLD = Iata{"no", "Norway", "dld", "", "Geilo", "", 25.5631, -98.6076}
 	IataEVE = Iata{"no", "Norway", "eve", "Nordland", "Harstad Municipality", "Harstad/Narvik Airport", 68.4913, 16.6781}
+	IataFAN = Iata{"no", "Norway", "fan", "", "Farsund Municipality", "", 0, 0}
+	IataFBU = Iata{"no", "Norway", "fbu", "", "Oslo", "", 59.8958, 10.6172}
 	IataFDE = Iata{"no", "Norway", "fde", "Sogn og Fjordane", "Førde", "Forde Airport", 61.3911, 5.75694}
 	IataFRO = Iata{"no", "Norway", "fro", "Sogn og Fjordane", "Florø", "Floro Airport", 61.5836, 5.02472}
 	IataGLL = Iata{"no", "Norway", "gll", "Buskerud", "Gol Municipality", "Gol Airport", 60.7911, 9.04867}
@@ -5033,6 +5161,8 @@ var (
 	IataOLA = Iata{"no", "Norway", "ola", "Sor-Trondelag", "Ørland Municipality", "Orland Airport", 63.6989, 9.604}
 	IataOSL = Iata{"no", "Norway", "osl", "Akershus", "Oslo", "Oslo Airport", 60.1939, 11.1004}
 	IataOSY = Iata{"no", "Norway", "osy", "Sor-Trondelag", "Namsos Municipality", "Namsos Airport", 64.4722, 11.5786}
+	IataQJL = Iata{"no", "Norway", "qjl", "", "Kjøllefjord", "", 70.9407, 27.3489}
+	IataQKX = Iata{"no", "Norway", "qkx", "", "Kautokeino Municipality", "", 0, 0}
 	IataRET = Iata{"no", "Norway", "ret", "Nordland", "Røstlandet", "Rost Airport", 67.5278, 12.1033}
 	IataRRS = Iata{"no", "Norway", "rrs", "Sor-Trondelag", "Røros Municipality", "Roros Airport", 62.5784, 11.3423}
 	IataRVK = Iata{"no", "Norway", "rvk", "Sor-Trondelag", "Rørvik", "Rorvik Airport", 64.8383, 11.1461}
@@ -5079,6 +5209,7 @@ var (
 	IataLUA = Iata{"np", "Nepal", "lua", "Sagarmatha", "Lukla", "Tenzing-Hillary Airport", 27.6869, 86.7297}
 	IataMEY = Iata{"np", "Nepal", "mey", "Narayani", "Meghauli", "Meghauli Airport", 27.5774, 84.2288}
 	IataNGX = Iata{"np", "Nepal", "ngx", "Gandaki", "Manang", "Manang Airport", 28.6414, 84.0892}
+	IataPHH = Iata{"np", "Nepal", "phh", "", "Pokhara", "", 10.9062, 108.0690}
 	IataPKR = Iata{"np", "Nepal", "pkr", "Gandaki", "Pokhara", "Pokhara Airport", 28.2009, 83.9821}
 	IataPPL = Iata{"np", "Nepal", "ppl", "Sagarmatha", "Phaphlu", "Phaplu Airport", 27.5178, 86.5845}
 	IataRHP = Iata{"np", "Nepal", "rhp", "Janakpur", "Ramechhap", "Ramechhap Airport", 27.394, 86.0614}
@@ -5234,6 +5365,7 @@ var (
 	IataJAU = Iata{"pe", "Peru", "jau", "Junin", "Jauja", "Francisco Carle Airport", -11.7831, -75.4734}
 	IataJJI = Iata{"pe", "Peru", "jji", "San Martin", "Juanjuí", "Juanjui Airport", -7.1691, -76.7286}
 	IataJUL = Iata{"pe", "Peru", "jul", "Puno", "Juliaca", "Inca Manco Capac International Airport", -15.4671, -70.1582}
+	IataLHC = Iata{"pe", "Peru", "lhc", "", "Caballococha", "", 35.2831, -89.6725}
 	IataLIM = Iata{"pe", "Peru", "lim", "El Callao", "Lima", "Jorge Chavez International Airport", -12.0219, -77.1143}
 	IataMBP = Iata{"pe", "Peru", "mbp", "San Martin", "Moyobamba", "Moyobamba Airport", -6.01889, -76.9883}
 	IataMZA = Iata{"pe", "Peru", "mza", "Junin", "Mazamari", "Manuel Prado Ugarteche Airport", -11.3254, -74.5356}
@@ -5705,6 +5837,7 @@ var (
 	IataBAG = Iata{"ph", "Philippines", "bag", "Benguet", "Baguio", "Loakan Airport", 16.3751, 120.62}
 	IataBCD = Iata{"ph", "Philippines", "bcd", "Negros Occidental", "Bacolod City", "Bacolod-Silay International Airport", 10.7764, 123.015}
 	IataBNQ = Iata{"ph", "Philippines", "bnq", "Surigao del Sur", "", "Baganga Airport", 7.61194, 126.569}
+	IataBPA = Iata{"ph", "Philippines", "bpa", "", "Borongan", "", 40.7494, -73.4960}
 	IataBPH = Iata{"ph", "Philippines", "bph", "Surigao del Sur", "Bislig", "Bislig Airport", 8.19595, 126.322}
 	IataBQA = Iata{"ph", "Philippines", "bqa", "Aurora", "Baler", "Dr. Juan C. Angara Airport", 15.7293, 121.5}
 	IataBSI = Iata{"ph", "Philippines", "bsi", "Quezon", "Balesin Island", "Balesin Airport", 14.4194, 122.039}
@@ -5724,6 +5857,7 @@ var (
 	IataCYZ = Iata{"ph", "Philippines", "cyz", "Isabela", "Cauayan", "Cauayan Airport", 16.9299, 121.753}
 	IataDGT = Iata{"ph", "Philippines", "dgt", "Negros Occidental", "Dumaguete City", "Sibulan Airport (Dumaguete Airport)", 9.33371, 123.3}
 	IataDPL = Iata{"ph", "Philippines", "dpl", "Zamboanga del Norte", "Dipolog", "Dipolog Airport", 8.60198, 123.342}
+	IataDRP = Iata{"ph", "Philippines", "drp", "", "Legazpi", "", 13.1697, 123.7204}
 	IataDSG = Iata{"ph", "Philippines", "dsg", "Eastern Samar", "Dilasag", "Dilasag Airport", 16.4458, 122.207}
 	IataDTE = Iata{"ph", "Philippines", "dte", "Camarines Norte", "Daet", "Bagasbas Airport", 14.1292, 122.98}
 	IataDVO = Iata{"ph", "Philippines", "dvo", "Davao del Sur", "Davao City", "Francisco Bangoy International Airport", 7.12552, 125.646}
@@ -5842,8 +5976,10 @@ var (
 	IataKTW = Iata{"pl", "Poland", "ktw", "Slaskie", "Katowice", "Katowice International Airport", 50.4743, 19.08}
 	IataLCJ = Iata{"pl", "Poland", "lcj", "Lodzkie", "Łódź", "Lodz Wladyslaw Reymont Airport", 51.7219, 19.3981}
 	IataLUZ = Iata{"pl", "Poland", "luz", "Lubelskie", "Lublin", "Lublin Airport", 51.2403, 22.7136}
+	IataOSP = Iata{"pl", "Poland", "osp", "", "Słupsk", "", 54.4789, 17.1075}
 	IataOSZ = Iata{"pl", "Poland", "osz", "Zachodniopomorskie", "Koszalin", "Koszalin-Zegrze Pomorskie Airport", 54.0425, 16.2656}
 	IataPOZ = Iata{"pl", "Poland", "poz", "Wielkopolskie", "Poznań", "Poznań–Ławica Henryk Wieniawski Airport", 52.421, 16.8263}
+	IataQYD = Iata{"pl", "Poland", "qyd", "", "Gdynia", "", 54.5797, 18.5172}
 	IataRDO = Iata{"pl", "Poland", "rdo", "Mazowieckie", "Radom", "Radom Airport", 51.3892, 21.2133}
 	IataRZE = Iata{"pl", "Poland", "rze", "Podlaskie", "Rzeszów", "Rzeszow-Jasionka Airport", 50.11, 22.019}
 	IataSZY = Iata{"pl", "Poland", "szy", "Warminsko-mazurskie", "Szczytno", "Olsztyn-Mazury Regional Airport", 53.4819, 20.9377}
@@ -5903,11 +6039,13 @@ var (
 	IataZSE = Iata{"re", "Réunion", "zse", "Reunion", "Saint-Pierre", "Pierrefonds Airport", -21.3209, 55.425}
 	IataARW = Iata{"ro", "Romania", "arw", "Arad", "Arad", "Arad International Airport", 46.1766, 21.262}
 	IataBAY = Iata{"ro", "Romania", "bay", "Maramures", "Baia Mare", "Baia Mare Airport", 47.6606, 23.4673}
+	IataBBU = Iata{"ro", "Romania", "bbu", "", "Bucharest", "", 44.4746, 26.0800}
 	IataBCM = Iata{"ro", "Romania", "bcm", "Bacau", "Bacău", "Bacau International Airport", 46.5219, 26.9103}
 	IataCLJ = Iata{"ro", "Romania", "clj", "Cluj", "Cluj-Napoca", "Cluj-Napoca International Airport", 46.7852, 23.6862}
 	IataCND = Iata{"ro", "Romania", "cnd", "Constanta", "Constanța", "Mihail Kogalniceanu International Airport", 44.3622, 28.4883}
 	IataCRA = Iata{"ro", "Romania", "cra", "Dolj", "Craiova", "Craiova International Airport", 44.3181, 23.8886}
 	IataCSB = Iata{"ro", "Romania", "csb", "Caras-Severin", "Caransebeş", "Caransebes Airport", 45.42, 22.2533}
+	IataGHV = Iata{"ro", "Romania", "ghv", "", "Brașov", "", 45.6230, 25.5539}
 	IataIAS = Iata{"ro", "Romania", "ias", "Iasi", "Iași", "Iasi International Airport", 47.1785, 27.6206}
 	IataOMR = Iata{"ro", "Romania", "omr", "Bihor", "Oradea", "Oradea International Airport", 47.0253, 21.9025}
 	IataOTP = Iata{"ro", "Romania", "otp", "Ilfov", "Bucharest", "Bucharest Henri Coandă International Airport", 44.5711, 26.085}
@@ -5920,6 +6058,13 @@ var (
 	IataBEG = Iata{"rs", "Serbia", "beg", "Beograd", "Belgrade", "Belgrade Nikola Tesla Airport", 44.8184, 20.3091}
 	IataBJY = Iata{"rs", "Serbia", "bjy", "Beograd", "Zemun", "Batajnica Air Base", 44.9353, 20.2575}
 	IataINI = Iata{"rs", "Serbia", "ini", "Nisavski okrug", "Niš", "Nis Constantine the Great Airport", 43.3373, 21.8537}
+	IataKVO = Iata{"rs", "Serbia", "kvo", "", "Kraljevo", "", 43.7747, 20.6523}
+	IataPRN = Iata{"rs", "Serbia", "prn", "", "Pristina", "", 0, 0}
+	IataQBG = Iata{"rs", "Serbia", "qbg", "", "Pančevo", "", 44.9000, 20.6410}
+	IataQND = Iata{"rs", "Serbia", "qnd", "", "Novi Sad", "", 0, 0}
+	IataQWV = Iata{"rs", "Serbia", "qwv", "", "Valjevo", "", 0, 0}
+	IataSDO = Iata{"rs", "Serbia", "sdo", "", "Smederevo", "", 44.6439, 20.9623}
+	IataSPL = Iata{"rs", "Serbia", "spl", "", "Smederevska Palanka", "", 25.5060, -100.0830}
 	IataUZC = Iata{"rs", "Serbia", "uzc", "Zlatiborski okrug", "Stapari", "Uzice-Ponikve Airport", 43.898, 19.6972}
 	IataAAQ = Iata{"ru", "Russia", "aaq", "Krasnodarskiy kray", "Anapa", "Anapa Airport", 45.0021, 37.3473}
 	IataABA = Iata{"ru", "Russia", "aba", "Khakasiya, Respublika", "Abakan", "Abakan International Airport", 53.74, 91.385}
@@ -5951,6 +6096,7 @@ var (
 	IataCYX = Iata{"ru", "Russia", "cyx", "Saha, Respublika", "Chersky", "Chersky Airport", 68.7406, 161.338}
 	IataDEE = Iata{"ru", "Russia", "dee", "Sakhalinskaya oblast'", "Yuzhno-Kurilsk", "Yuzhno-Kurilsk Mendeleyevo Airport", 43.9584, 145.683}
 	IataDKS = Iata{"ru", "Russia", "dks", "Krasnoyarskiy kray", "Dikson", "Dikson Airport", 73.5178, 80.3797}
+	IataDME = Iata{"ru", "Russia", "dme", "", "Moscow", "", 55.7093, 37.6064}
 	IataDPT = Iata{"ru", "Russia", "dpt", "Saha, Respublika", "Deputatsky", "Deputatsky Airport", 69.3925, 139.89}
 	IataDYR = Iata{"ru", "Russia", "dyr", "Chukotskiy avtonomnyy okrug", "Anadyr", "Ugolny Airport", 64.7349, 177.741}
 	IataEGO = Iata{"ru", "Russia", "ego", "Belgorodskaya oblast'", "Belgorod", "Belgorod International Airport", 50.6438, 36.5901}
@@ -6014,6 +6160,7 @@ var (
 	IataMCX = Iata{"ru", "Russia", "mcx", "Dagestan, Respublika", "Makhachkala", "Uytash Airport", 42.8168, 47.6523}
 	IataMJZ = Iata{"ru", "Russia", "mjz", "Saha, Respublika", "Mirny", "Mirny Airport", 62.5347, 114.039}
 	IataMMK = Iata{"ru", "Russia", "mmk", "Murmanskaya oblast'", "Murmansk", "Murmansk Airport", 68.7817, 32.7508}
+	IataMOW = Iata{"ru", "Russia", "mow", "", "Moscow", "", 55.6591, 37.5263}
 	IataMQF = Iata{"ru", "Russia", "mqf", "Chelyabinskaya oblast'", "Magnitogorsk", "Magnitogorsk International Airport", 53.3931, 58.7557}
 	IataMQJ = Iata{"ru", "Russia", "mqj", "Saha, Respublika", "Khonuu", "Moma Airport", 66.4509, 143.262}
 	IataMRV = Iata{"ru", "Russia", "mrv", "Stavropol'skiy kray", "Cherkessk", "Mineralnye Vody Airport", 44.2251, 43.0819}
@@ -6152,6 +6299,7 @@ var (
 	IataKMX = Iata{"sa", "Saudi Arabia", "kmx", "Asir", "Khamis Mushait", "King Khalid Air Base", 18.2973, 42.8035}
 	IataMED = Iata{"sa", "Saudi Arabia", "med", "Al Madinah al Munawwarah", "Medina", "Prince Mohammad bin Abdulaziz Airport", 24.5534, 39.7051}
 	IataNUM = Iata{"sa", "Saudi Arabia", "num", "Tabuk", "Sharma", "Neom Bay Airport", 27.9276, 35.2887}
+	IataQJB = Iata{"sa", "Saudi Arabia", "qjb", "", "Jubail", "", 27.0390, 49.4051}
 	IataRAE = Iata{"sa", "Saudi Arabia", "rae", "Al Hudud ash Shamaliyah", "Arar", "Arar Domestic Airport", 30.9066, 41.1382}
 	IataRAH = Iata{"sa", "Saudi Arabia", "rah", "Al Hudud ash Shamaliyah", "Rafha governorate", "Rafha Domestic Airport", 29.6264, 43.4906}
 	IataRUH = Iata{"sa", "Saudi Arabia", "ruh", "Ar Riyad", "Riyadh", "King Khalid International Airport", 24.9576, 46.6988}
@@ -6242,6 +6390,7 @@ var (
 	IataAJR = Iata{"se", "Sweden", "ajr", "Norrbottens lan", "Arvidsjaur Municipality", "Arvidsjaur Airport", 65.5903, 19.2819}
 	IataARN = Iata{"se", "Sweden", "arn", "Stockholms lan", "Stockholm", "Stockholm Arlanda Airport", 59.6519, 17.9186}
 	IataBLE = Iata{"se", "Sweden", "ble", "Dalarnas lan", "Borlänge", "Dala Airport (Borlange Airport)", 60.422, 15.5152}
+	IataBMA = Iata{"se", "Sweden", "bma", "", "Stockholm", "", 59.3643, 17.9534}
 	IataEKT = Iata{"se", "Sweden", "ekt", "Sodermanlands lan", "Eskilstuna", "Eskilstuna Airport", 59.3511, 16.7084}
 	IataEVG = Iata{"se", "Sweden", "evg", "Jamtlands lan", "Sveg", "Sveg Airport", 62.0478, 14.4229}
 	IataGEV = Iata{"se", "Sweden", "gev", "Norrbottens lan", "Gällivare", "Gallivare Airport", 67.1324, 20.8146}
@@ -6266,6 +6415,7 @@ var (
 	IataLLA = Iata{"se", "Sweden", "lla", "Norrbottens lan", "Luleå", "Lulea Airport (Kallax Airport)", 65.5438, 22.122}
 	IataLPI = Iata{"se", "Sweden", "lpi", "Ostergotlands lan", "Linköping", "Linkoping City Airport", 58.4062, 15.6805}
 	IataLYC = Iata{"se", "Sweden", "lyc", "Vasterbottens lan", "Lycksele", "Lycksele Airport", 64.5483, 18.7162}
+	IataMMX = Iata{"se", "Sweden", "mmx", "", "Malmö", "", 55.5323, 13.1490}
 	IataMXX = Iata{"se", "Sweden", "mxx", "Dalarnas lan", "Mora", "Mora-Siljan Airport", 60.9579, 14.5114}
 	IataNRK = Iata{"se", "Sweden", "nrk", "Ostergotlands lan", "Norrköping", "Norrkoping Airport", 58.5863, 16.2506}
 	IataNYO = Iata{"se", "Sweden", "nyo", "Sodermanlands lan", "Stockholm", "Stockholm Skavsta Airport", 58.7886, 16.9122}
@@ -6332,6 +6482,7 @@ var (
 	IataALU = Iata{"so", "Somalia", "alu", "Bari", "Aluula", "Alula Airport", 11.9582, 50.748}
 	IataBBO = Iata{"so", "Somalia", "bbo", "Woqooyi Galbeed", "Berbera", "Berbera Airport", 10.3892, 44.9411}
 	IataBIB = Iata{"so", "Somalia", "bib", "Bay", "Baidoa", "Baidoa Airport", 3.10222, 43.6286}
+	IataBLW = Iata{"so", "Somalia", "blw", "", "Beledweyne", "", 21.3708, -157.7139}
 	IataBSA = Iata{"so", "Somalia", "bsa", "Bari", "Bosaso", "Bender Qassim International Airport", 11.2753, 49.1494}
 	IataBSY = Iata{"so", "Somalia", "bsy", "Gedo", "Bardhere", "Bardera Airport", 2.33611, 42.3078}
 	IataBUO = Iata{"so", "Somalia", "buo", "Togdheer", "Burao", "Burao Airport", 9.5275, 45.5549}
@@ -6492,6 +6643,7 @@ var (
 	IataTBU = Iata{"to", "Tonga", "tbu", "Tongatapu", "Nukuʻalofa", "Fua'amotu International Airport", -21.2412, -175.15}
 	IataVAV = Iata{"to", "Tonga", "vav", "Vava'u", "Vava'u Island", "Vava'u International Airport", -18.5853, -173.962}
 	IataADA = Iata{"tr", "Turkey", "ada", "Adana", "Adana", "Adana Sakirpasa Airport", 36.9822, 35.2804}
+	IataADB = Iata{"tr", "Turkey", "adb", "", "İzmir", "", 0, 0}
 	IataADF = Iata{"tr", "Turkey", "adf", "Adiyaman", "Adıyaman", "Adiyaman Airport", 37.7314, 38.4689}
 	IataAFY = Iata{"tr", "Turkey", "afy", "Afyonkarahisar", "Afyonkarahisar", "Afyon Airport", 38.7264, 30.6011}
 	IataAJI = Iata{"tr", "Turkey", "aji", "Agri", "Ağrı", "Agri Airport", 39.6545, 43.026}
@@ -6508,6 +6660,7 @@ var (
 	IataBZI = Iata{"tr", "Turkey", "bzi", "Balikesir", "Balıkesir", "Balikesir Airport (Merkez Airport)", 39.6193, 27.926}
 	IataCII = Iata{"tr", "Turkey", "cii", "Aydin", "Aydın", "Aydin Airport (Cildir Airport)", 37.815, 27.8953}
 	IataCKZ = Iata{"tr", "Turkey", "ckz", "Canakkale", "Çanakkale", "Canakkale Airport", 40.1377, 26.4268}
+	IataCOV = Iata{"tr", "Turkey", "cov", "", "Adana Province", "", 40.2648, -7.4800}
 	IataDIY = Iata{"tr", "Turkey", "diy", "Diyarbakir", "Diyarbakır", "Diyarbakir Airport", 37.8939, 40.201}
 	IataDLM = Iata{"tr", "Turkey", "dlm", "Mugla", "Muğla", "Dalaman Airport", 36.7131, 28.7925}
 	IataDNZ = Iata{"tr", "Turkey", "dnz", "Denizli", "Çaltı", "Denizli Cardak Airport", 37.7856, 29.7013}
@@ -6613,10 +6766,12 @@ var (
 	IataDNK = Iata{"ua", "Ukraine", "dnk", "Dnipropetrovska oblast", "Dnipro", "Dnipropetrovsk International Airport", 48.3572, 35.1006}
 	IataDOK = Iata{"ua", "Ukraine", "dok", "Donetska oblast", "", "Donetsk International Airport", 48.0736, 37.7397}
 	IataERD = Iata{"ua", "Ukraine", "erd", "Zaporizka oblast", "Berdyansk", "Berdiansk Airport", 46.815, 36.7581}
+	IataGML = Iata{"ua", "Ukraine", "gml", "", "Kyiv", "", 50.4388, 30.5051}
 	IataHMJ = Iata{"ua", "Ukraine", "hmj", "Khmelnytska oblast", "Khmelnytskyi", "Khmelnytskyi Airport", 49.3597, 26.9334}
 	IataHRK = Iata{"ua", "Ukraine", "hrk", "Kharkivska oblast", "Kharkiv", "Kharkiv International Airport (Osnova Airport)", 49.9248, 36.29}
 	IataIEV = Iata{"ua", "Ukraine", "iev", "Kyiv", "Kyiv", "Kyiv International Airport (Zhuliany)", 50.4019, 30.4519}
 	IataIFO = Iata{"ua", "Ukraine", "ifo", "Ivano-Frankivska oblast", "Ivano-Frankivsk", "Ivano-Frankivsk International Airport", 48.8842, 24.6861}
+	IataIZL = Iata{"ua", "Ukraine", "izl", "", "Izmail", "", 45.3960, 28.8014}
 	IataKBP = Iata{"ua", "Ukraine", "kbp", "Kyiv", "Kyiv", "Boryspil International Airport", 50.345, 30.8947}
 	IataKCP = Iata{"ua", "Ukraine", "kcp", "Khmelnytska oblast", "Kamyan'ka", "Kamianets-Podilskyi Airport", 48.2669, 25.9672}
 	IataKGO = Iata{"ua", "Ukraine", "kgo", "Kirovohradska oblast", "Kirovograd", "Kirovohrad Airport", 48.5428, 32.285}
@@ -6648,6 +6803,7 @@ var (
 	IataKBG = Iata{"ug", "Uganda", "kbg", "Kabale", "", "Kabalega Falls Airport", 2.32872, 31.4997}
 	IataKCU = Iata{"ug", "Uganda", "kcu", "Masindi", "Masindi", "Masindi Airport", 1.75806, 31.7367}
 	IataKHX = Iata{"ug", "Uganda", "khx", "Kanungu", "Kihihi", "Kihihi Airstrip", -0.7165, 29.6997}
+	IataKLA = Iata{"ug", "Uganda", "kla", "", "Kampala", "", 0.3262, 32.5940}
 	IataKSE = Iata{"ug", "Uganda", "kse", "Kasese", "Kasese", "Kasese Airport", 0.183, 30.1}
 	IataMBQ = Iata{"ug", "Uganda", "mbq", "Mbarara", "Mbarara City", "Mbarara Airport", -0.555278, 30.5994}
 	IataOYG = Iata{"ug", "Uganda", "oyg", "Moyo", "Moyo", "Moyo Airport", 3.6444, 31.7628}
@@ -6700,6 +6856,7 @@ var (
 	IataAIN = Iata{"us", "United States", "ain", "Alaska", "Wainwright", "Wainwright Airport", 70.638, -159.995}
 	IataAIO = Iata{"us", "United States", "aio", "Iowa", "Atlantic", "Atlantic Municipal Airport", 41.4073, -95.0469}
 	IataAIV = Iata{"us", "United States", "aiv", "Alabama", "Aliceville", "George Downer Airport", 33.1065, -88.1978}
+	IataAIY = Iata{"us", "United States", "aiy", "", "Atlantic City", "", 39.3600, -74.4561}
 	IataAIZ = Iata{"us", "United States", "aiz", "Missouri", "Kaiser Lake Ozark", "Lee C. Fine Memorial Airport", 38.096, -92.5495}
 	IataAKB = Iata{"us", "United States", "akb", "Alaska", "Atka", "Atka Airport", 52.2203, -174.206}
 	IataAKC = Iata{"us", "United States", "akc", "Ohio", "Akron", "Akron Fulton International Airport", 41.0375, -81.4669}
@@ -6952,6 +7109,7 @@ var (
 	IataCDW = Iata{"us", "United States", "cdw", "New Jersey", "Caldwell", "Essex County Airport", 40.8752, -74.2814}
 	IataCEA = Iata{"us", "United States", "cea", "Kansas", "Wichita", "Cessna Aircraft Field", 37.6486, -97.2506}
 	IataCEC = Iata{"us", "United States", "cec", "California", "Crescent City", "Del Norte County Airport (Jack McNamara Field)", 41.7802, -124.237}
+	IataCEF = Iata{"us", "United States", "cef", "", "Springfield", "", 39.2704, -91.1044}
 	IataCEM = Iata{"us", "United States", "cem", "Alaska", "Central", "Central Airport", 65.5738, -144.783}
 	IataCEU = Iata{"us", "United States", "ceu", "South Carolina", "Seneca", "Oconee County Regional Airport", 34.6719, -82.8865}
 	IataCEV = Iata{"us", "United States", "cev", "Indiana", "Connersville", "Mettel Field", 39.6985, -85.1297}
@@ -6967,8 +7125,10 @@ var (
 	IataCGF = Iata{"us", "United States", "cgf", "Ohio", "Cleveland", "Cuyahoga County Airport", 41.5651, -81.4864}
 	IataCGI = Iata{"us", "United States", "cgi", "Missouri", "Cape Girardeau", "Cape Girardeau Regional Airport", 37.2253, -89.5708}
 	IataCGS = Iata{"us", "United States", "cgs", "Maryland", "Prince George's County", "College Park Airport", 38.9806, -76.9223}
+	IataCGX = Iata{"us", "United States", "cgx", "", "Chicago", "", 41.8588, -87.6079}
 	IataCGZ = Iata{"us", "United States", "cgz", "Arizona", "Casa Grande", "Casa Grande Municipal Airport", 32.9549, -111.767}
 	IataCHA = Iata{"us", "United States", "cha", "Tennessee", "Chattanooga", "Chattanooga Metropolitan Airport (Lovell Field)", 35.0353, -85.2038}
+	IataCHI = Iata{"us", "United States", "chi", "", "Chicago", "", 41.8823, -87.8286}
 	IataCHK = Iata{"us", "United States", "chk", "Oklahoma", "Chickasha", "Chickasha Municipal Airport", 35.0974, -97.9677}
 	IataCHL = Iata{"us", "United States", "chl", "Idaho", "Challis", "Challis Airport", 44.523, -114.218}
 	IataCHO = Iata{"us", "United States", "cho", "Virginia", "Charlottesville", "Charlottesville-Albemarle Airport", 38.1386, -78.4529}
@@ -7095,11 +7255,13 @@ var (
 	IataDBS = Iata{"us", "United States", "dbs", "Idaho", "Dubois", "Dubois Municipal Airport", 44.1666, -112.226}
 	IataDCA = Iata{"us", "United States", "dca", "Virginia", "Washington, D.C.", "Ronald Reagan Washington National Airport", 38.8522, -77.0378}
 	IataDCK = Iata{"us", "United States", "dck", "Alaska", "Dahl Creek", "Dahl Creek Airport", 66.9433, -156.905}
+	IataDCR = Iata{"us", "United States", "dcr", "", "Decatur", "", 40.8375, -84.8625}
 	IataDCU = Iata{"us", "United States", "dcu", "Alabama", "Decatur", "Pryor Field Regional Airport", 34.6527, -86.9454}
 	IataDDC = Iata{"us", "United States", "ddc", "Kansas", "Dodge City", "Dodge City Regional Airport", 37.7634, -99.9656}
 	IataDEC = Iata{"us", "United States", "dec", "Illinois", "Decatur", "Decatur Airport", 39.8346, -88.8657}
 	IataDEH = Iata{"us", "United States", "deh", "Iowa", "Decorah", "Decorah Municipal Airport", 43.2755, -91.7394}
 	IataDEN = Iata{"us", "United States", "den", "Colorado", "Denver", "Denver International Airport", 39.8617, -104.673}
+	IataDET = Iata{"us", "United States", "det", "", "Detroit", "", 41.5809, -84.2183}
 	IataDFI = Iata{"us", "United States", "dfi", "Ohio", "Defiance", "Defiance Memorial Airport", 41.3375, -84.4288}
 	IataDFW = Iata{"us", "United States", "dfw", "Texas", "Dallas-Fort Worth metroplex", "Dallas/Fort Worth International Airport", 32.8968, -97.038}
 	IataDGL = Iata{"us", "United States", "dgl", "Arizona", "Douglas", "Douglas Municipal Airport", 31.3426, -109.506}
@@ -7127,6 +7289,7 @@ var (
 	IataDOV = Iata{"us", "United States", "dov", "Delaware", "Dover", "Dover Air Force Base", 39.1295, -75.466}
 	IataDPA = Iata{"us", "United States", "dpa", "Illinois", "Chicago/West Chicago", "DuPage Airport", 41.9078, -88.2486}
 	IataDPG = Iata{"us", "United States", "dpg", "Utah", "Dugway Proving Ground", "Michael Army Airfield", 40.1994, -112.937}
+	IataDQH = Iata{"us", "United States", "dqh", "", "Deadhorse", "", 70.2218, -148.3240}
 	IataDRA = Iata{"us", "United States", "dra", "Nevada", "Mercury", "Desert Rock Airport", 36.6194, -116.033}
 	IataDRE = Iata{"us", "United States", "dre", "Michigan", "Drummond Township", "Drummond Island Airport", 46.0093, -83.7439}
 	IataDRF = Iata{"us", "United States", "drf", "Alaska", "Kenai", "Drift River Airport", 60.5889, -152.162}
@@ -7284,6 +7447,7 @@ var (
 	IataFLO = Iata{"us", "United States", "flo", "South Carolina", "Florence", "Florence Regional Airport", 34.1854, -79.7239}
 	IataFLP = Iata{"us", "United States", "flp", "Arkansas", "Flippin", "Marion County Regional Airport", 36.2909, -92.5903}
 	IataFLT = Iata{"us", "United States", "flt", "Alaska", "Fort-Liberté", "Flat Airport", 62.4526, -157.989}
+	IataFLU = Iata{"us", "United States", "flu", "", "New York City", "", 40.7787, -73.8326}
 	IataFLV = Iata{"us", "United States", "flv", "Kansas", "Fort Leavenworth", "Sherman Army Airfield", 39.3683, -94.9147}
 	IataFLX = Iata{"us", "United States", "flx", "Nevada", "Fallon", "Fallon Municipal Airport", 39.4991, -118.749}
 	IataFME = Iata{"us", "United States", "fme", "Maryland", "Fort Meade(Odenton)", "Tipton Airport", 39.0854, -76.7594}
@@ -7418,11 +7582,13 @@ var (
 	IataGWV = Iata{"us", "United States", "gwv", "West Virginia", "Glendale", "Glendale Fokker Field", 39.9487, -80.7595}
 	IataGXY = Iata{"us", "United States", "gxy", "Colorado", "Greeley", "Greeley-Weld County Airport", 40.4374, -104.633}
 	IataGYR = Iata{"us", "United States", "gyr", "Arizona", "Phoenix", "Phoenix Goodyear Airport", 33.4225, -112.376}
+	IataGYY = Iata{"us", "United States", "gyy", "", "Chicago", "", 41.8525, -87.6786}
 	IataHAB = Iata{"us", "United States", "hab", "Alabama", "Hamilton", "Marion County - Rankin Fite Airport", 34.1176, -87.9982}
 	IataHAF = Iata{"us", "United States", "haf", "California", "San Francisco", "Half Moon Bay Airport", 37.5134, -122.501}
 	IataHAI = Iata{"us", "United States", "hai", "Michigan", "Three Rivers", "Three Rivers Municipal Airport (Dr. Haines Flying Field)", 41.9598, -85.5934}
 	IataHAO = Iata{"us", "United States", "hao", "Ohio", "Hamilton", "Butler County Regional Airport", 39.3638, -84.522}
 	IataHAR = Iata{"us", "United States", "har", "Pennsylvania", "Harrisburg", "Capital City Airport", 40.2171, -76.8515}
+	IataHAX = Iata{"us", "United States", "hax", "", "Muskogee", "", 35.7464, -95.4133}
 	IataHBB = Iata{"us", "United States", "hbb", "New Mexico", "Hobbs", "Hobbs Industrial Airpark", 32.7668, -103.209}
 	IataHBG = Iata{"us", "United States", "hbg", "Mississippi", "Hattiesburg", "Hattiesburg Bobby L. Chain Municipal Airport", 31.2648, -89.2528}
 	IataHBH = Iata{"us", "United States", "hbh", "Alaska", "Entrance Island", "Entrance Island Seaplane Base (Hobart Bay)", 57.4122, -133.438}
@@ -7437,6 +7603,7 @@ var (
 	IataHDN = Iata{"us", "United States", "hdn", "Colorado", "Hayden", "Yampa Valley Airport", 40.4812, -107.218}
 	IataHED = Iata{"us", "United States", "hed", "Alaska", "Herendeen Bay", "Herendeen Bay Airport", 55.8014, -160.899}
 	IataHEE = Iata{"us", "United States", "hee", "Arkansas", "Helena-West Helena", "Thompson-Robbins Airport", 34.5766, -90.6762}
+	IataHEG = Iata{"us", "United States", "heg", "", "Jacksonville", "", 32.6938, -86.1676}
 	IataHES = Iata{"us", "United States", "hes", "Oregon", "Hermiston", "Hermiston Municipal Airport", 45.8282, -119.259}
 	IataHEZ = Iata{"us", "United States", "hez", "Mississippi", "Natchez", "Natchez-Adams County Airport (Hardy-Anders Field)", 31.6137, -91.2973}
 	IataHFD = Iata{"us", "United States", "hfd", "Connecticut", "Hartford", "Hartford-Brainard Airport", 41.7367, -72.6494}
@@ -7500,6 +7667,7 @@ var (
 	IataHUA = Iata{"us", "United States", "hua", "Alabama", "Redstone Arsenal", "Redstone Army Airfield", 34.6787, -86.6848}
 	IataHUC = Iata{"us", "United States", "huc", "Massachusetts", "Humacao", "Humacao Airport", 18.1381, -65.8013}
 	IataHUD = Iata{"us", "United States", "hud", "Iowa", "Humboldt", "Humboldt Municipal Airport", 42.7361, -94.2452}
+	IataHUF = Iata{"us", "United States", "huf", "", "Terre Haute", "", 39.4599, -87.3719}
 	IataHUJ = Iata{"us", "United States", "huj", "Oklahoma", "Hugo", "Stan Stamper Municipal Airport", 34.0348, -95.5419}
 	IataHUL = Iata{"us", "United States", "hul", "Maine", "Houlton", "Houlton International Airport", 46.1231, -67.7921}
 	IataHUM = Iata{"us", "United States", "hum", "Louisiana", "Houma", "Houma-Terrebonne Airport", 29.5665, -90.6604}
@@ -7607,6 +7775,7 @@ var (
 	IataKBE = Iata{"us", "United States", "kbe", "Alaska", "Bell Island", "Bell Island Hot Springs Seaplane Base", 55.9291, -131.572}
 	IataKBW = Iata{"us", "United States", "kbw", "Alaska", "Chignik", "Chignik Bay Seaplane Base", 56.2956, -158.401}
 	IataKCC = Iata{"us", "United States", "kcc", "Alaska", "Coffman Cove", "Coffman Cove Seaplane Base", 56.0032, -132.842}
+	IataKCG = Iata{"us", "United States", "kcg", "", "Chignik", "", 56.3178, -158.5898}
 	IataKCL = Iata{"us", "United States", "kcl", "Alaska", "Chignik Lagoon", "Chignik Lagoon Airport (Chignik Flats Airport)", 56.3112, -158.536}
 	IataKCN = Iata{"us", "United States", "kcn", "Alaska", "Chernofski Harbor", "Chernofski Harbor Seaplane Base", 53.4029, -167.52}
 	IataKCQ = Iata{"us", "United States", "kcq", "Alaska", "Chignik Lake", "Chignik Lake Airport", 56.255, -158.775}
@@ -7744,6 +7913,7 @@ var (
 	IataLRD = Iata{"us", "United States", "lrd", "Texas", "Laredo", "Laredo International Airport", 27.5438, -99.4616}
 	IataLRF = Iata{"us", "United States", "lrf", "Arkansas", "Jacksonville", "Little Rock Air Force Base", 34.9169, -92.1497}
 	IataLRJ = Iata{"us", "United States", "lrj", "Iowa", "Le Mars", "Le Mars Municipal Airport", 42.778, -96.1937}
+	IataLRO = Iata{"us", "United States", "lro", "", "Mount Pleasant", "", 37.8379, -121.2728}
 	IataLRU = Iata{"us", "United States", "lru", "New Mexico", "Las Cruces", "Las Cruces International Airport", 32.2894, -106.922}
 	IataLSB = Iata{"us", "United States", "lsb", "New Mexico", "Lordsburg", "Lordsburg Municipal Airport", 32.3335, -108.692}
 	IataLSE = Iata{"us", "United States", "lse", "Wisconsin", "La Crosse", "La Crosse Regional Airport", 43.879, -91.2567}
@@ -7885,6 +8055,7 @@ var (
 	IataMOU = Iata{"us", "United States", "mou", "Alaska", "Mountain Village", "Mountain Village Airport", 62.0954, -163.682}
 	IataMOX = Iata{"us", "United States", "mox", "Minnesota", "Morris", "Morris Municipal Airport", 45.5704, -95.9684}
 	IataMPB = Iata{"us", "United States", "mpb", "Florida", "Miami", "Miami Seaplane Base", 25.7783, -80.1703}
+	IataMPE = Iata{"us", "United States", "mpe", "", "Madison", "", 41.2712, -72.5497}
 	IataMPJ = Iata{"us", "United States", "mpj", "Arkansas", "Morrilton", "Petit Jean Park Airport", 35.1389, -92.9092}
 	IataMPO = Iata{"us", "United States", "mpo", "Pennsylvania", "Mount Pocono", "Pocono Mountains Municipal Airport", 41.1375, -75.3789}
 	IataMPR = Iata{"us", "United States", "mpr", "Kansas", "Mc Pherson", "McPherson Airport", 38.3524, -97.6913}
@@ -8008,6 +8179,7 @@ var (
 	IataNVD = Iata{"us", "United States", "nvd", "Missouri", "Nevada", "Nevada Municipal Airport", 37.853, -94.3045}
 	IataNVN = Iata{"us", "United States", "nvn", "California", "Beckwourth", "Nervino Airport", 39.8185, -120.353}
 	IataNWH = Iata{"us", "United States", "nwh", "New Hampshire", "Newport", "Parlin Field", 40.4625, -74.3306}
+	IataNYC = Iata{"us", "United States", "nyc", "", "New York City", "", 40.8069, -74.0940}
 	IataNYG = Iata{"us", "United States", "nyg", "Virginia", "Marine Corps Base Quantico", "MCAF Quantico (Turner Field)", 38.5017, -77.3053}
 	IataNZY = Iata{"us", "United States", "nzy", "California", "San Diego", "NAS North Island (Halsey Field)", 32.6992, -117.215}
 	IataOAJ = Iata{"us", "United States", "oaj", "North Carolina", "Jacksonville", "Albert J. Ellis Airport", 34.8292, -77.6121}
@@ -8024,6 +8196,7 @@ var (
 	IataODC = Iata{"us", "United States", "odc", "California", "Oakdale", "Oakdale Airport", 37.7563, -120.8}
 	IataODM = Iata{"us", "United States", "odm", "West Virginia", "Accident", "Garrett County Airport", 39.2808, -79.3374}
 	IataODW = Iata{"us", "United States", "odw", "Washington", "Oak Harbor", "A.J. Eisenberg Airport", 48.2515, -122.674}
+	IataOEA = Iata{"us", "United States", "oea", "", "Vincennes", "", 38.6275, -87.5103}
 	IataOEO = Iata{"us", "United States", "oeo", "Wisconsin", "Osceola", "L.O. Simenstad Municipal Airport", 45.31, -92.6919}
 	IataOFF = Iata{"us", "United States", "off", "Nebraska", "Omaha", "Offutt Air Force Base", 41.1183, -95.9125}
 	IataOFK = Iata{"us", "United States", "ofk", "Nebraska", "Norfolk", "Norfolk Regional Airport (Karl Stefan Memorial Field)", 41.9855, -97.4351}
@@ -8058,6 +8231,7 @@ var (
 	IataONP = Iata{"us", "United States", "onp", "Oregon", "Newport", "Newport Municipal Airport", 44.5804, -124.058}
 	IataONT = Iata{"us", "United States", "ont", "California", "Ontario", "Ontario International Airport", 34.056, -117.601}
 	IataONY = Iata{"us", "United States", "ony", "Texas", "Olney", "Olney Municipal Airport", 33.3522, -98.7915}
+	IataONZ = Iata{"us", "United States", "onz", "", "Grosse Ile Township", "", 0, 0}
 	IataOOA = Iata{"us", "United States", "ooa", "Iowa", "Cedar", "Oskaloosa Municipal Airport", 41.0048, -93.3096}
 	IataOOK = Iata{"us", "United States", "ook", "Alaska", "Toksook Bay", "Toksook Bay Airport", 60.5414, -165.087}
 	IataOPF = Iata{"us", "United States", "opf", "Florida", "Miami", "Miami-Opa Locka Executive Airport", 25.907, -80.2784}
@@ -8087,11 +8261,13 @@ var (
 	IataOWB = Iata{"us", "United States", "owb", "Kentucky", "Owensboro", "Owensboro-Daviess County Airport", 37.7401, -87.1668}
 	IataOWD = Iata{"us", "United States", "owd", "Massachusetts", "Norwood", "Norwood Memorial Airport", 42.1905, -71.1729}
 	IataOWK = Iata{"us", "United States", "owk", "Maine", "Norridgewock", "Central Maine Airport of Norridgewock", 44.7155, -69.8665}
+	IataOWP = Iata{"us", "United States", "owp", "", "Sand Springs", "", 38.3534, -98.4333}
 	IataOXC = Iata{"us", "United States", "oxc", "Connecticut", "Oxford", "Waterbury-Oxford Airport", 41.4786, -73.1352}
 	IataOXD = Iata{"us", "United States", "oxd", "Ohio", "Oxford", "Miami University Airport", 39.5023, -84.7844}
 	IataOXR = Iata{"us", "United States", "oxr", "California", "Oxnard", "Oxnard Airport", 34.2008, -119.207}
 	IataOZA = Iata{"us", "United States", "oza", "Texas", "Ozona", "Ozona Municipal Airport", 30.7353, -101.203}
 	IataOZR = Iata{"us", "United States", "ozr", "Alabama", "Fort Rucker/Ozark", "Cairns Army Airfield", 31.2757, -85.7134}
+	IataOZS = Iata{"us", "United States", "ozs", "", "Camdenton", "", 38.0534, -92.7610}
 	IataPAE = Iata{"us", "United States", "pae", "Washington", "Snohomish County", "Paine Field (Snohomish County Airport)", 47.9063, -122.282}
 	IataPAH = Iata{"us", "United States", "pah", "Kentucky", "Paducah", "Barkley Regional Airport", 37.0608, -88.7738}
 	IataPAK = Iata{"us", "United States", "pak", "Hawaii", "Hanapepe", "Port Allen Airport", 21.8969, -159.603}
@@ -8105,6 +8281,7 @@ var (
 	IataPCD = Iata{"us", "United States", "pcd", "Wisconsin", "Prairie du Chien", "Prairie du Chien Municipal Airport", 43.0193, -91.1237}
 	IataPCT = Iata{"us", "United States", "pct", "New Jersey", "Princeton", "Princeton Airport", 40.3992, -74.6589}
 	IataPCU = Iata{"us", "United States", "pcu", "Mississippi", "Poplarville", "Poplarville-Pearl River County Airport", 30.786, -89.5045}
+	IataPCZ = Iata{"us", "United States", "pcz", "", "Waupaca", "", 44.3478, -89.0405}
 	IataPDB = Iata{"us", "United States", "pdb", "Alaska", "Pedro Bay", "Pedro Bay Airport", 59.7896, -154.124}
 	IataPDK = Iata{"us", "United States", "pdk", "Georgia", "Atlanta", "DeKalb-Peachtree Airport", 33.8756, -84.302}
 	IataPDT = Iata{"us", "United States", "pdt", "Oregon", "Pendleton", "Eastern Oregon Regional Airport", 45.6951, -118.841}
@@ -8144,6 +8321,7 @@ var (
 	IataPKB = Iata{"us", "United States", "pkb", "West Virginia", "Parkersburg", "Mid-Ohio Valley Regional Airport", 39.3451, -81.4392}
 	IataPKD = Iata{"us", "United States", "pkd", "Minnesota", "Park Rapids", "Park Rapids Municipal Airport (Konshok Field)", 46.9006, -95.0731}
 	IataPKF = Iata{"us", "United States", "pkf", "Wisconsin", "Park Falls", "Park Falls Municipal Airport", 45.955, -90.4244}
+	IataPLB = Iata{"us", "United States", "plb", "", "Plattsburgh", "", 44.6875, -73.5245}
 	IataPLK = Iata{"us", "United States", "plk", "Missouri", "Branson", "M. Graham Clark Downtown Airport", 36.6259, -93.2289}
 	IataPLN = Iata{"us", "United States", "pln", "Michigan", "Pellston", "Pellston Regional Airport (Emmet County)", 45.5709, -84.7967}
 	IataPLR = Iata{"us", "United States", "plr", "Alabama", "Pell City", "St. Clair County Airport", 33.5588, -86.2491}
@@ -8155,6 +8333,7 @@ var (
 	IataPMX = Iata{"us", "United States", "pmx", "Massachusetts", "", "Metropolitan Airport", 42.2233, -72.3114}
 	IataPNC = Iata{"us", "United States", "pnc", "Oklahoma", "Ponca City", "Ponca City Regional Airport", 36.732, -97.0998}
 	IataPNE = Iata{"us", "United States", "pne", "Pennsylvania", "Philadelphia", "Northeast Philadelphia Airport", 40.0819, -75.0106}
+	IataPNM = Iata{"us", "United States", "pnm", "", "Princeton", "", 41.2778, -91.7738}
 	IataPNN = Iata{"us", "United States", "pnn", "Maine", "Princeton", "Princeton Municipal Airport", 45.2007, -67.5644}
 	IataPNS = Iata{"us", "United States", "pns", "Florida", "Pensacola", "Pensacola International Airport", 30.4734, -87.1866}
 	IataPNU = Iata{"us", "United States", "pnu", "Utah", "Panguitch", "Panguitch Municipal Airport", 37.8452, -112.392}
@@ -8205,6 +8384,7 @@ var (
 	IataPUC = Iata{"us", "United States", "puc", "Utah", "Price", "Carbon County Regional Airport", 39.6139, -110.751}
 	IataPUL = Iata{"us", "United States", "pul", "Washington", "Poulsbo", "Port of Poulsbo Marina Moorage Seaplane Base", 47.734, -122.647}
 	IataPUW = Iata{"us", "United States", "puw", "Washington", "Pullman", "Pullman-Moscow Regional Airport", 46.7439, -117.11}
+	IataPVB = Iata{"us", "United States", "pvb", "", "Platteville", "", 41.7178, -96.2038}
 	IataPVC = Iata{"us", "United States", "pvc", "Massachusetts", "Provincetown", "Provincetown Municipal Airport", 42.0719, -70.2214}
 	IataPVD = Iata{"us", "United States", "pvd", "Rhode Island", "Providence", "Theodore Francis Green State Airport", 41.7326, -71.4204}
 	IataPVF = Iata{"us", "United States", "pvf", "California", "Placerville", "Placerville Airport", 38.7242, -120.753}
@@ -8213,14 +8393,18 @@ var (
 	IataPVW = Iata{"us", "United States", "pvw", "Texas", "Plainview", "Hale County Airport", 34.1681, -101.717}
 	IataPWA = Iata{"us", "United States", "pwa", "Oklahoma", "Oklahoma City", "Wiley Post Airport", 35.5342, -97.6471}
 	IataPWD = Iata{"us", "United States", "pwd", "Montana", "Plentywood", "Sher-Wood Airport", 48.7903, -104.534}
+	IataPWK = Iata{"us", "United States", "pwk", "", "Chicago", "", 41.8525, -87.6786}
 	IataPWM = Iata{"us", "United States", "pwm", "Maine", "Portland", "Portland International Jetport", 43.6462, -70.3093}
 	IataPWR = Iata{"us", "United States", "pwr", "Alaska", "Port Walter", "Port Walter Seaplane Base", 56.381, -134.651}
 	IataPWT = Iata{"us", "United States", "pwt", "Washington", "Bremerton", "Bremerton National Airport", 47.4902, -122.765}
 	IataPWY = Iata{"us", "United States", "pwy", "Wyoming", "Pinedale", "Ralph Wenz Field", 42.7955, -109.807}
+	IataPXE = Iata{"us", "United States", "pxe", "", "Perry", "", 36.0354, -87.8862}
 	IataPXL = Iata{"us", "United States", "pxl", "Arizona", "Polacca", "Polacca Airport", 35.7917, -110.423}
 	IataPYL = Iata{"us", "United States", "pyl", "Alaska", "Perry Island", "Perry Island Seaplane Base", 60.6853, -147.919}
 	IataPYM = Iata{"us", "United States", "pym", "Massachusetts", "Plymouth County", "Plymouth Municipal Airport", 41.909, -70.7288}
+	IataPYP = Iata{"us", "United States", "pyp", "", "Centre", "", 34.1231, -85.6083}
 	IataPYS = Iata{"us", "United States", "pys", "California", "Paradise", "Paradise Skypark", 39.7105, -121.6163}
+	IataQQS = Iata{"us", "United States", "qqs", "", "Kennedy Space Center", "", 0, 0}
 	IataQWG = Iata{"us", "United States", "qwg", "North Carolina", "Charlotte", "Wilgrove Air Park", 35.2138, -80.6701}
 	IataRAC = Iata{"us", "United States", "rac", "Wisconsin", "Racine", "John H. Batten Airport", 42.7606, -87.8152}
 	IataRAL = Iata{"us", "United States", "ral", "California", "Riverside", "Riverside Municipal Airport", 33.9519, -117.445}
@@ -8235,8 +8419,11 @@ var (
 	IataRCA = Iata{"us", "United States", "rca", "South Dakota", "Rapid City", "Ellsworth Air Force Base", 44.145, -103.104}
 	IataRCE = Iata{"us", "United States", "rce", "Washington", "Roche Harbor", "Roche Harbor Seaplane Base", 48.6123, -123.139}
 	IataRCK = Iata{"us", "United States", "rck", "Texas", "Rockdale", "H. H. Coffield Regional Airport", 30.6316, -96.9897}
+	IataRCP = Iata{"us", "United States", "rcp", "", "Stockton", "", 38.8482, -107.4299}
 	IataRCR = Iata{"us", "United States", "rcr", "Indiana", "Rochester", "Fulton County Airport", 41.0656, -86.1817}
 	IataRCT = Iata{"us", "United States", "rct", "Michigan", "", "Nartron Field", 43.9, -85.5167}
+	IataRCX = Iata{"us", "United States", "rcx", "", "Ladysmith", "", 45.4756, -91.0553}
+	IataRCZ = Iata{"us", "United States", "rcz", "", "Rockingham", "", 34.9103, -79.7543}
 	IataRDB = Iata{"us", "United States", "rdb", "Alaska", "Red Dog", "Red Dog Airport", 68.0321, -162.899}
 	IataRDD = Iata{"us", "United States", "rdd", "California", "Redding", "Redding Municipal Airport", 40.509, -122.293}
 	IataRDG = Iata{"us", "United States", "rdg", "Pennsylvania", "Reading", "Reading Regional Airport (Carl A. Spaatz Field)", 40.3785, -75.9652}
@@ -8249,6 +8436,7 @@ var (
 	IataREO = Iata{"us", "United States", "reo", "Oregon", "Rome", "Rome State Airport", 42.5777, -117.885}
 	IataRFD = Iata{"us", "United States", "rfd", "Illinois", "Rockford", "Chicago Rockford International Airport", 42.1953, -89.0972}
 	IataRFG = Iata{"us", "United States", "rfg", "Texas", "Refugio", "Rooke Field", 28.2886, -97.318}
+	IataRFI = Iata{"us", "United States", "rfi", "", "Henderson", "", 36.4235, -99.7846}
 	IataRFK = Iata{"us", "United States", "rfk", "Mississippi", "Rolling Fork", "Rollang Field", 32.9549, -90.8459}
 	IataRGR = Iata{"us", "United States", "rgr", "Texas", "Ranger", "Ranger Municipal Airport", 32.4526, -98.6828}
 	IataRHI = Iata{"us", "United States", "rhi", "Wisconsin", "Rhinelander", "Rhinelander-Oneida County Airport", 45.6312, -89.4675}
@@ -8286,7 +8474,10 @@ var (
 	IataROL = Iata{"us", "United States", "rol", "Utah", "Roosevelt", "Roosevelt Municipal Airport", 40.2783, -110.051}
 	IataROW = Iata{"us", "United States", "row", "New Mexico", "Roswell", "Roswell International Air Center", 33.3016, -104.531}
 	IataROX = Iata{"us", "United States", "rox", "Minnesota", "Roseau", "Roseau Municipal Airport (Rudy Billberg Field)", 48.856, -95.697}
+	IataRPJ = Iata{"us", "United States", "rpj", "", "Rochelle", "", 38.3783, -92.4691}
 	IataRPX = Iata{"us", "United States", "rpx", "Montana", "Roundup", "Roundup Airport", 46.4751, -108.541}
+	IataRQE = Iata{"us", "United States", "rqe", "", "Window Rock", "", 35.6521, -109.0670}
+	IataRQO = Iata{"us", "United States", "rqo", "", "El Reno", "", 35.5001, -97.9872}
 	IataRRL = Iata{"us", "United States", "rrl", "Wisconsin", "Merrill", "Merrill Municipal Airport", 45.1989, -89.7129}
 	IataRRT = Iata{"us", "United States", "rrt", "Minnesota", "Warroad", "Warroad International Memorial Airport (Swede Carlson Field)", 48.9414, -95.3484}
 	IataRSH = Iata{"us", "United States", "rsh", "Alaska", "Russian Mission", "Russian Mission Airport", 61.7789, -161.319}
@@ -8305,7 +8496,9 @@ var (
 	IataRWF = Iata{"us", "United States", "rwf", "Minnesota", "Redwood Falls", "Redwood Falls Municipal Airport", 44.5472, -95.0823}
 	IataRWI = Iata{"us", "United States", "rwi", "North Carolina", "Rocky Mount", "Rocky Mount-Wilson Regional Airport", 35.8563, -77.8919}
 	IataRWL = Iata{"us", "United States", "rwl", "Wyoming", "Rawlins", "Rawlins Municipal Airport (Harvey Field)", 41.8056, -107.2}
+	IataRWV = Iata{"us", "United States", "rwv", "", "Caldwell", "", 38.5987, -103.1380}
 	IataRXE = Iata{"us", "United States", "rxe", "Idaho", "Rexburg", "Rexburg-Madison County Airport", 43.8339, -111.805}
+	IataRYV = Iata{"us", "United States", "ryv", "", "Watertown", "", 43.7043, -87.1179}
 	IataRZZ = Iata{"us", "United States", "rzz", "North Carolina", "Roanoke Rapids", "Halifax County Airport", 36.4395, -77.7093}
 	IataSAA = Iata{"us", "United States", "saa", "Wyoming", "Saratoga", "Shively Field", 41.4449, -106.824}
 	IataSAC = Iata{"us", "United States", "sac", "California", "Sacramento", "Sacramento Executive Airport", 38.5125, -121.493}
@@ -8344,6 +8537,7 @@ var (
 	IataSEM = Iata{"us", "United States", "sem", "Alabama", "Selma", "Craig Field", 32.3439, -86.9878}
 	IataSEP = Iata{"us", "United States", "sep", "Texas", "Stephenville", "Stephenville Clark Regional Airport", 32.2153, -98.1777}
 	IataSER = Iata{"us", "United States", "ser", "Indiana", "Seymour", "Freeman Municipal Airport", 38.9236, -85.9074}
+	IataSES = Iata{"us", "United States", "ses", "", "Selma", "", 32.4385, -86.9497}
 	IataSFB = Iata{"us", "United States", "sfb", "Florida", "Orlando", "Orlando Sanford International Airport", 28.7776, -81.2375}
 	IataSFF = Iata{"us", "United States", "sff", "Washington", "Spokane", "Felts Field", 47.6828, -117.323}
 	IataSFM = Iata{"us", "United States", "sfm", "Maine", "Sanford", "Sanford Seacoast Regional Airport", 43.3939, -70.708}
@@ -8422,6 +8616,7 @@ var (
 	IataSSC = Iata{"us", "United States", "ssc", "South Carolina", "Sumter", "Shaw Air Force Base", 33.9727, -80.4706}
 	IataSSF = Iata{"us", "United States", "ssf", "Texas", "San Antonio", "Stinson Municipal Airport", 29.337, -98.4711}
 	IataSSI = Iata{"us", "United States", "ssi", "Georgia", "Brunswick", "Malcolm McKinnon Airport", 31.1518, -81.3913}
+	IataSSM = Iata{"us", "United States", "ssm", "", "Sault Ste. Marie", "", 0, 0}
 	IataSSW = Iata{"us", "United States", "ssw", "Washington", "Friday Harbor", "Stuart Island Airpark", 48.6729, -123.176}
 	IataSTC = Iata{"us", "United States", "stc", "Minnesota", "St. Cloud", "St. Cloud Regional Airport", 45.5466, -94.0599}
 	IataSTE = Iata{"us", "United States", "ste", "Wisconsin", "Stevens Point", "Stevens Point Municipal Airport", 44.5452, -89.5303}
@@ -8451,6 +8646,7 @@ var (
 	IataSVW = Iata{"us", "United States", "svw", "Alaska", "Sparrevohn", "Sparrevohn LRRS Airport", 61.0974, -155.574}
 	IataSWD = Iata{"us", "United States", "swd", "Alaska", "Seward", "Seward Airport", 60.1269, -149.419}
 	IataSWF = Iata{"us", "United States", "swf", "New York", "Hudson Valley", "New York Stewart International Airport", 41.5042, -74.1047}
+	IataSWI = Iata{"us", "United States", "swi", "", "Sherman", "", 33.6235, -96.6641}
 	IataSWO = Iata{"us", "United States", "swo", "Oklahoma", "Stillwater", "Stillwater Regional Airport", 36.1612, -97.0857}
 	IataSWW = Iata{"us", "United States", "sww", "Texas", "Sweetwater", "Avenger Field", 32.4674, -100.467}
 	IataSXP = Iata{"us", "United States", "sxp", "Alaska", "Nunam Iqua", "Sheldon Point Airport", 62.5206, -164.848}
@@ -8983,6 +9179,7 @@ var (
 	IataMNR = Iata{"zm", "Zambia", "mnr", "Western", "Mongu", "Mongu Airport", -15.2545, 23.1623}
 	IataMNS = Iata{"zm", "Zambia", "mns", "Luapula", "Mansa", "Mansa Airport", -11.137, 28.8726}
 	IataNLA = Iata{"zm", "Zambia", "nla", "Copperbelt", "Ndola", "Simon Mwansa Kapwepwe International Airport", -12.9981, 28.6649}
+	IataQKE = Iata{"zm", "Zambia", "qke", "", "Kabwe", "", -14.4506, 28.3792}
 	IataRYL = Iata{"zm", "Zambia", "ryl", "Lusaka", "Lower Zambezi River", "Royal Airstrip", -15.7255, 29.3021}
 	IataSJQ = Iata{"zm", "Zambia", "sjq", "Western", "Sesheke", "Sesheke Airport", -17.4763, 24.3047}
 	IataSLI = Iata{"zm", "Zambia", "sli", "North-Western", "Solwesi", "Solwezi Airport", -12.1737, 26.3651}
@@ -9064,6 +9261,7 @@ func Values() []Iata {
 		IataACC,
 		IataACD,
 		IataACE,
+		IataACF,
 		IataACH,
 		IataACI,
 		IataACJ,
@@ -9081,6 +9279,7 @@ func Values() []Iata {
 		IataACY,
 		IataACZ,
 		IataADA,
+		IataADB,
 		IataADC,
 		IataADD,
 		IataADE,
@@ -9196,6 +9395,7 @@ func Values() []Iata {
 		IataAIU,
 		IataAIV,
 		IataAIW,
+		IataAIY,
 		IataAIZ,
 		IataAJA,
 		IataAJF,
@@ -9468,6 +9668,7 @@ func Values() []Iata {
 		IataAVN,
 		IataAVO,
 		IataAVP,
+		IataAVR,
 		IataAVU,
 		IataAVV,
 		IataAVW,
@@ -9506,6 +9707,7 @@ func Values() []Iata {
 		IataAYD,
 		IataAYG,
 		IataAYI,
+		IataAYJ,
 		IataAYK,
 		IataAYL,
 		IataAYM,
@@ -9575,6 +9777,7 @@ func Values() []Iata {
 		IataBBR,
 		IataBBS,
 		IataBBT,
+		IataBBU,
 		IataBBV,
 		IataBBW,
 		IataBBX,
@@ -9826,9 +10029,11 @@ func Values() []Iata {
 		IataBLT,
 		IataBLU,
 		IataBLV,
+		IataBLW,
 		IataBLX,
 		IataBLY,
 		IataBLZ,
+		IataBMA,
 		IataBMB,
 		IataBMC,
 		IataBMD,
@@ -9894,6 +10099,7 @@ func Values() []Iata {
 		IataBOO,
 		IataBOP,
 		IataBOQ,
+		IataBOR,
 		IataBOS,
 		IataBOT,
 		IataBOU,
@@ -9902,6 +10108,7 @@ func Values() []Iata {
 		IataBOX,
 		IataBOY,
 		IataBOZ,
+		IataBPA,
 		IataBPB,
 		IataBPC,
 		IataBPD,
@@ -9982,6 +10189,7 @@ func Values() []Iata {
 		IataBSW,
 		IataBSX,
 		IataBSY,
+		IataBSZ,
 		IataBTA,
 		IataBTB,
 		IataBTC,
@@ -10012,6 +10220,7 @@ func Values() []Iata {
 		IataBUB,
 		IataBUC,
 		IataBUD,
+		IataBUE,
 		IataBUF,
 		IataBUG,
 		IataBUI,
@@ -10197,6 +10406,7 @@ func Values() []Iata {
 		IataCCA,
 		IataCCB,
 		IataCCC,
+		IataCCE,
 		IataCCF,
 		IataCCG,
 		IataCCH,
@@ -10244,6 +10454,7 @@ func Values() []Iata {
 		IataCEC,
 		IataCED,
 		IataCEE,
+		IataCEF,
 		IataCEG,
 		IataCEH,
 		IataCEI,
@@ -10289,6 +10500,7 @@ func Values() []Iata {
 		IataCGE,
 		IataCGF,
 		IataCGG,
+		IataCGH,
 		IataCGI,
 		IataCGJ,
 		IataCGK,
@@ -10301,6 +10513,7 @@ func Values() []Iata {
 		IataCGS,
 		IataCGT,
 		IataCGV,
+		IataCGX,
 		IataCGY,
 		IataCGZ,
 		IataCHA,
@@ -10309,6 +10522,7 @@ func Values() []Iata {
 		IataCHF,
 		IataCHG,
 		IataCHH,
+		IataCHI,
 		IataCHJ,
 		IataCHK,
 		IataCHL,
@@ -10325,6 +10539,7 @@ func Values() []Iata {
 		IataCHX,
 		IataCHY,
 		IataCHZ,
+		IataCIA,
 		IataCIC,
 		IataCID,
 		IataCIE,
@@ -10479,6 +10694,7 @@ func Values() []Iata {
 		IataCOS,
 		IataCOT,
 		IataCOU,
+		IataCOV,
 		IataCOW,
 		IataCOY,
 		IataCOZ,
@@ -10575,6 +10791,7 @@ func Values() []Iata {
 		IataCTP,
 		IataCTQ,
 		IataCTR,
+		IataCTS,
 		IataCTT,
 		IataCTU,
 		IataCTW,
@@ -10624,6 +10841,7 @@ func Values() []Iata {
 		IataCWA,
 		IataCWB,
 		IataCWC,
+		IataCWE,
 		IataCWF,
 		IataCWI,
 		IataCWJ,
@@ -10729,6 +10947,7 @@ func Values() []Iata {
 		IataDCK,
 		IataDCM,
 		IataDCN,
+		IataDCR,
 		IataDCT,
 		IataDCU,
 		IataDCY,
@@ -10751,6 +10970,7 @@ func Values() []Iata {
 		IataDEP,
 		IataDER,
 		IataDES,
+		IataDET,
 		IataDEX,
 		IataDEZ,
 		IataDFI,
@@ -10761,6 +10981,7 @@ func Values() []Iata {
 		IataDGD,
 		IataDGE,
 		IataDGF,
+		IataDGH,
 		IataDGK,
 		IataDGL,
 		IataDGM,
@@ -10781,6 +11002,7 @@ func Values() []Iata {
 		IataDHN,
 		IataDHR,
 		IataDHT,
+		IataDHX,
 		IataDIA,
 		IataDIB,
 		IataDIE,
@@ -10817,6 +11039,7 @@ func Values() []Iata {
 		IataDLA,
 		IataDLB,
 		IataDLC,
+		IataDLD,
 		IataDLE,
 		IataDLF,
 		IataDLG,
@@ -10834,6 +11057,7 @@ func Values() []Iata {
 		IataDMA,
 		IataDMB,
 		IataDMD,
+		IataDME,
 		IataDMK,
 		IataDMM,
 		IataDMN,
@@ -10882,6 +11106,7 @@ func Values() []Iata {
 		IataDOX,
 		IataDOY,
 		IataDPA,
+		IataDPB,
 		IataDPE,
 		IataDPG,
 		IataDPL,
@@ -10890,6 +11115,7 @@ func Values() []Iata {
 		IataDPT,
 		IataDPU,
 		IataDQA,
+		IataDQH,
 		IataDQM,
 		IataDRA,
 		IataDRB,
@@ -10904,6 +11130,7 @@ func Values() []Iata {
 		IataDRK,
 		IataDRN,
 		IataDRO,
+		IataDRP,
 		IataDRR,
 		IataDRS,
 		IataDRT,
@@ -10968,6 +11195,7 @@ func Values() []Iata {
 		IataDXB,
 		IataDXD,
 		IataDXE,
+		IataDXJ,
 		IataDXR,
 		IataDYA,
 		IataDYG,
@@ -10989,6 +11217,7 @@ func Values() []Iata {
 		IataEAL,
 		IataEAM,
 		IataEAN,
+		IataEAP,
 		IataEAR,
 		IataEAS,
 		IataEAT,
@@ -11039,6 +11268,7 @@ func Values() []Iata {
 		IataEGA,
 		IataEGC,
 		IataEGE,
+		IataEGH,
 		IataEGI,
 		IataEGL,
 		IataEGM,
@@ -11248,6 +11478,7 @@ func Values() []Iata {
 		IataFAJ,
 		IataFAK,
 		IataFAM,
+		IataFAN,
 		IataFAO,
 		IataFAQ,
 		IataFAR,
@@ -11266,6 +11497,7 @@ func Values() []Iata {
 		IataFBM,
 		IataFBR,
 		IataFBS,
+		IataFBU,
 		IataFBY,
 		IataFCA,
 		IataFCB,
@@ -11334,6 +11566,7 @@ func Values() []Iata {
 		IataFLR,
 		IataFLS,
 		IataFLT,
+		IataFLU,
 		IataFLV,
 		IataFLW,
 		IataFLX,
@@ -11380,6 +11613,7 @@ func Values() []Iata {
 		IataFPO,
 		IataFPR,
 		IataFPY,
+		IataFQJ,
 		IataFRA,
 		IataFRB,
 		IataFRC,
@@ -11388,6 +11622,7 @@ func Values() []Iata {
 		IataFRG,
 		IataFRH,
 		IataFRI,
+		IataFRJ,
 		IataFRK,
 		IataFRL,
 		IataFRM,
@@ -11445,6 +11680,7 @@ func Values() []Iata {
 		IataFYT,
 		IataFYU,
 		IataFYV,
+		IataFZL,
 		IataFZO,
 		IataGAA,
 		IataGAB,
@@ -11503,6 +11739,7 @@ func Values() []Iata {
 		IataGCW,
 		IataGCY,
 		IataGDA,
+		IataGDB,
 		IataGDC,
 		IataGDD,
 		IataGDE,
@@ -11573,6 +11810,7 @@ func Values() []Iata {
 		IataGHN,
 		IataGHT,
 		IataGHU,
+		IataGHV,
 		IataGIB,
 		IataGIC,
 		IataGID,
@@ -11610,6 +11848,7 @@ func Values() []Iata {
 		IataGLG,
 		IataGLH,
 		IataGLI,
+		IataGLJ,
 		IataGLK,
 		IataGLL,
 		IataGLM,
@@ -11631,9 +11870,11 @@ func Values() []Iata {
 		IataGMD,
 		IataGME,
 		IataGMI,
+		IataGML,
 		IataGMM,
 		IataGMN,
 		IataGMO,
+		IataGMP,
 		IataGMQ,
 		IataGMR,
 		IataGMS,
@@ -11647,6 +11888,7 @@ func Values() []Iata {
 		IataGNF,
 		IataGNG,
 		IataGNI,
+		IataGNJ,
 		IataGNM,
 		IataGNN,
 		IataGNR,
@@ -11676,6 +11918,7 @@ func Values() []Iata {
 		IataGOT,
 		IataGOU,
 		IataGOV,
+		IataGOX,
 		IataGOZ,
 		IataGPA,
 		IataGPB,
@@ -11788,6 +12031,7 @@ func Values() []Iata {
 		IataGWT,
 		IataGWV,
 		IataGWY,
+		IataGXA,
 		IataGXF,
 		IataGXG,
 		IataGXH,
@@ -11806,7 +12050,9 @@ func Values() []Iata {
 		IataGYR,
 		IataGYS,
 		IataGYU,
+		IataGYY,
 		IataGZA,
+		IataGZG,
 		IataGZI,
 		IataGZO,
 		IataGZP,
@@ -11816,6 +12062,7 @@ func Values() []Iata {
 		IataHAB,
 		IataHAC,
 		IataHAD,
+		IataHAE,
 		IataHAF,
 		IataHAH,
 		IataHAI,
@@ -11832,6 +12079,7 @@ func Values() []Iata {
 		IataHAU,
 		IataHAV,
 		IataHAW,
+		IataHAX,
 		IataHAY,
 		IataHAZ,
 		IataHBA,
@@ -11870,6 +12118,7 @@ func Values() []Iata {
 		IataHEB,
 		IataHED,
 		IataHEE,
+		IataHEG,
 		IataHEH,
 		IataHEI,
 		IataHEK,
@@ -11879,6 +12128,8 @@ func Values() []Iata {
 		IataHER,
 		IataHES,
 		IataHET,
+		IataHEW,
+		IataHEX,
 		IataHEZ,
 		IataHFA,
 		IataHFD,
@@ -11944,9 +12195,11 @@ func Values() []Iata {
 		IataHLG,
 		IataHLH,
 		IataHLI,
+		IataHLJ,
 		IataHLL,
 		IataHLM,
 		IataHLN,
+		IataHLP,
 		IataHLR,
 		IataHLS,
 		IataHLT,
@@ -12007,6 +12260,7 @@ func Values() []Iata {
 		IataHPV,
 		IataHPY,
 		IataHQM,
+		IataHRA,
 		IataHRB,
 		IataHRC,
 		IataHRE,
@@ -12021,8 +12275,10 @@ func Values() []Iata {
 		IataHRT,
 		IataHRY,
 		IataHRZ,
+		IataHSA,
 		IataHSB,
 		IataHSC,
+		IataHSF,
 		IataHSG,
 		IataHSH,
 		IataHSI,
@@ -12032,6 +12288,7 @@ func Values() []Iata {
 		IataHSM,
 		IataHSN,
 		IataHSP,
+		IataHSR,
 		IataHSS,
 		IataHST,
 		IataHSV,
@@ -12057,6 +12314,7 @@ func Values() []Iata {
 		IataHUC,
 		IataHUD,
 		IataHUE,
+		IataHUF,
 		IataHUG,
 		IataHUH,
 		IataHUI,
@@ -12122,6 +12380,7 @@ func Values() []Iata {
 		IataIAR,
 		IataIAS,
 		IataIAU,
+		IataIAX,
 		IataIBA,
 		IataIBB,
 		IataIBE,
@@ -12199,6 +12458,7 @@ func Values() []Iata {
 		IataIKP,
 		IataIKS,
 		IataIKT,
+		IataIKU,
 		IataILA,
 		IataILD,
 		IataILE,
@@ -12239,6 +12499,7 @@ func Values() []Iata {
 		IataIND,
 		IataINE,
 		IataINF,
+		IataING,
 		IataINH,
 		IataINI,
 		IataINJ,
@@ -12321,6 +12582,7 @@ func Values() []Iata {
 		IataITH,
 		IataITI,
 		IataITK,
+		IataITM,
 		IataITN,
 		IataITO,
 		IataITP,
@@ -12365,10 +12627,12 @@ func Values() []Iata {
 		IataIXU,
 		IataIXV,
 		IataIXW,
+		IataIXX,
 		IataIXY,
 		IataIXZ,
 		IataIYK,
 		IataIZA,
+		IataIZL,
 		IataIZO,
 		IataIZT,
 		IataJAA,
@@ -12390,10 +12654,12 @@ func Values() []Iata {
 		IataJAT,
 		IataJAU,
 		IataJAV,
+		IataJAW,
 		IataJAX,
 		IataJBB,
 		IataJBQ,
 		IataJBR,
+		IataJBS,
 		IataJBT,
 		IataJCB,
 		IataJCH,
@@ -12405,6 +12671,7 @@ func Values() []Iata {
 		IataJCT,
 		IataJCY,
 		IataJDA,
+		IataJDE,
 		IataJDF,
 		IataJDG,
 		IataJDH,
@@ -12472,6 +12739,7 @@ func Values() []Iata {
 		IataJNA,
 		IataJNB,
 		IataJNG,
+		IataJNH,
 		IataJNI,
 		IataJNJ,
 		IataJNU,
@@ -12489,6 +12757,7 @@ func Values() []Iata {
 		IataJOS,
 		IataJOT,
 		IataJPA,
+		IataJPO,
 		IataJPR,
 		IataJQA,
 		IataJQE,
@@ -12497,6 +12766,7 @@ func Values() []Iata {
 		IataJRN,
 		IataJRO,
 		IataJRS,
+		IataJRT,
 		IataJSA,
 		IataJSH,
 		IataJSI,
@@ -12589,6 +12859,7 @@ func Values() []Iata {
 		IataKCD,
 		IataKCE,
 		IataKCF,
+		IataKCG,
 		IataKCH,
 		IataKCI,
 		IataKCJ,
@@ -12658,6 +12929,7 @@ func Values() []Iata {
 		IataKFG,
 		IataKFP,
 		IataKFS,
+		IataKFZ,
 		IataKGA,
 		IataKGB,
 		IataKGC,
@@ -12729,6 +13001,7 @@ func Values() []Iata {
 		IataKIY,
 		IataKIZ,
 		IataKJA,
+		IataKJB,
 		IataKJH,
 		IataKJI,
 		IataKJK,
@@ -12760,6 +13033,7 @@ func Values() []Iata {
 		IataKKX,
 		IataKKY,
 		IataKKZ,
+		IataKLA,
 		IataKLB,
 		IataKLC,
 		IataKLD,
@@ -12984,6 +13258,7 @@ func Values() []Iata {
 		IataKVK,
 		IataKVL,
 		IataKVM,
+		IataKVO,
 		IataKVR,
 		IataKVU,
 		IataKVX,
@@ -13068,6 +13343,7 @@ func Values() []Iata {
 		IataLBD,
 		IataLBE,
 		IataLBF,
+		IataLBG,
 		IataLBH,
 		IataLBI,
 		IataLBJ,
@@ -13105,6 +13381,7 @@ func Values() []Iata {
 		IataLCP,
 		IataLCQ,
 		IataLCR,
+		IataLCS,
 		IataLCV,
 		IataLCX,
 		IataLCY,
@@ -13155,6 +13432,7 @@ func Values() []Iata {
 		IataLEY,
 		IataLEZ,
 		IataLFB,
+		IataLFH,
 		IataLFI,
 		IataLFK,
 		IataLFM,
@@ -13190,6 +13468,7 @@ func Values() []Iata {
 		IataLGY,
 		IataLHA,
 		IataLHB,
+		IataLHC,
 		IataLHE,
 		IataLHG,
 		IataLHI,
@@ -13234,6 +13513,7 @@ func Values() []Iata {
 		IataLKE,
 		IataLKG,
 		IataLKH,
+		IataLKI,
 		IataLKK,
 		IataLKL,
 		IataLKN,
@@ -13319,6 +13599,7 @@ func Values() []Iata {
 		IataLOK,
 		IataLOL,
 		IataLOM,
+		IataLON,
 		IataLOO,
 		IataLOP,
 		IataLOQ,
@@ -13364,6 +13645,7 @@ func Values() []Iata {
 		IataLRJ,
 		IataLRL,
 		IataLRM,
+		IataLRO,
 		IataLRQ,
 		IataLRR,
 		IataLRS,
@@ -13385,6 +13667,7 @@ func Values() []Iata {
 		IataLSO,
 		IataLSP,
 		IataLSQ,
+		IataLSR,
 		IataLSS,
 		IataLST,
 		IataLSU,
@@ -13480,6 +13763,7 @@ func Values() []Iata {
 		IataLYH,
 		IataLYI,
 		IataLYK,
+		IataLYM,
 		IataLYN,
 		IataLYO,
 		IataLYP,
@@ -13490,6 +13774,7 @@ func Values() []Iata {
 		IataLYX,
 		IataLZA,
 		IataLZC,
+		IataLZG,
 		IataLZH,
 		IataLZI,
 		IataLZM,
@@ -13562,6 +13847,7 @@ func Values() []Iata {
 		IataMCJ,
 		IataMCK,
 		IataMCL,
+		IataMCM,
 		IataMCN,
 		IataMCO,
 		IataMCP,
@@ -13708,6 +13994,7 @@ func Values() []Iata {
 		IataMII,
 		IataMIJ,
 		IataMIK,
+		IataMIL,
 		IataMIM,
 		IataMIN,
 		IataMIO,
@@ -13775,6 +14062,7 @@ func Values() []Iata {
 		IataMLE,
 		IataMLF,
 		IataMLG,
+		IataMLH,
 		IataMLI,
 		IataMLJ,
 		IataMLK,
@@ -13814,6 +14102,7 @@ func Values() []Iata {
 		IataMMU,
 		IataMMV,
 		IataMMW,
+		IataMMX,
 		IataMMY,
 		IataMMZ,
 		IataMNA,
@@ -13863,6 +14152,7 @@ func Values() []Iata {
 		IataMOT,
 		IataMOU,
 		IataMOV,
+		IataMOW,
 		IataMOX,
 		IataMOY,
 		IataMOZ,
@@ -13870,6 +14160,7 @@ func Values() []Iata {
 		IataMPB,
 		IataMPC,
 		IataMPD,
+		IataMPE,
 		IataMPF,
 		IataMPG,
 		IataMPH,
@@ -13950,6 +14241,7 @@ func Values() []Iata {
 		IataMSH,
 		IataMSI,
 		IataMSJ,
+		IataMSK,
 		IataMSL,
 		IataMSM,
 		IataMSN,
@@ -14159,6 +14451,7 @@ func Values() []Iata {
 		IataNAU,
 		IataNAV,
 		IataNAW,
+		IataNAY,
 		IataNAZ,
 		IataNBA,
 		IataNBB,
@@ -14166,6 +14459,7 @@ func Values() []Iata {
 		IataNBE,
 		IataNBG,
 		IataNBH,
+		IataNBJ,
 		IataNBL,
 		IataNBN,
 		IataNBO,
@@ -14246,6 +14540,7 @@ func Values() []Iata {
 		IataNHZ,
 		IataNIA,
 		IataNIB,
+		IataNIC,
 		IataNIF,
 		IataNIG,
 		IataNIK,
@@ -14300,6 +14595,7 @@ func Values() []Iata {
 		IataNME,
 		IataNMF,
 		IataNMG,
+		IataNMI,
 		IataNML,
 		IataNMN,
 		IataNMP,
@@ -14438,6 +14734,7 @@ func Values() []Iata {
 		IataNWI,
 		IataNWT,
 		IataNYA,
+		IataNYC,
 		IataNYE,
 		IataNYG,
 		IataNYI,
@@ -14507,6 +14804,7 @@ func Values() []Iata {
 		IataODS,
 		IataODW,
 		IataODY,
+		IataOEA,
 		IataOEC,
 		IataOEL,
 		IataOEM,
@@ -14553,6 +14851,7 @@ func Values() []Iata {
 		IataOKA,
 		IataOKB,
 		IataOKC,
+		IataOKD,
 		IataOKE,
 		IataOKF,
 		IataOKG,
@@ -14610,6 +14909,7 @@ func Values() []Iata {
 		IataOMO,
 		IataOMR,
 		IataOMS,
+		IataOMT,
 		IataOMY,
 		IataONA,
 		IataONB,
@@ -14631,6 +14931,7 @@ func Values() []Iata {
 		IataONU,
 		IataONX,
 		IataONY,
+		IataONZ,
 		IataOOA,
 		IataOOK,
 		IataOOL,
@@ -14643,6 +14944,7 @@ func Values() []Iata {
 		IataOPI,
 		IataOPL,
 		IataOPO,
+		IataOPP,
 		IataOPS,
 		IataOPU,
 		IataOPW,
@@ -14684,6 +14986,7 @@ func Values() []Iata {
 		IataOSM,
 		IataOSN,
 		IataOSO,
+		IataOSP,
 		IataOSR,
 		IataOSS,
 		IataOST,
@@ -14716,6 +15019,7 @@ func Values() []Iata {
 		IataOUE,
 		IataOUG,
 		IataOUH,
+		IataOUI,
 		IataOUK,
 		IataOUL,
 		IataOUM,
@@ -14738,6 +15042,7 @@ func Values() []Iata {
 		IataOWD,
 		IataOWE,
 		IataOWK,
+		IataOWP,
 		IataOXB,
 		IataOXC,
 		IataOXD,
@@ -14759,6 +15064,7 @@ func Values() []Iata {
 		IataOZH,
 		IataOZP,
 		IataOZR,
+		IataOZS,
 		IataOZZ,
 		IataPAA,
 		IataPAB,
@@ -14776,6 +15082,7 @@ func Values() []Iata {
 		IataPAO,
 		IataPAP,
 		IataPAQ,
+		IataPAR,
 		IataPAS,
 		IataPAT,
 		IataPAU,
@@ -14823,6 +15130,7 @@ func Values() []Iata {
 		IataPCT,
 		IataPCU,
 		IataPCV,
+		IataPCZ,
 		IataPDA,
 		IataPDB,
 		IataPDC,
@@ -14887,6 +15195,7 @@ func Values() []Iata {
 		IataPGM,
 		IataPGN,
 		IataPGO,
+		IataPGQ,
 		IataPGR,
 		IataPGS,
 		IataPGU,
@@ -14900,6 +15209,7 @@ func Values() []Iata {
 		IataPHE,
 		IataPHF,
 		IataPHG,
+		IataPHH,
 		IataPHI,
 		IataPHK,
 		IataPHL,
@@ -14916,8 +15226,10 @@ func Values() []Iata {
 		IataPIA,
 		IataPIB,
 		IataPIC,
+		IataPID,
 		IataPIE,
 		IataPIF,
+		IataPIG,
 		IataPIH,
 		IataPIK,
 		IataPIL,
@@ -14958,9 +15270,11 @@ func Values() []Iata {
 		IataPKU,
 		IataPKV,
 		IataPKW,
+		IataPKX,
 		IataPKY,
 		IataPKZ,
 		IataPLA,
+		IataPLB,
 		IataPLC,
 		IataPLD,
 		IataPLE,
@@ -14978,6 +15292,7 @@ func Values() []Iata {
 		IataPLR,
 		IataPLS,
 		IataPLT,
+		IataPLU,
 		IataPLV,
 		IataPLW,
 		IataPLX,
@@ -14987,6 +15302,8 @@ func Values() []Iata {
 		IataPMB,
 		IataPMC,
 		IataPMD,
+		IataPME,
+		IataPMF,
 		IataPMG,
 		IataPMH,
 		IataPMI,
@@ -15016,6 +15333,7 @@ func Values() []Iata {
 		IataPNJ,
 		IataPNK,
 		IataPNL,
+		IataPNM,
 		IataPNN,
 		IataPNP,
 		IataPNQ,
@@ -15048,6 +15366,7 @@ func Values() []Iata {
 		IataPOU,
 		IataPOV,
 		IataPOW,
+		IataPOX,
 		IataPOY,
 		IataPOZ,
 		IataPPA,
@@ -15090,6 +15409,7 @@ func Values() []Iata {
 		IataPRI,
 		IataPRK,
 		IataPRM,
+		IataPRN,
 		IataPRO,
 		IataPRP,
 		IataPRQ,
@@ -15120,6 +15440,7 @@ func Values() []Iata {
 		IataPSQ,
 		IataPSR,
 		IataPSS,
+		IataPST,
 		IataPSU,
 		IataPSV,
 		IataPSW,
@@ -15173,6 +15494,7 @@ func Values() []Iata {
 		IataPUY,
 		IataPUZ,
 		IataPVA,
+		IataPVB,
 		IataPVC,
 		IataPVD,
 		IataPVE,
@@ -15191,6 +15513,7 @@ func Values() []Iata {
 		IataPWD,
 		IataPWE,
 		IataPWI,
+		IataPWK,
 		IataPWL,
 		IataPWM,
 		IataPWN,
@@ -15199,6 +15522,7 @@ func Values() []Iata {
 		IataPWR,
 		IataPWT,
 		IataPWY,
+		IataPXE,
 		IataPXH,
 		IataPXL,
 		IataPXM,
@@ -15209,6 +15533,7 @@ func Values() []Iata {
 		IataPYB,
 		IataPYC,
 		IataPYE,
+		IataPYG,
 		IataPYH,
 		IataPYJ,
 		IataPYK,
@@ -15216,6 +15541,7 @@ func Values() []Iata {
 		IataPYM,
 		IataPYN,
 		IataPYO,
+		IataPYP,
 		IataPYR,
 		IataPYS,
 		IataPYV,
@@ -15231,28 +15557,65 @@ func Values() []Iata {
 		IataPZS,
 		IataPZU,
 		IataPZY,
+		IataQAC,
+		IataQAL,
 		IataQAQ,
 		IataQBC,
+		IataQBG,
+		IataQCP,
+		IataQCR,
 		IataQCY,
+		IataQDB,
+		IataQDC,
+		IataQDF,
+		IataQDV,
 		IataQFO,
+		IataQGC,
 		IataQHU,
+		IataQHV,
+		IataQIB,
+		IataQID,
 		IataQIE,
+		IataQIQ,
+		IataQIT,
+		IataQJB,
+		IataQJL,
+		IataQKE,
+		IataQKX,
 		IataQLA,
+		IataQMF,
+		IataQND,
+		IataQNV,
 		IataQOW,
+		IataQPD,
 		IataQPG,
+		IataQPH,
+		IataQQS,
 		IataQRA,
+		IataQRC,
 		IataQRO,
+		IataQRR,
 		IataQRW,
+		IataQSA,
 		IataQSC,
 		IataQSF,
+		IataQSN,
 		IataQSR,
+		IataQSX,
 		IataQSZ,
+		IataQTR,
 		IataQUB,
 		IataQUG,
 		IataQUO,
 		IataQUY,
+		IataQVA,
+		IataQVP,
 		IataQWG,
+		IataQWV,
 		IataQXB,
+		IataQYD,
+		IataQYR,
+		IataQZD,
 		IataRAA,
 		IataRAB,
 		IataRAC,
@@ -15309,12 +15672,15 @@ func Values() []Iata {
 		IataRCM,
 		IataRCN,
 		IataRCO,
+		IataRCP,
 		IataRCQ,
 		IataRCR,
 		IataRCS,
 		IataRCT,
 		IataRCU,
+		IataRCX,
 		IataRCY,
+		IataRCZ,
 		IataRDA,
 		IataRDB,
 		IataRDC,
@@ -15354,6 +15720,7 @@ func Values() []Iata {
 		IataRFA,
 		IataRFD,
 		IataRFG,
+		IataRFI,
 		IataRFK,
 		IataRFN,
 		IataRFP,
@@ -15489,16 +15856,20 @@ func Values() []Iata {
 		IataROZ,
 		IataRPA,
 		IataRPB,
+		IataRPJ,
 		IataRPM,
 		IataRPN,
 		IataRPR,
 		IataRPV,
 		IataRPX,
 		IataRQA,
+		IataRQE,
+		IataRQO,
 		IataRQW,
 		IataRRE,
 		IataRRG,
 		IataRRI,
+		IataRRJ,
 		IataRRK,
 		IataRRL,
 		IataRRM,
@@ -15523,6 +15894,7 @@ func Values() []Iata {
 		IataRTA,
 		IataRTB,
 		IataRTC,
+		IataRTE,
 		IataRTG,
 		IataRTI,
 		IataRTL,
@@ -15567,6 +15939,7 @@ func Values() []Iata {
 		IataRWI,
 		IataRWL,
 		IataRWN,
+		IataRWV,
 		IataRXA,
 		IataRXE,
 		IataRXS,
@@ -15576,6 +15949,7 @@ func Values() []Iata {
 		IataRYL,
 		IataRYN,
 		IataRYO,
+		IataRYV,
 		IataRZA,
 		IataRZE,
 		IataRZN,
@@ -15595,6 +15969,7 @@ func Values() []Iata {
 		IataSAL,
 		IataSAM,
 		IataSAN,
+		IataSAO,
 		IataSAP,
 		IataSAQ,
 		IataSAR,
@@ -15649,6 +16024,7 @@ func Values() []Iata {
 		IataSCP,
 		IataSCQ,
 		IataSCR,
+		IataSCS,
 		IataSCT,
 		IataSCU,
 		IataSCV,
@@ -15669,12 +16045,15 @@ func Values() []Iata {
 		IataSDL,
 		IataSDM,
 		IataSDN,
+		IataSDO,
 		IataSDP,
 		IataSDQ,
 		IataSDR,
 		IataSDS,
 		IataSDT,
+		IataSDU,
 		IataSDV,
+		IataSDW,
 		IataSDX,
 		IataSDY,
 		IataSEA,
@@ -15690,6 +16069,7 @@ func Values() []Iata {
 		IataSEP,
 		IataSEQ,
 		IataSER,
+		IataSES,
 		IataSEU,
 		IataSEV,
 		IataSEW,
@@ -15756,6 +16136,7 @@ func Values() []Iata {
 		IataSHM,
 		IataSHN,
 		IataSHO,
+		IataSHP,
 		IataSHQ,
 		IataSHR,
 		IataSHS,
@@ -15826,6 +16207,7 @@ func Values() []Iata {
 		IataSKG,
 		IataSKH,
 		IataSKI,
+		IataSKJ,
 		IataSKK,
 		IataSKL,
 		IataSKM,
@@ -15949,6 +16331,7 @@ func Values() []Iata {
 		IataSPH,
 		IataSPI,
 		IataSPJ,
+		IataSPL,
 		IataSPM,
 		IataSPN,
 		IataSPP,
@@ -15992,6 +16375,7 @@ func Values() []Iata {
 		IataSRF,
 		IataSRG,
 		IataSRH,
+		IataSRI,
 		IataSRJ,
 		IataSRL,
 		IataSRM,
@@ -16019,6 +16403,7 @@ func Values() []Iata {
 		IataSSJ,
 		IataSSK,
 		IataSSL,
+		IataSSM,
 		IataSSO,
 		IataSSP,
 		IataSSQ,
@@ -16110,6 +16495,7 @@ func Values() []Iata {
 		IataSWF,
 		IataSWG,
 		IataSWH,
+		IataSWI,
 		IataSWJ,
 		IataSWL,
 		IataSWM,
@@ -16127,6 +16513,7 @@ func Values() []Iata {
 		IataSXA,
 		IataSXB,
 		IataSXE,
+		IataSXF,
 		IataSXG,
 		IataSXH,
 		IataSXI,
@@ -16173,6 +16560,7 @@ func Values() []Iata {
 		IataSYZ,
 		IataSZA,
 		IataSZB,
+		IataSZD,
 		IataSZE,
 		IataSZF,
 		IataSZG,
@@ -16185,6 +16573,7 @@ func Values() []Iata {
 		IataSZP,
 		IataSZR,
 		IataSZS,
+		IataSZT,
 		IataSZU,
 		IataSZV,
 		IataSZW,
@@ -16312,7 +16701,9 @@ func Values() []Iata {
 		IataTFI,
 		IataTFL,
 		IataTFM,
+		IataTFN,
 		IataTFR,
+		IataTFS,
 		IataTFT,
 		IataTFU,
 		IataTGA,
@@ -16342,6 +16733,7 @@ func Values() []Iata {
 		IataTHC,
 		IataTHD,
 		IataTHE,
+		IataTHF,
 		IataTHG,
 		IataTHH,
 		IataTHI,
@@ -16676,6 +17068,7 @@ func Values() []Iata {
 		IataTYL,
 		IataTYM,
 		IataTYN,
+		IataTYO,
 		IataTYP,
 		IataTYR,
 		IataTYS,
@@ -17742,6 +18135,7 @@ func Values() []Iata {
 		IataYTH,
 		IataYTL,
 		IataYTM,
+		IataYTO,
 		IataYTP,
 		IataYTQ,
 		IataYTR,
@@ -18067,6 +18461,8 @@ func ToIata(r string) Iata {
 		return IataBBQ
 	case IataAXA.String():
 		return IataAXA
+	case IataKFZ.String():
+		return IataKFZ
 	case IataEVN.String():
 		return IataEVN
 	case IataLWN.String():
@@ -18119,6 +18515,8 @@ func ToIata(r string) Iata {
 		return IataMEG
 	case IataMSZ.String():
 		return IataMSZ
+	case IataNBJ.String():
+		return IataNBJ
 	case IataNDD.String():
 		return IataNDD
 	case IataNDF.String():
@@ -18167,6 +18565,8 @@ func ToIata(r string) Iata {
 		return IataBHI
 	case IataBRC.String():
 		return IataBRC
+	case IataBUE.String():
+		return IataBUE
 	case IataCCT.String():
 		return IataCCT
 	case IataCLX.String():
@@ -18227,6 +18627,8 @@ func ToIata(r string) Iata {
 		return IataIGB
 	case IataIGR.String():
 		return IataIGR
+	case IataING.String():
+		return IataING
 	case IataIRJ.String():
 		return IataIRJ
 	case IataJNI.String():
@@ -18283,6 +18685,8 @@ func ToIata(r string) Iata {
 		return IataOYO
 	case IataPEH.String():
 		return IataPEH
+	case IataPIG.String():
+		return IataPIG
 	case IataPMQ.String():
 		return IataPMQ
 	case IataPMY.String():
@@ -18391,6 +18795,8 @@ func ToIata(r string) Iata {
 		return IataABM
 	case IataABX.String():
 		return IataABX
+	case IataACF.String():
+		return IataACF
 	case IataADL.String():
 		return IataADL
 	case IataADO.String():
@@ -19311,6 +19717,8 @@ func ToIata(r string) Iata {
 		return IataPUG
 	case IataPXH.String():
 		return IataPXH
+	case IataQRR.String():
+		return IataQRR
 	case IataRAM.String():
 		return IataRAM
 	case IataRBC.String():
@@ -19605,8 +20013,12 @@ func ToIata(r string) Iata {
 		return IataZVG
 	case IataAUA.String():
 		return IataAUA
+	case IataFZL.String():
+		return IataFZL
 	case IataGBB.String():
 		return IataGBB
+	case IataGNJ.String():
+		return IataGNJ
 	case IataGYD.String():
 		return IataGYD
 	case IataKVD.String():
@@ -19985,6 +20397,8 @@ func ToIata(r string) Iata {
 		return IataCFO
 	case IataCGB.String():
 		return IataCGB
+	case IataCGH.String():
+		return IataCGH
 	case IataCGR.String():
 		return IataCGR
 	case IataCIZ.String():
@@ -20147,6 +20561,10 @@ func ToIata(r string) Iata {
 		return IataITR
 	case IataIZA.String():
 		return IataIZA
+	case IataJAW.String():
+		return IataJAW
+	case IataJBS.String():
+		return IataJBS
 	case IataJCB.String():
 		return IataJCB
 	case IataJCM.String():
@@ -20175,10 +20593,14 @@ func ToIata(r string) Iata {
 		return IataJOI
 	case IataJPA.String():
 		return IataJPA
+	case IataJPO.String():
+		return IataJPO
 	case IataJPR.String():
 		return IataJPR
 	case IataJRN.String():
 		return IataJRN
+	case IataJRT.String():
+		return IataJRT
 	case IataJTC.String():
 		return IataJTC
 	case IataJTI.String():
@@ -20265,6 +20687,8 @@ func ToIata(r string) Iata {
 		return IataOIA
 	case IataOLC.String():
 		return IataOLC
+	case IataOPP.String():
+		return IataOPP
 	case IataOPS.String():
 		return IataOPS
 	case IataORX.String():
@@ -20307,6 +20731,8 @@ func ToIata(r string) Iata {
 		return IataPIV
 	case IataPLL.String():
 		return IataPLL
+	case IataPLU.String():
+		return IataPLU
 	case IataPMG.String():
 		return IataPMG
 	case IataPMW.String():
@@ -20337,8 +20763,38 @@ func ToIata(r string) Iata {
 		return IataPVH
 	case IataPVI.String():
 		return IataPVI
+	case IataQAC.String():
+		return IataQAC
+	case IataQCP.String():
+		return IataQCP
+	case IataQCR.String():
+		return IataQCR
+	case IataQDB.String():
+		return IataQDB
+	case IataQDC.String():
+		return IataQDC
+	case IataQDF.String():
+		return IataQDF
+	case IataQDV.String():
+		return IataQDV
+	case IataQGC.String():
+		return IataQGC
+	case IataQHV.String():
+		return IataQHV
+	case IataQID.String():
+		return IataQID
+	case IataQIQ.String():
+		return IataQIQ
+	case IataQIT.String():
+		return IataQIT
+	case IataQMF.String():
+		return IataQMF
+	case IataQNV.String():
+		return IataQNV
 	case IataQSC.String():
 		return IataQSC
+	case IataQVP.String():
+		return IataQVP
 	case IataRAO.String():
 		return IataRAO
 	case IataRBB.String():
@@ -20357,10 +20813,18 @@ func ToIata(r string) Iata {
 		return IataRIG
 	case IataROO.String():
 		return IataROO
+	case IataRRJ.String():
+		return IataRRJ
+	case IataRTE.String():
+		return IataRTE
 	case IataRVD.String():
 		return IataRVD
+	case IataSAO.String():
+		return IataSAO
 	case IataSBJ.String():
 		return IataSBJ
+	case IataSDU.String():
+		return IataSDU
 	case IataSFK.String():
 		return IataSFK
 	case IataSFV.String():
@@ -20509,6 +20973,8 @@ func ToIata(r string) Iata {
 		return IataNMC
 	case IataNSB.String():
 		return IataNSB
+	case IataPID.String():
+		return IataPID
 	case IataPWN.String():
 		return IataPWN
 	case IataRCY.String():
@@ -20563,6 +21029,8 @@ func ToIata(r string) Iata {
 		return IataORP
 	case IataPKW.String():
 		return IataPKW
+	case IataQPH.String():
+		return IataQPH
 	case IataSVT.String():
 		return IataSVT
 	case IataSWX.String():
@@ -21333,6 +21801,8 @@ func ToIata(r string) Iata {
 		return IataYTL
 	case IataYTM.String():
 		return IataYTM
+	case IataYTO.String():
+		return IataYTO
 	case IataYTP.String():
 		return IataYTP
 	case IataYTQ.String():
@@ -21821,12 +22291,16 @@ func ToIata(r string) Iata {
 		return IataBSL
 	case IataBXO.String():
 		return IataBXO
+	case IataEAP.String():
+		return IataEAP
 	case IataEML.String():
 		return IataEML
 	case IataGVA.String():
 		return IataGVA
 	case IataLUG.String():
 		return IataLUG
+	case IataMLH.String():
+		return IataMLH
 	case IataSIR.String():
 		return IataSIR
 	case IataSMV.String():
@@ -21921,6 +22395,8 @@ func ToIata(r string) Iata {
 		return IataCPO
 	case IataCPP.String():
 		return IataCPP
+	case IataDPB.String():
+		return IataDPB
 	case IataESR.String():
 		return IataESR
 	case IataFFU.String():
@@ -21957,6 +22433,10 @@ func ToIata(r string) Iata {
 		return IataPUX
 	case IataPZS.String():
 		return IataPZS
+	case IataQRC.String():
+		return IataQRC
+	case IataQTR.String():
+		return IataQTR
 	case IataSCL.String():
 		return IataSCL
 	case IataSMB.String():
@@ -22137,6 +22617,8 @@ func ToIata(r string) Iata {
 		return IataDSN
 	case IataDTU.String():
 		return IataDTU
+	case IataDXJ.String():
+		return IataDXJ
 	case IataDYG.String():
 		return IataDYG
 	case IataDZH.String():
@@ -22155,6 +22637,8 @@ func ToIata(r string) Iata {
 		return IataERL
 	case IataFOC.String():
 		return IataFOC
+	case IataFQJ.String():
+		return IataFQJ
 	case IataFUG.String():
 		return IataFUG
 	case IataFUO.String():
@@ -22175,6 +22659,8 @@ func ToIata(r string) Iata {
 		return IataGYS
 	case IataGYU.String():
 		return IataGYU
+	case IataGZG.String():
+		return IataGZG
 	case IataHAK.String():
 		return IataHAK
 	case IataHBQ.String():
@@ -22189,6 +22675,8 @@ func ToIata(r string) Iata {
 		return IataHEK
 	case IataHET.String():
 		return IataHET
+	case IataHEW.String():
+		return IataHEW
 	case IataHFE.String():
 		return IataHFE
 	case IataHGH.String():
@@ -22211,6 +22699,8 @@ func ToIata(r string) Iata {
 		return IataHRB
 	case IataHSC.String():
 		return IataHSC
+	case IataHSF.String():
+		return IataHSF
 	case IataHSJ.String():
 		return IataHSJ
 	case IataHSN.String():
@@ -22239,6 +22729,8 @@ func ToIata(r string) Iata {
 		return IataIQM
 	case IataIQN.String():
 		return IataIQN
+	case IataJDE.String():
+		return IataJDE
 	case IataJDZ.String():
 		return IataJDZ
 	case IataJGD.String():
@@ -22265,6 +22757,8 @@ func ToIata(r string) Iata {
 		return IataJMU
 	case IataJNG.String():
 		return IataJNG
+	case IataJNH.String():
+		return IataJNH
 	case IataJNZ.String():
 		return IataJNZ
 	case IataJSJ.String():
@@ -22301,10 +22795,14 @@ func ToIata(r string) Iata {
 		return IataKWE
 	case IataKWL.String():
 		return IataKWL
+	case IataLCS.String():
+		return IataLCS
 	case IataLCX.String():
 		return IataLCX
 	case IataLDS.String():
 		return IataLDS
+	case IataLFH.String():
+		return IataLFH
 	case IataLFQ.String():
 		return IataLFQ
 	case IataLHK.String():
@@ -22337,6 +22835,8 @@ func ToIata(r string) Iata {
 		return IataLYG
 	case IataLYI.String():
 		return IataLYI
+	case IataLZG.String():
+		return IataLZG
 	case IataLZH.String():
 		return IataLZH
 	case IataLZO.String():
@@ -22351,6 +22851,8 @@ func ToIata(r string) Iata {
 		return IataMXZ
 	case IataNAO.String():
 		return IataNAO
+	case IataNAY.String():
+		return IataNAY
 	case IataNBS.String():
 		return IataNBS
 	case IataNDG.String():
@@ -22379,6 +22881,8 @@ func ToIata(r string) Iata {
 		return IataOHE
 	case IataPEK.String():
 		return IataPEK
+	case IataPKX.String():
+		return IataPKX
 	case IataPNJ.String():
 		return IataPNJ
 	case IataPVG.String():
@@ -22405,6 +22909,8 @@ func ToIata(r string) Iata {
 		return IataSHE
 	case IataSHF.String():
 		return IataSHF
+	case IataSHP.String():
+		return IataSHP
 	case IataSHS.String():
 		return IataSHS
 	case IataSIA.String():
@@ -22681,6 +23187,8 @@ func ToIata(r string) Iata {
 		return IataGGL
 	case IataGIR.String():
 		return IataGIR
+	case IataGLJ.String():
+		return IataGLJ
 	case IataGMC.String():
 		return IataGMC
 	case IataGPI.String():
@@ -22747,6 +23255,8 @@ func ToIata(r string) Iata {
 		return IataMQR
 	case IataMQU.String():
 		return IataMQU
+	case IataMSK.String():
+		return IataMSK
 	case IataMTB.String():
 		return IataMTB
 	case IataMTR.String():
@@ -22981,6 +23491,12 @@ func ToIata(r string) Iata {
 		return IataMZO
 	case IataNBW.String():
 		return IataNBW
+	case IataPST.String():
+		return IataPST
+	case IataQPD.String():
+		return IataQPD
+	case IataQSN.String():
+		return IataQSN
 	case IataSCU.String():
 		return IataSCU
 	case IataSNJ.String():
@@ -23035,12 +23551,16 @@ func ToIata(r string) Iata {
 		return IataGEC
 	case IataLCA.String():
 		return IataLCA
+	case IataNIC.String():
+		return IataNIC
 	case IataPFO.String():
 		return IataPFO
 	case IataBRQ.String():
 		return IataBRQ
 	case IataGTW.String():
 		return IataGTW
+	case IataHRA.String():
+		return IataHRA
 	case IataJCL.String():
 		return IataJCL
 	case IataKLV.String():
@@ -23225,8 +23745,12 @@ func ToIata(r string) Iata {
 		return IataSPM
 	case IataSTR.String():
 		return IataSTR
+	case IataSXF.String():
+		return IataSXF
 	case IataSZW.String():
 		return IataSZW
+	case IataTHF.String():
+		return IataTHF
 	case IataTXL.String():
 		return IataTXL
 	case IataURD.String():
@@ -23307,6 +23831,8 @@ func ToIata(r string) Iata {
 		return IataCOZ
 	case IataEPS.String():
 		return IataEPS
+	case IataHEX.String():
+		return IataHEX
 	case IataJBQ.String():
 		return IataJBQ
 	case IataPOP.String():
@@ -23481,10 +24007,16 @@ func ToIata(r string) Iata {
 		return IataAUE
 	case IataCAI.String():
 		return IataCAI
+	case IataCCE.String():
+		return IataCCE
+	case IataCWE.String():
+		return IataCWE
 	case IataDAK.String():
 		return IataDAK
 	case IataDBB.String():
 		return IataDBB
+	case IataEGH.String():
+		return IataEGH
 	case IataELT.String():
 		return IataELT
 	case IataEMY.String():
@@ -23591,6 +24123,8 @@ func ToIata(r string) Iata {
 		return IataPMI
 	case IataPNA.String():
 		return IataPNA
+	case IataQSA.String():
+		return IataQSA
 	case IataREU.String():
 		return IataREU
 	case IataRGS.String():
@@ -23613,6 +24147,10 @@ func ToIata(r string) Iata {
 		return IataSVQ
 	case IataTEV.String():
 		return IataTEV
+	case IataTFN.String():
+		return IataTFN
+	case IataTFS.String():
+		return IataTFS
 	case IataTOJ.String():
 		return IataTOJ
 	case IataVDE.String():
@@ -23971,6 +24509,8 @@ func ToIata(r string) Iata {
 		return IataEVX
 	case IataFNI.String():
 		return IataFNI
+	case IataFRJ.String():
+		return IataFRJ
 	case IataFSC.String():
 		return IataFSC
 	case IataGAT.String():
@@ -23985,6 +24525,8 @@ func ToIata(r string) Iata {
 		return IataIDY
 	case IataLAI.String():
 		return IataLAI
+	case IataLBG.String():
+		return IataLBG
 	case IataLBI.String():
 		return IataLBI
 	case IataLBY.String():
@@ -24051,12 +24593,18 @@ func ToIata(r string) Iata {
 		return IataORE
 	case IataORY.String():
 		return IataORY
+	case IataOUI.String():
+		return IataOUI
+	case IataPAR.String():
+		return IataPAR
 	case IataPGF.String():
 		return IataPGF
 	case IataPGX.String():
 		return IataPGX
 	case IataPIS.String():
 		return IataPIS
+	case IataPOX.String():
+		return IataPOX
 	case IataPRP.String():
 		return IataPRP
 	case IataPUF.String():
@@ -24065,6 +24613,8 @@ func ToIata(r string) Iata {
 		return IataQIE
 	case IataQXB.String():
 		return IataQXB
+	case IataQYR.String():
+		return IataQYR
 	case IataRCO.String():
 		return IataRCO
 	case IataRDZ.String():
@@ -24333,6 +24883,8 @@ func ToIata(r string) Iata {
 		return IataLKZ
 	case IataLMO.String():
 		return IataLMO
+	case IataLON.String():
+		return IataLON
 	case IataLPL.String():
 		return IataLPL
 	case IataLSI.String():
@@ -24343,6 +24895,8 @@ func ToIata(r string) Iata {
 		return IataLWK
 	case IataLYE.String():
 		return IataLYE
+	case IataLYM.String():
+		return IataLYM
 	case IataLYX.String():
 		return IataLYX
 	case IataMAN.String():
@@ -24383,6 +24937,8 @@ func ToIata(r string) Iata {
 		return IataPIK
 	case IataPLH.String():
 		return IataPLH
+	case IataPME.String():
+		return IataPME
 	case IataPPW.String():
 		return IataPPW
 	case IataPSL.String():
@@ -24401,6 +24957,8 @@ func ToIata(r string) Iata {
 		return IataQUY
 	case IataRCS.String():
 		return IataRCS
+	case IataSCS.String():
+		return IataSCS
 	case IataSEN.String():
 		return IataSEN
 	case IataSKL.String():
@@ -24417,6 +24975,8 @@ func ToIata(r string) Iata {
 		return IataSWS
 	case IataSYY.String():
 		return IataSYY
+	case IataSZD.String():
+		return IataSZD
 	case IataTRE.String():
 		return IataTRE
 	case IataUNT.String():
@@ -24741,6 +25301,8 @@ func ToIata(r string) Iata {
 		return IataPMT
 	case IataPRR.String():
 		return IataPRR
+	case IataQSX.String():
+		return IataQSX
 	case IataSDC.String():
 		return IataSDC
 	case IataSKM.String():
@@ -24851,6 +25413,8 @@ func ToIata(r string) Iata {
 		return IataMCQ
 	case IataPEV.String():
 		return IataPEV
+	case IataQZD.String():
+		return IataQZD
 	case IataSOB.String():
 		return IataSOB
 	case IataAAP.String():
@@ -24935,6 +25499,8 @@ func ToIata(r string) Iata {
 		return IataCXP
 	case IataDEX.String():
 		return IataDEX
+	case IataDHX.String():
+		return IataDHX
 	case IataDJB.String():
 		return IataDJB
 	case IataDJJ.String():
@@ -24975,6 +25541,12 @@ func ToIata(r string) Iata {
 		return IataGNS
 	case IataGTO.String():
 		return IataGTO
+	case IataGXA.String():
+		return IataGXA
+	case IataHLP.String():
+		return IataHLP
+	case IataIAX.String():
+		return IataIAX
 	case IataILA.String():
 		return IataILA
 	case IataINX.String():
@@ -25037,6 +25609,8 @@ func ToIata(r string) Iata {
 		return IataLII
 	case IataLKA.String():
 		return IataLKA
+	case IataLKI.String():
+		return IataLKI
 	case IataLLJ.String():
 		return IataLLJ
 	case IataLLN.String():
@@ -25047,6 +25621,8 @@ func ToIata(r string) Iata {
 		return IataLOP
 	case IataLPU.String():
 		return IataLPU
+	case IataLSR.String():
+		return IataLSR
 	case IataLSW.String():
 		return IataLSW
 	case IataLSX.String():
@@ -25135,6 +25711,8 @@ func ToIata(r string) Iata {
 		return IataPDO
 	case IataPGK.String():
 		return IataPGK
+	case IataPGQ.String():
+		return IataPGQ
 	case IataPKN.String():
 		return IataPKN
 	case IataPKU.String():
@@ -25191,6 +25769,8 @@ func ToIata(r string) Iata {
 		return IataSIQ
 	case IataSIW.String():
 		return IataSIW
+	case IataSKJ.String():
+		return IataSKJ
 	case IataSMQ.String():
 		return IataSMQ
 	case IataSOC.String():
@@ -25205,6 +25785,8 @@ func ToIata(r string) Iata {
 		return IataSQR
 	case IataSRG.String():
 		return IataSRG
+	case IataSRI.String():
+		return IataSRI
 	case IataSUB.String():
 		return IataSUB
 	case IataSUP.String():
@@ -25363,6 +25945,10 @@ func ToIata(r string) Iata {
 		return IataAMD
 	case IataATQ.String():
 		return IataATQ
+	case IataAVR.String():
+		return IataAVR
+	case IataAYJ.String():
+		return IataAYJ
 	case IataBBI.String():
 		return IataBBI
 	case IataBDQ.String():
@@ -25413,6 +25999,8 @@ func ToIata(r string) Iata {
 		return IataDEL
 	case IataDEP.String():
 		return IataDEP
+	case IataDGH.String():
+		return IataDGH
 	case IataDHM.String():
 		return IataDHM
 	case IataDIB.String():
@@ -25425,10 +26013,14 @@ func ToIata(r string) Iata {
 		return IataGAU
 	case IataGAY.String():
 		return IataGAY
+	case IataGDB.String():
+		return IataGDB
 	case IataGOI.String():
 		return IataGOI
 	case IataGOP.String():
 		return IataGOP
+	case IataGOX.String():
+		return IataGOX
 	case IataGUX.String():
 		return IataGUX
 	case IataGWL.String():
@@ -25437,6 +26029,8 @@ func ToIata(r string) Iata {
 		return IataHBX
 	case IataHJR.String():
 		return IataHJR
+	case IataHSR.String():
+		return IataHSR
 	case IataHSS.String():
 		return IataHSS
 	case IataHYD.String():
@@ -25489,6 +26083,8 @@ func ToIata(r string) Iata {
 		return IataIXV
 	case IataIXW.String():
 		return IataIXW
+	case IataIXX.String():
+		return IataIXX
 	case IataIXY.String():
 		return IataIXY
 	case IataIXZ.String():
@@ -25509,6 +26105,8 @@ func ToIata(r string) Iata {
 		return IataJRH
 	case IataJSA.String():
 		return IataJSA
+	case IataKJB.String():
+		return IataKJB
 	case IataKLH.String():
 		return IataKLH
 	case IataKNU.String():
@@ -25539,6 +26137,8 @@ func ToIata(r string) Iata {
 		return IataNDC
 	case IataNMB.String():
 		return IataNMB
+	case IataNMI.String():
+		return IataNMI
 	case IataNVY.String():
 		return IataNVY
 	case IataPAB.String():
@@ -25557,6 +26157,8 @@ func ToIata(r string) Iata {
 		return IataPUT
 	case IataPYB.String():
 		return IataPYB
+	case IataPYG.String():
+		return IataPYG
 	case IataRAJ.String():
 		return IataRAJ
 	case IataRDP.String():
@@ -25581,6 +26183,8 @@ func ToIata(r string) Iata {
 		return IataRUP
 	case IataSAG.String():
 		return IataSAG
+	case IataSDW.String():
+		return IataSDW
 	case IataSHL.String():
 		return IataSHL
 	case IataSLV.String():
@@ -25911,6 +26515,8 @@ func ToIata(r string) Iata {
 		return IataBZO
 	case IataCAG.String():
 		return IataCAG
+	case IataCIA.String():
+		return IataCIA
 	case IataCIY.String():
 		return IataCIY
 	case IataCRV.String():
@@ -25945,6 +26551,8 @@ func ToIata(r string) Iata {
 		return IataLIN
 	case IataLMP.String():
 		return IataLMP
+	case IataMIL.String():
+		return IataMIL
 	case IataMXP.String():
 		return IataMXP
 	case IataNAP.String():
@@ -25955,6 +26563,8 @@ func ToIata(r string) Iata {
 		return IataOLB
 	case IataPEG.String():
 		return IataPEG
+	case IataPMF.String():
+		return IataPMF
 	case IataPMO.String():
 		return IataPMO
 	case IataPNL.String():
@@ -25963,10 +26573,16 @@ func ToIata(r string) Iata {
 		return IataPSA
 	case IataPSR.String():
 		return IataPSR
+	case IataQAL.String():
+		return IataQAL
 	case IataQAQ.String():
 		return IataQAQ
+	case IataQIB.String():
+		return IataQIB
 	case IataQSR.String():
 		return IataQSR
+	case IataQVA.String():
+		return IataQVA
 	case IataRAN.String():
 		return IataRAN
 	case IataREG.String():
@@ -26035,6 +26651,8 @@ func ToIata(r string) Iata {
 		return IataAXJ
 	case IataAXT.String():
 		return IataAXT
+	case IataCTS.String():
+		return IataCTS
 	case IataDNA.String():
 		return IataDNA
 	case IataFKJ.String():
@@ -26075,6 +26693,8 @@ func ToIata(r string) Iata {
 		return IataIKI
 	case IataISG.String():
 		return IataISG
+	case IataITM.String():
+		return IataITM
 	case IataIWJ.String():
 		return IataIWJ
 	case IataIWK.String():
@@ -26151,6 +26771,8 @@ func ToIata(r string) Iata {
 		return IataOIT
 	case IataOKA.String():
 		return IataOKA
+	case IataOKD.String():
+		return IataOKD
 	case IataOKE.String():
 		return IataOKE
 	case IataOKI.String():
@@ -26197,6 +26819,8 @@ func ToIata(r string) Iata {
 		return IataTSJ
 	case IataTTJ.String():
 		return IataTTJ
+	case IataTYO.String():
+		return IataTYO
 	case IataUBJ.String():
 		return IataUBJ
 	case IataUEO.String():
@@ -26289,8 +26913,12 @@ func ToIata(r string) Iata {
 		return IataWIL
 	case IataWJR.String():
 		return IataWJR
+	case IataBSZ.String():
+		return IataBSZ
 	case IataFRU.String():
 		return IataFRU
+	case IataIKU.String():
+		return IataIKU
 	case IataOSS.String():
 		return IataOSS
 	case IataBBM.String():
@@ -26377,6 +27005,8 @@ func ToIata(r string) Iata {
 		return IataDSO
 	case IataFNJ.String():
 		return IataFNJ
+	case IataHAE.String():
+		return IataHAE
 	case IataRGO.String():
 		return IataRGO
 	case IataUJU.String():
@@ -26393,6 +27023,8 @@ func ToIata(r string) Iata {
 		return IataCJJ
 	case IataCJU.String():
 		return IataCJU
+	case IataGMP.String():
+		return IataGMP
 	case IataHIN.String():
 		return IataHIN
 	case IataHMY.String():
@@ -26469,6 +27101,8 @@ func ToIata(r string) Iata {
 		return IataGUW
 	case IataHRC.String():
 		return IataHRC
+	case IataHSA.String():
+		return IataHSA
 	case IataKGF.String():
 		return IataKGF
 	case IataKOV.String():
@@ -26501,6 +27135,8 @@ func ToIata(r string) Iata {
 		return IataUZR
 	case IataAOU.String():
 		return IataAOU
+	case IataBOR.String():
+		return IataBOR
 	case IataHOE.String():
 		return IataHOE
 	case IataKOG.String():
@@ -26665,6 +27301,8 @@ func ToIata(r string) Iata {
 		return IataUNE
 	case IataUTG.String():
 		return IataUTG
+	case IataHLJ.String():
+		return IataHLJ
 	case IataKUN.String():
 		return IataKUN
 	case IataPLQ.String():
@@ -26777,6 +27415,8 @@ func ToIata(r string) Iata {
 		return IataUAR
 	case IataVIL.String():
 		return IataVIL
+	case IataMCM.String():
+		return IataMCM
 	case IataBZY.String():
 		return IataBZY
 	case IataRMO.String():
@@ -27407,6 +28047,8 @@ func ToIata(r string) Iata {
 		return IataSNQ
 	case IataSRL.String():
 		return IataSRL
+	case IataSZT.String():
+		return IataSZT
 	case IataTAM.String():
 		return IataTAM
 	case IataTAP.String():
@@ -27821,6 +28463,8 @@ func ToIata(r string) Iata {
 		return IataNCR
 	case IataNVG.String():
 		return IataNVG
+	case IataOMT.String():
+		return IataOMT
 	case IataPUZ.String():
 		return IataPUZ
 	case IataRFS.String():
@@ -27875,8 +28519,14 @@ func ToIata(r string) Iata {
 		return IataBOO
 	case IataBVG.String():
 		return IataBVG
+	case IataDLD.String():
+		return IataDLD
 	case IataEVE.String():
 		return IataEVE
+	case IataFAN.String():
+		return IataFAN
+	case IataFBU.String():
+		return IataFBU
 	case IataFDE.String():
 		return IataFDE
 	case IataFRO.String():
@@ -27923,6 +28573,10 @@ func ToIata(r string) Iata {
 		return IataOSL
 	case IataOSY.String():
 		return IataOSY
+	case IataQJL.String():
+		return IataQJL
+	case IataQKX.String():
+		return IataQKX
 	case IataRET.String():
 		return IataRET
 	case IataRRS.String():
@@ -28015,6 +28669,8 @@ func ToIata(r string) Iata {
 		return IataMEY
 	case IataNGX.String():
 		return IataNGX
+	case IataPHH.String():
+		return IataPHH
 	case IataPKR.String():
 		return IataPKR
 	case IataPPL.String():
@@ -28325,6 +28981,8 @@ func ToIata(r string) Iata {
 		return IataJJI
 	case IataJUL.String():
 		return IataJUL
+	case IataLHC.String():
+		return IataLHC
 	case IataLIM.String():
 		return IataLIM
 	case IataMBP.String():
@@ -29267,6 +29925,8 @@ func ToIata(r string) Iata {
 		return IataBCD
 	case IataBNQ.String():
 		return IataBNQ
+	case IataBPA.String():
+		return IataBPA
 	case IataBPH.String():
 		return IataBPH
 	case IataBQA.String():
@@ -29305,6 +29965,8 @@ func ToIata(r string) Iata {
 		return IataDGT
 	case IataDPL.String():
 		return IataDPL
+	case IataDRP.String():
+		return IataDRP
 	case IataDSG.String():
 		return IataDSG
 	case IataDTE.String():
@@ -29541,10 +30203,14 @@ func ToIata(r string) Iata {
 		return IataLCJ
 	case IataLUZ.String():
 		return IataLUZ
+	case IataOSP.String():
+		return IataOSP
 	case IataOSZ.String():
 		return IataOSZ
 	case IataPOZ.String():
 		return IataPOZ
+	case IataQYD.String():
+		return IataQYD
 	case IataRDO.String():
 		return IataRDO
 	case IataRZE.String():
@@ -29663,6 +30329,8 @@ func ToIata(r string) Iata {
 		return IataARW
 	case IataBAY.String():
 		return IataBAY
+	case IataBBU.String():
+		return IataBBU
 	case IataBCM.String():
 		return IataBCM
 	case IataCLJ.String():
@@ -29673,6 +30341,8 @@ func ToIata(r string) Iata {
 		return IataCRA
 	case IataCSB.String():
 		return IataCSB
+	case IataGHV.String():
+		return IataGHV
 	case IataIAS.String():
 		return IataIAS
 	case IataOMR.String():
@@ -29697,6 +30367,20 @@ func ToIata(r string) Iata {
 		return IataBJY
 	case IataINI.String():
 		return IataINI
+	case IataKVO.String():
+		return IataKVO
+	case IataPRN.String():
+		return IataPRN
+	case IataQBG.String():
+		return IataQBG
+	case IataQND.String():
+		return IataQND
+	case IataQWV.String():
+		return IataQWV
+	case IataSDO.String():
+		return IataSDO
+	case IataSPL.String():
+		return IataSPL
 	case IataUZC.String():
 		return IataUZC
 	case IataAAQ.String():
@@ -29759,6 +30443,8 @@ func ToIata(r string) Iata {
 		return IataDEE
 	case IataDKS.String():
 		return IataDKS
+	case IataDME.String():
+		return IataDME
 	case IataDPT.String():
 		return IataDPT
 	case IataDYR.String():
@@ -29885,6 +30571,8 @@ func ToIata(r string) Iata {
 		return IataMJZ
 	case IataMMK.String():
 		return IataMMK
+	case IataMOW.String():
+		return IataMOW
 	case IataMQF.String():
 		return IataMQF
 	case IataMQJ.String():
@@ -30161,6 +30849,8 @@ func ToIata(r string) Iata {
 		return IataMED
 	case IataNUM.String():
 		return IataNUM
+	case IataQJB.String():
+		return IataQJB
 	case IataRAE.String():
 		return IataRAE
 	case IataRAH.String():
@@ -30341,6 +31031,8 @@ func ToIata(r string) Iata {
 		return IataARN
 	case IataBLE.String():
 		return IataBLE
+	case IataBMA.String():
+		return IataBMA
 	case IataEKT.String():
 		return IataEKT
 	case IataEVG.String():
@@ -30389,6 +31081,8 @@ func ToIata(r string) Iata {
 		return IataLPI
 	case IataLYC.String():
 		return IataLYC
+	case IataMMX.String():
+		return IataMMX
 	case IataMXX.String():
 		return IataMXX
 	case IataNRK.String():
@@ -30521,6 +31215,8 @@ func ToIata(r string) Iata {
 		return IataBBO
 	case IataBIB.String():
 		return IataBIB
+	case IataBLW.String():
+		return IataBLW
 	case IataBSA.String():
 		return IataBSA
 	case IataBSY.String():
@@ -30841,6 +31537,8 @@ func ToIata(r string) Iata {
 		return IataVAV
 	case IataADA.String():
 		return IataADA
+	case IataADB.String():
+		return IataADB
 	case IataADF.String():
 		return IataADF
 	case IataAFY.String():
@@ -30873,6 +31571,8 @@ func ToIata(r string) Iata {
 		return IataCII
 	case IataCKZ.String():
 		return IataCKZ
+	case IataCOV.String():
+		return IataCOV
 	case IataDIY.String():
 		return IataDIY
 	case IataDLM.String():
@@ -31083,6 +31783,8 @@ func ToIata(r string) Iata {
 		return IataDOK
 	case IataERD.String():
 		return IataERD
+	case IataGML.String():
+		return IataGML
 	case IataHMJ.String():
 		return IataHMJ
 	case IataHRK.String():
@@ -31091,6 +31793,8 @@ func ToIata(r string) Iata {
 		return IataIEV
 	case IataIFO.String():
 		return IataIFO
+	case IataIZL.String():
+		return IataIZL
 	case IataKBP.String():
 		return IataKBP
 	case IataKCP.String():
@@ -31153,6 +31857,8 @@ func ToIata(r string) Iata {
 		return IataKCU
 	case IataKHX.String():
 		return IataKHX
+	case IataKLA.String():
+		return IataKLA
 	case IataKSE.String():
 		return IataKSE
 	case IataMBQ.String():
@@ -31257,6 +31963,8 @@ func ToIata(r string) Iata {
 		return IataAIO
 	case IataAIV.String():
 		return IataAIV
+	case IataAIY.String():
+		return IataAIY
 	case IataAIZ.String():
 		return IataAIZ
 	case IataAKB.String():
@@ -31761,6 +32469,8 @@ func ToIata(r string) Iata {
 		return IataCEA
 	case IataCEC.String():
 		return IataCEC
+	case IataCEF.String():
+		return IataCEF
 	case IataCEM.String():
 		return IataCEM
 	case IataCEU.String():
@@ -31791,10 +32501,14 @@ func ToIata(r string) Iata {
 		return IataCGI
 	case IataCGS.String():
 		return IataCGS
+	case IataCGX.String():
+		return IataCGX
 	case IataCGZ.String():
 		return IataCGZ
 	case IataCHA.String():
 		return IataCHA
+	case IataCHI.String():
+		return IataCHI
 	case IataCHK.String():
 		return IataCHK
 	case IataCHL.String():
@@ -32047,6 +32761,8 @@ func ToIata(r string) Iata {
 		return IataDCA
 	case IataDCK.String():
 		return IataDCK
+	case IataDCR.String():
+		return IataDCR
 	case IataDCU.String():
 		return IataDCU
 	case IataDDC.String():
@@ -32057,6 +32773,8 @@ func ToIata(r string) Iata {
 		return IataDEH
 	case IataDEN.String():
 		return IataDEN
+	case IataDET.String():
+		return IataDET
 	case IataDFI.String():
 		return IataDFI
 	case IataDFW.String():
@@ -32111,6 +32829,8 @@ func ToIata(r string) Iata {
 		return IataDPA
 	case IataDPG.String():
 		return IataDPG
+	case IataDQH.String():
+		return IataDQH
 	case IataDRA.String():
 		return IataDRA
 	case IataDRE.String():
@@ -32425,6 +33145,8 @@ func ToIata(r string) Iata {
 		return IataFLP
 	case IataFLT.String():
 		return IataFLT
+	case IataFLU.String():
+		return IataFLU
 	case IataFLV.String():
 		return IataFLV
 	case IataFLX.String():
@@ -32693,6 +33415,8 @@ func ToIata(r string) Iata {
 		return IataGXY
 	case IataGYR.String():
 		return IataGYR
+	case IataGYY.String():
+		return IataGYY
 	case IataHAB.String():
 		return IataHAB
 	case IataHAF.String():
@@ -32703,6 +33427,8 @@ func ToIata(r string) Iata {
 		return IataHAO
 	case IataHAR.String():
 		return IataHAR
+	case IataHAX.String():
+		return IataHAX
 	case IataHBB.String():
 		return IataHBB
 	case IataHBG.String():
@@ -32731,6 +33457,8 @@ func ToIata(r string) Iata {
 		return IataHED
 	case IataHEE.String():
 		return IataHEE
+	case IataHEG.String():
+		return IataHEG
 	case IataHES.String():
 		return IataHES
 	case IataHEZ.String():
@@ -32857,6 +33585,8 @@ func ToIata(r string) Iata {
 		return IataHUC
 	case IataHUD.String():
 		return IataHUD
+	case IataHUF.String():
+		return IataHUF
 	case IataHUJ.String():
 		return IataHUJ
 	case IataHUL.String():
@@ -33071,6 +33801,8 @@ func ToIata(r string) Iata {
 		return IataKBW
 	case IataKCC.String():
 		return IataKCC
+	case IataKCG.String():
+		return IataKCG
 	case IataKCL.String():
 		return IataKCL
 	case IataKCN.String():
@@ -33345,6 +34077,8 @@ func ToIata(r string) Iata {
 		return IataLRF
 	case IataLRJ.String():
 		return IataLRJ
+	case IataLRO.String():
+		return IataLRO
 	case IataLRU.String():
 		return IataLRU
 	case IataLSB.String():
@@ -33627,6 +34361,8 @@ func ToIata(r string) Iata {
 		return IataMOX
 	case IataMPB.String():
 		return IataMPB
+	case IataMPE.String():
+		return IataMPE
 	case IataMPJ.String():
 		return IataMPJ
 	case IataMPO.String():
@@ -33873,6 +34609,8 @@ func ToIata(r string) Iata {
 		return IataNVN
 	case IataNWH.String():
 		return IataNWH
+	case IataNYC.String():
+		return IataNYC
 	case IataNYG.String():
 		return IataNYG
 	case IataNZY.String():
@@ -33905,6 +34643,8 @@ func ToIata(r string) Iata {
 		return IataODM
 	case IataODW.String():
 		return IataODW
+	case IataOEA.String():
+		return IataOEA
 	case IataOEO.String():
 		return IataOEO
 	case IataOFF.String():
@@ -33973,6 +34713,8 @@ func ToIata(r string) Iata {
 		return IataONT
 	case IataONY.String():
 		return IataONY
+	case IataONZ.String():
+		return IataONZ
 	case IataOOA.String():
 		return IataOOA
 	case IataOOK.String():
@@ -34031,6 +34773,8 @@ func ToIata(r string) Iata {
 		return IataOWD
 	case IataOWK.String():
 		return IataOWK
+	case IataOWP.String():
+		return IataOWP
 	case IataOXC.String():
 		return IataOXC
 	case IataOXD.String():
@@ -34041,6 +34785,8 @@ func ToIata(r string) Iata {
 		return IataOZA
 	case IataOZR.String():
 		return IataOZR
+	case IataOZS.String():
+		return IataOZS
 	case IataPAE.String():
 		return IataPAE
 	case IataPAH.String():
@@ -34067,6 +34813,8 @@ func ToIata(r string) Iata {
 		return IataPCT
 	case IataPCU.String():
 		return IataPCU
+	case IataPCZ.String():
+		return IataPCZ
 	case IataPDB.String():
 		return IataPDB
 	case IataPDK.String():
@@ -34145,6 +34893,8 @@ func ToIata(r string) Iata {
 		return IataPKD
 	case IataPKF.String():
 		return IataPKF
+	case IataPLB.String():
+		return IataPLB
 	case IataPLK.String():
 		return IataPLK
 	case IataPLN.String():
@@ -34167,6 +34917,8 @@ func ToIata(r string) Iata {
 		return IataPNC
 	case IataPNE.String():
 		return IataPNE
+	case IataPNM.String():
+		return IataPNM
 	case IataPNN.String():
 		return IataPNN
 	case IataPNS.String():
@@ -34267,6 +35019,8 @@ func ToIata(r string) Iata {
 		return IataPUL
 	case IataPUW.String():
 		return IataPUW
+	case IataPVB.String():
+		return IataPVB
 	case IataPVC.String():
 		return IataPVC
 	case IataPVD.String():
@@ -34283,6 +35037,8 @@ func ToIata(r string) Iata {
 		return IataPWA
 	case IataPWD.String():
 		return IataPWD
+	case IataPWK.String():
+		return IataPWK
 	case IataPWM.String():
 		return IataPWM
 	case IataPWR.String():
@@ -34291,14 +35047,20 @@ func ToIata(r string) Iata {
 		return IataPWT
 	case IataPWY.String():
 		return IataPWY
+	case IataPXE.String():
+		return IataPXE
 	case IataPXL.String():
 		return IataPXL
 	case IataPYL.String():
 		return IataPYL
 	case IataPYM.String():
 		return IataPYM
+	case IataPYP.String():
+		return IataPYP
 	case IataPYS.String():
 		return IataPYS
+	case IataQQS.String():
+		return IataQQS
 	case IataQWG.String():
 		return IataQWG
 	case IataRAC.String():
@@ -34327,10 +35089,16 @@ func ToIata(r string) Iata {
 		return IataRCE
 	case IataRCK.String():
 		return IataRCK
+	case IataRCP.String():
+		return IataRCP
 	case IataRCR.String():
 		return IataRCR
 	case IataRCT.String():
 		return IataRCT
+	case IataRCX.String():
+		return IataRCX
+	case IataRCZ.String():
+		return IataRCZ
 	case IataRDB.String():
 		return IataRDB
 	case IataRDD.String():
@@ -34355,6 +35123,8 @@ func ToIata(r string) Iata {
 		return IataRFD
 	case IataRFG.String():
 		return IataRFG
+	case IataRFI.String():
+		return IataRFI
 	case IataRFK.String():
 		return IataRFK
 	case IataRGR.String():
@@ -34429,8 +35199,14 @@ func ToIata(r string) Iata {
 		return IataROW
 	case IataROX.String():
 		return IataROX
+	case IataRPJ.String():
+		return IataRPJ
 	case IataRPX.String():
 		return IataRPX
+	case IataRQE.String():
+		return IataRQE
+	case IataRQO.String():
+		return IataRQO
 	case IataRRL.String():
 		return IataRRL
 	case IataRRT.String():
@@ -34467,8 +35243,12 @@ func ToIata(r string) Iata {
 		return IataRWI
 	case IataRWL.String():
 		return IataRWL
+	case IataRWV.String():
+		return IataRWV
 	case IataRXE.String():
 		return IataRXE
+	case IataRYV.String():
+		return IataRYV
 	case IataRZZ.String():
 		return IataRZZ
 	case IataSAA.String():
@@ -34545,6 +35325,8 @@ func ToIata(r string) Iata {
 		return IataSEP
 	case IataSER.String():
 		return IataSER
+	case IataSES.String():
+		return IataSES
 	case IataSFB.String():
 		return IataSFB
 	case IataSFF.String():
@@ -34701,6 +35483,8 @@ func ToIata(r string) Iata {
 		return IataSSF
 	case IataSSI.String():
 		return IataSSI
+	case IataSSM.String():
+		return IataSSM
 	case IataSSW.String():
 		return IataSSW
 	case IataSTC.String():
@@ -34759,6 +35543,8 @@ func ToIata(r string) Iata {
 		return IataSWD
 	case IataSWF.String():
 		return IataSWF
+	case IataSWI.String():
+		return IataSWI
 	case IataSWO.String():
 		return IataSWO
 	case IataSWW.String():
@@ -35823,6 +36609,8 @@ func ToIata(r string) Iata {
 		return IataMNS
 	case IataNLA.String():
 		return IataNLA
+	case IataQKE.String():
+		return IataQKE
 	case IataRYL.String():
 		return IataRYL
 	case IataSJQ.String():
