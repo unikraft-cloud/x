@@ -5,24 +5,26 @@
   "key_column": "var",
   "string_column": "code",
   "fields": [
-    {"name": "Country",   "column": "country",   "type": "string"},
-    {"name": "Code",      "column": "code",      "type": "string"},
-    {"name": "Region",    "column": "region",    "type": "string"},
-    {"name": "City",      "column": "city",      "type": "string"},
-    {"name": "Airport",   "column": "airport",   "type": "string"},
-    {"name": "Latitude",  "column": "latitude",  "type": "float64"},
-    {"name": "Longitude", "column": "longitude", "type": "float64"}
+    {"name": "CountryCode", "column": "country",      "type": "string"},
+    {"name": "Country",     "column": "country_name", "type": "string"},
+    {"name": "Code",        "column": "code",         "type": "string"},
+    {"name": "Region",      "column": "region",       "type": "string"},
+    {"name": "City",        "column": "city",         "type": "string"},
+    {"name": "Airport",     "column": "airport",      "type": "string"},
+    {"name": "Latitude",    "column": "latitude",     "type": "float64"},
+    {"name": "Longitude",   "column": "longitude",    "type": "float64"}
   ],
   "unknown": {
     "var": "IataUnknown",
     "values": {
-      "country":   "xx",
-      "code":      "idk",
-      "region":    "Unknown",
-      "city":      "Unknown",
-      "airport":   "Unknown",
-      "latitude":  "0",
-      "longitude": "0"
+      "country":      "xx",
+      "country_name": "Unknown",
+      "code":         "idk",
+      "region":       "Unknown",
+      "city":         "Unknown",
+      "airport":      "Unknown",
+      "latitude":     "0",
+      "longitude":    "0"
     }
   },
   "sort": []
