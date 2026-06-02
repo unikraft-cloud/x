@@ -41,7 +41,7 @@ func isURL(s string) bool {
 // an HTTP(S) URL.
 func readSpec(input string) ([]byte, error) {
 	if isURL(input) {
-		resp, err := http.Get(input) //nolint:gosec,noctx
+		resp, err := http.Get(input) //nolint:gosec,noctx // URL is a trusted CLI-provided spec path; no request context needed for this one-shot generator
 		if err != nil {
 			return nil, fmt.Errorf("fetching spec from URL: %w", err)
 		}
