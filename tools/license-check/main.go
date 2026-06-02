@@ -77,7 +77,10 @@ func (c *CLI) Run(_ context.Context) error {
 		return fmt.Errorf("%d/%d file(s) failed license check", len(failed), checked)
 	}
 
-	fmt.Fprintf(os.Stderr, "license-check: %d file(s) ok\n", checked)
+	if c.Verbose {
+		fmt.Fprintf(os.Stderr, "license-check: %d file(s) ok\n", checked)
+	}
+
 	return nil
 }
 
