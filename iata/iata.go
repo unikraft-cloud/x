@@ -43,7 +43,7 @@ func (iata Iata) Value() (driver.Value, error) {
 
 var IataUnknown = Iata{"xx", "idk", "Unknown", "Unknown", "Unknown", 0, 0}
 
-//nolint:misspell
+//nolint:misspell // city/airport names contain intentional non-US spellings
 var (
 	IataAAN = Iata{"ae", "aan", "Abu Zaby", "Al Ain", "Al Ain International Airport", 24.2617, 55.6092}
 	IataAUH = Iata{"ae", "auh", "Abu Zaby", "Abu Dhabi", "Abu Dhabi International Airport", 24.433, 54.6511}

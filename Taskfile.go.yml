@@ -29,6 +29,66 @@ vars:
     ref: .gotestsum_version | default "latest"
   gotestsum_bin: "{{.go_bin}} run gotest.tools/gotestsum@{{.gotestsum_version}}"
 
+  golangci_config: |
+    version: "2"
+    run:
+      issues-exit-code: 2
+      build-tags:
+        - integration
+    linters:
+      default: none
+      enable:
+        - staticcheck
+        - errcheck
+        - govet
+        - modernize
+        - unparam
+        - ineffassign
+        - unused
+        - misspell
+        - godox
+        - testifylint
+        - nolintlint
+      exclusions:
+        generated: lax
+        presets:
+        - comments
+        - common-false-positives
+        - legacy
+        - std-error-handling
+        paths:
+        - tmp/
+        - dist/
+        - examples$
+      settings:
+        staticcheck:
+          checks:
+          # default
+          - "all"
+          - "-ST1000"
+          - "-ST1003"
+          - "-ST1016"
+          - "-ST1020"
+          - "-ST1021"
+          - "-ST1022"
+          # kong uses duplicate struct tags
+          - "-SA5008" # invalid struct tag
+        godox:
+          keywords:
+            - XXX
+        nolintlint:
+          require-explanation: true
+          require-specific: true
+    formatters:
+      enable:
+      - gofumpt
+      exclusions:
+        generated: lax
+        paths:
+        - tmp/
+        - dist/
+        - examples$
+
 tasks:
   generate:
     desc: "Run go generate"
@@ -116,38 +176,31 @@ tasks:
       vars:
       - package
     vars:
-      disable_auto:
-      - containedctx
-      - cyclop
-      - exhaustive
-      - exhaustruct
-      - funlen
-      - gocognit
-      - godox
-      - nestif
-      - perfsprint
-      - prealloc
-      - staticcheck
-      - tagalign
-      - varnamelen
-      - wrapcheck
-      - wsl
-      disable:
-        ref: ternary (.disable | default .disable_auto) "" (not .disable)
       package:
         ref: .package | default "./..."
-    cmd: >-
-      {{.golangci_bin}} run
-      --build-tags='{{.go_tags}}'
-      --timeout=10m
-      --show-stats=false
-      --output.text.path=stderr
-      {{ with join "," .disable }}
-      --disable='{{.}}'
-      {{ end }}
-      {{.golangci_args}}
-      {{.CLI_ARGS}}
-      {{.package}}
+    env:
+      GOLANGCI_CONFIG: "{{.golangci_config}}"
+    cmd: |
+      config_flag=""
+      if [ -f .golangci.yml ] || [ -f .golangci.yaml ] || \
+         [ -f .golangci.toml ] || [ -f .golangci.json ]; then
+        : # use the module's own config (golangci-lint auto-discovers it)
+      else
+        config_dir="$(mktemp -d)"
+        trap 'rm -rf "${config_dir}"' EXIT
+        config="${config_dir}/golangci.yml"
+        printf '%s\n' "${GOLANGCI_CONFIG}" > "${config}"
+        config_flag="--config ${config}"
+      fi
+      {{.golangci_bin}} run \
+        ${config_flag} \
+        --build-tags='{{.go_tags}}' \
+        --timeout=10m \
+        --show-stats=false \
+        --output.text.path=stderr \
+        {{.golangci_args}} \
+        {{.CLI_ARGS}} \
+        {{.package}}
 
   fmt:
     desc: "Run gofumpt"

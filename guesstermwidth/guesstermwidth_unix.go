@@ -49,9 +49,9 @@ func GuessTermWidth(w io.Writer) int {
 
 		if _, _, err := syscall.Syscall6(
 			syscall.SYS_IOCTL,
-			uintptr(fd), //nolint: unconvert
+			uintptr(fd), //nolint:unconvert // fd type may differ across platforms
 			uintptr(syscall.TIOCGWINSZ),
-			uintptr(unsafe.Pointer(&dimensions)), //nolint: gas
+			uintptr(unsafe.Pointer(&dimensions)), //nolint:gosec // required for ioctl syscall
 			0, 0, 0,
 		); err == 0 {
 			if dimensions[1] == 0 {
