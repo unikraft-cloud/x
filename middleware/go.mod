@@ -7,9 +7,9 @@ require (
 	codeberg.org/gruf/go-fastcopy v1.1.3
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
-	go.opentelemetry.io/otel v1.43.0
-	go.opentelemetry.io/otel/metric v1.43.0
-	go.opentelemetry.io/otel/trace v1.43.0
+	go.opentelemetry.io/otel v1.44.0
+	go.opentelemetry.io/otel/metric v1.44.0
+	go.opentelemetry.io/otel/trace v1.44.0
 	unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9
 )
 
