@@ -500,11 +500,15 @@ func (p *preprocessor) processOperationSchemas() {
 				}
 			}
 
-			// Process response bodies
 			if op.Responses != nil {
-				defaultResp := op.Responses.Default()
-				if defaultResp != nil && defaultResp.Value != nil {
-					respContent := defaultResp.Value.Content.Get("application/json")
+				if op.Responses.Len() > 1 {
+					panic("operation " + op.OperationID + " has multiple JSON response bodies; cannot derive a unique schema name")
+				}
+				for _, resp := range op.Responses.Map() {
+					if resp == nil || resp.Value == nil {
+						continue
+					}
+					respContent := resp.Value.Content.Get("application/json")
 					if respContent != nil && respContent.Schema != nil {
 						p.processInlineSchema(respContent.Schema, op.OperationID, "Response")
 					}
