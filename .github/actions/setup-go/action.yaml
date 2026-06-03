@@ -1,0 +1,58 @@
+name: setup-go
+
+description: Setup all the tools required for our go actions
+
+runs:
+  using: composite
+  steps:
+    - name: Detect Go version file
+      id: goversionfile
+      shell: bash
+      run: |
+        if [ -f go.work ]; then
+          echo "file=go.work" >>"$GITHUB_OUTPUT"
+        else
+          echo "file=go.mod" >>"$GITHUB_OUTPUT"
+        fi
+
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: ${{ steps.goversionfile.outputs.file }}
+        cache: false
+
+    - name: Set Go variables
+      id: goenv
+      shell: bash
+      run: |
+        {
+          echo "cache=$(go env GOCACHE)"
+          echo "modcache=$(go env GOMODCACHE)"
+          echo "mod=$(go env GOMOD)"
+        } >>"$GITHUB_OUTPUT"
+
+    - name: Go caches
+      uses: actions/cache@v5
+      with:
+        path: |
+          ${{ steps.goenv.outputs.cache }}
+          ${{ steps.goenv.outputs.modcache }}
+        key: ${{ github.job }}-${{ runner.os }}-go-${{ hashFiles(steps.goenv.outputs.mod) }}
+        restore-keys: |
+          ${{ github.job }}-${{ runner.os }}-go-
+
+    - name: Setup Task
+      uses: go-task/setup-task@v2
+
+    - name: Enable remote Taskfiles experiment
+      shell: bash
+      run: |
+        echo TASK_X_REMOTE_TASKFILES=1 >>"$GITHUB_ENV"
+
+    # Check that we can resolve remote taskfiles, populate cache and force
+    # using that cache instead of the network
+    - name: Check Taskfile
+      shell: bash
+      run: |
+        task --verbose --download --yes --list-all
+        echo TASK_OFFLINE=1 >>"$GITHUB_ENV"
