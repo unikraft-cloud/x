@@ -21,7 +21,7 @@ type {{ $schemaName }} {{ enumBaseGoType $schema }}
 
 const (
 {{- range $schema.Enum }}
-	{{ $schemaName }}{{ capitalize (replace "-" "_" (printf "%v" .)) }} {{ $schemaName }} = {{ enumValue $schema . }}
+	{{ $schemaName }}{{ pascalcase (printf "%v" .) }} {{ $schemaName }} = {{ enumValue $schema . }}
 {{- end }}
 )
 {{- else }}
@@ -47,7 +47,7 @@ type {{ $ie.Name }} {{ enumBaseGoType $ie.Schema }}
 
 const (
 {{- range $ie.Schema.Enum }}
-	{{ $ie.Name }}{{ capitalize (replace "-" "_" (printf "%v" .)) }} {{ $ie.Name }} = {{ enumValue $ie.Schema . }}
+	{{ $ie.Name }}{{ pascalcase (printf "%v" .) }} {{ $ie.Name }} = {{ enumValue $ie.Schema . }}
 {{- end }}
 )
 {{- end }}
