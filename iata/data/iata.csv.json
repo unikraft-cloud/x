@@ -1,0 +1,31 @@
+{
+  "package": "iata",
+  "type": "Iata",
+  "header": "// SPDX-License-Identifier: BSD-3-Clause\n// Copyright (c) 2026, Unikraft GmbH and The Unikraft CLI Authors.\n// Licensed under the BSD-3-Clause License (the \"License\").\n// You may not use this file except in compliance with the License.",
+  "key_column": "var",
+  "string_column": "code",
+  "fields": [
+    {"name": "CountryCode", "column": "country",      "type": "string"},
+    {"name": "Country",     "column": "country_name", "type": "string"},
+    {"name": "Code",        "column": "code",         "type": "string"},
+    {"name": "Region",      "column": "region",       "type": "string"},
+    {"name": "City",        "column": "city",         "type": "string"},
+    {"name": "Airport",     "column": "airport",      "type": "string"},
+    {"name": "Latitude",    "column": "latitude",     "type": "float64"},
+    {"name": "Longitude",   "column": "longitude",    "type": "float64"}
+  ],
+  "unknown": {
+    "var": "IataUnknown",
+    "values": {
+      "country":      "xx",
+      "country_name": "Unknown",
+      "code":         "idk",
+      "region":       "Unknown",
+      "city":         "Unknown",
+      "airport":      "Unknown",
+      "latitude":     "0",
+      "longitude":    "0"
+    }
+  },
+  "sort": []
+}
