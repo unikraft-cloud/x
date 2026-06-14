@@ -2,7 +2,7 @@ module unikraft.com/x/colors
 
 go 1.25.5
 
-require charm.land/lipgloss/v2 v2.0.3
+require charm.land/lipgloss/v2 v2.0.4
 
 require (
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
@@ -20,5 +20,5 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 )
