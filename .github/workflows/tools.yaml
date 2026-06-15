@@ -22,46 +22,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
-      with:
-        submodules: recursive
 
-    # Login is necessary in order to let individual sub-modules of this
-    # repository to be able to cross-reference each other.
-    - name: Login to GitHub
-      shell: bash
-      run: |
-        git config --global url."https://${{ secrets.GH_PAT }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
-
-    - uses: actions/setup-go@v6
-      with:
-        go-version-file: 'go.work'
-        cache: false
-
-    - name: Set Go variables
-      id: goenv
-      run: |
-        cd tools/${{ matrix.tool }}
-        {
-          echo "mod=$(go env GOMOD)"
-          echo "cache=$(go env GOCACHE)"
-          echo "modcache=$(go env GOMODCACHE)"
-        } >>"$GITHUB_OUTPUT"
-
-    - name: Set go.mod hash variable
-      id: gomod
-      run: echo "modhash=${{ hashFiles(steps.goenv.outputs.mod) }}" >>"$GITHUB_OUTPUT"
-
-    - name: Go caches
-      uses: actions/cache@v5
-      with:
-        path: |
-          ${{ steps.goenv.outputs.cache }}
-          ${{ steps.goenv.outputs.modcache }}
-        key: ${{ github.job }}-${{ runner.os }}-go-${{ steps.gomod.outputs.modhash }}
-        restore-keys: |
-          ${{ github.job }}-${{ runner.os }}-go-
-
-    - uses: go-task/setup-task@v2
+    - name: Setup go
+      uses: ./.github/actions/setup-go
 
     - name: Build ${{ matrix.tool }}
       shell: bash
