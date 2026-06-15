@@ -20,7 +20,8 @@ import (
 	"github.com/distribution/reference"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/tonistiigi/units"
-	imagespec "github.com/unikraft-cloud/x/image-spec"
+	imagespec "unikraft.com/x/image-spec"
+	"unikraft.com/x/image-spec/progress"
 	"unikraft.com/x/log"
 )
 
@@ -172,6 +173,10 @@ func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 		return fmt.Errorf("parsing image destination: %w", err)
 	}
 
+	// Set up progress tracking
+	tracker := &loggingTracker{logger: log.G(ctx)}
+	ctx = progress.WithTracker(ctx, tracker)
+
 	accessor := newAccessor(insecure)
 	imgs, err := accessor.LoadAll(ctx, src, platforms.All)
 	if err != nil {
@@ -213,6 +218,35 @@ func (c *DeleteCmd) Run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// loggingTracker implements progress.Tracker and logs progress to debug output.
+type loggingTracker struct {
+	logger *log.Logger
+}
+
+func (t *loggingTracker) Update(p progress.Progress) {
+	dgst := p.Descriptor.Digest.String()
+	if !p.Completed.IsZero() {
+		t.logger.Debug().
+			Str("digest", dgst).
+			Str("action", string(p.Action)).
+			Int64("size", p.Total).
+			Dur("duration", p.Completed.Sub(p.Started)).
+			Msg("progress complete")
+	} else {
+		pct := float64(0)
+		if p.Total > 0 {
+			pct = float64(p.Current) / float64(p.Total) * 100
+		}
+		t.logger.Debug().
+			Str("digest", dgst).
+			Str("action", string(p.Action)).
+			Int64("current", p.Current).
+			Int64("total", p.Total).
+			Float64("percent", pct).
+			Msg("progress")
+	}
 }
 
 func name(named reference.Named, desc ocispec.Descriptor) string {

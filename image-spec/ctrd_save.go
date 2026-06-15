@@ -14,10 +14,10 @@ import (
 	"io"
 	"maps"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/pkg/labels"
 	"github.com/containerd/errdefs"
 	"github.com/distribution/reference"
@@ -25,11 +25,12 @@ import (
 	ocispecs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
+	"unikraft.com/x/image-spec/progress"
 	"unikraft.com/x/log"
 )
 
-func SaveContent(ctx context.Context, store content.Ingester, ref string, images ...*Image) (ocispec.Descriptor, error) {
-	store = ingestDefaults(store, content.WithRef(ref))
+func SaveContent(ctx context.Context, store content.Ingester, images ...*Image) (ocispec.Descriptor, error) {
+	store = progress.WrapIngester(store)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
@@ -191,7 +192,7 @@ func packageJSON(ctx context.Context, store content.Ingester, mediaType string, 
 		Str("digest", desc.Digest.String()).
 		Msg("packaging json")
 
-	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(desc))
+	w, err := content.OpenWriter(ctx, store, writerOpts(ctx, desc)...)
 	if errdefs.IsAlreadyExists(err) {
 		return desc, nil
 	}
@@ -232,7 +233,7 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 		wdesc.Annotations[labels.LabelDistributionSource+"."+source] = repo
 	}
 
-	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(wdesc))
+	w, err := content.OpenWriter(ctx, store, writerOpts(ctx, wdesc)...)
 	if errdefs.IsAlreadyExists(err) {
 		log.G(ctx).Debug().
 			Str("digest", wdesc.Digest.String()).
@@ -366,7 +367,7 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		Size:      size,
 		Digest:    digester.Digest(),
 	}
-	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(desc))
+	w, err := content.OpenWriter(ctx, store, writerOpts(ctx, desc)...)
 	if errdefs.IsAlreadyExists(err) {
 		log.G(ctx).Debug().
 			Str("mediaType", mediaType).
@@ -413,16 +414,9 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 	return desc, nil
 }
 
-func ingestDefaults(store content.Ingester, opts ...content.WriterOpt) content.Ingester {
-	return defaultIngester{store, opts}
-}
-
-type defaultIngester struct {
-	content.Ingester
-	opts []content.WriterOpt
-}
-
-func (r defaultIngester) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
-	allOpts := append(slices.Clone(r.opts), opts...)
-	return r.Ingester.Writer(ctx, allOpts...)
+func writerOpts(ctx context.Context, desc ocispec.Descriptor) []content.WriterOpt {
+	return []content.WriterOpt{
+		content.WithDescriptor(desc),
+		content.WithRef(remotes.MakeRefKey(ctx, desc)),
+	}
 }
