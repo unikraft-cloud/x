@@ -17,6 +17,7 @@ import (
 	"github.com/denisbrodbeck/machineid"
 	"github.com/gofrs/uuid/v5"
 	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 	"golang.org/x/sys/unix"
 	"tailscale.com/hostinfo"
 	"tailscale.com/util/dnsname"
@@ -34,6 +35,8 @@ type Fingerprint struct {
 	Hostname string `json:"hostname" oid:"2,critical"`
 
 	// The CPU details of the machine.
+	CpuCores     *int32   `json:"cpus,omitempty" oid:"23,omitempty"`
+	CpusThreads  *int32   `json:"cpu_threads,omitempty" oid:"24,omitempty"`
 	CpuVendorId  *string  `json:"cpu_vendor_id" oid:"3,omitempty"`
 	CpuFamily    *string  `json:"cpu_family" oid:"4,omitempty"`
 	CpuModel     *string  `json:"cpu_model" oid:"5,omitempty"`
@@ -42,6 +45,9 @@ type Fingerprint struct {
 	CpuCacheSize *int32   `json:"cpu_cache_size" oid:"8,omitempty"`
 	CpuFlags     []string `json:"cpu_flags" oid:"9,omitempty"`
 	CpuMicrocode *string  `json:"cpu_microcode" oid:"10,omitempty"`
+
+	// The total amount of memory (RAM) of the machine in bytes.
+	MemTotal *uint64 `json:"mem_total,omitempty" oid:"25,omitempty"`
 
 	// The operating system of the machine.
 	Os string `json:"os" oid:"11,critical"`
@@ -113,11 +119,18 @@ func New() (*Fingerprint, error) {
 		return nil, err
 	}
 
+	memInfo, err := mem.VirtualMemory()
+	if err != nil {
+		return nil, err
+	}
+
 	kernelRelease, kernelVersion := getKernelReleaseVersion()
 
 	return &Fingerprint{
 		MachineId:      machineId,
 		Hostname:       dnsname.TrimCommonSuffixes(host.Hostname),
+		CpuCores:       ptr.NilIfZero(cpuInfo[0].Cores),
+		CpusThreads:    new(int32(len(cpuInfo))),
 		CpuVendorId:    ptr.NilIfZero(cpuInfo[0].VendorID),
 		CpuFamily:      ptr.NilIfZero(cpuInfo[0].Family),
 		CpuModel:       ptr.NilIfZero(cpuInfo[0].Model),
@@ -126,6 +139,7 @@ func New() (*Fingerprint, error) {
 		CpuMhz:         ptr.NilIfZero(cpuInfo[0].Mhz),
 		CpuFlags:       cpuInfo[0].Flags,
 		CpuMicrocode:   ptr.NilIfZero(cpuInfo[0].Microcode),
+		MemTotal:       ptr.NilIfZero(memInfo.Total),
 		Os:             host.OS,
 		Container:      container,
 		Distro:         ptr.NilIfZero(host.Distro),
