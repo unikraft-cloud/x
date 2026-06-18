@@ -34,6 +34,8 @@ type Fingerprint struct {
 	Hostname string `json:"hostname" oid:"2,critical"`
 
 	// The CPU details of the machine.
+	CpuCores     *int32   `json:"cpus,omitempty" oid:"23,omitempty"`
+	CpusThreads  *int32   `json:"cpu_threads,omitempty" oid:"24,omitempty"`
 	CpuVendorId  *string  `json:"cpu_vendor_id" oid:"3,omitempty"`
 	CpuFamily    *string  `json:"cpu_family" oid:"4,omitempty"`
 	CpuModel     *string  `json:"cpu_model" oid:"5,omitempty"`
@@ -118,6 +120,8 @@ func New() (*Fingerprint, error) {
 	return &Fingerprint{
 		MachineId:      machineId,
 		Hostname:       dnsname.TrimCommonSuffixes(host.Hostname),
+		CpuCores:       ptr.NilIfZero(cpuInfo[0].Cores),
+		CpusThreads:    new(int32(len(cpuInfo))),
 		CpuVendorId:    ptr.NilIfZero(cpuInfo[0].VendorID),
 		CpuFamily:      ptr.NilIfZero(cpuInfo[0].Family),
 		CpuModel:       ptr.NilIfZero(cpuInfo[0].Model),
