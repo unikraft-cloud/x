@@ -47,7 +47,7 @@ type Fingerprint struct {
 	CpuMicrocode *string  `json:"cpu_microcode" oid:"10,omitempty"`
 
 	// The total amount of memory (RAM) of the machine in bytes.
-	MemTotal *uint64 `json:"mem_total,omitempty" oid:"25,omitempty"`
+	MemTotal *int64 `json:"mem_total,omitempty" oid:"25,omitempty"`
 
 	// The operating system of the machine.
 	Os string `json:"os" oid:"11,critical"`
@@ -139,7 +139,7 @@ func New() (*Fingerprint, error) {
 		CpuMhz:         ptr.NilIfZero(cpuInfo[0].Mhz),
 		CpuFlags:       cpuInfo[0].Flags,
 		CpuMicrocode:   ptr.NilIfZero(cpuInfo[0].Microcode),
-		MemTotal:       ptr.NilIfZero(memInfo.Total),
+		MemTotal:       ptr.NilIfZero(int64(memInfo.Total)),
 		Os:             host.OS,
 		Container:      container,
 		Distro:         ptr.NilIfZero(host.Distro),
