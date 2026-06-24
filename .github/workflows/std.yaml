@@ -10,6 +10,8 @@ on:
       - '!.github/**'
       - .github/workflows/std.yaml
 
+  workflow_call:
+
 # Automatically cancel in-progress actions on the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request_target' && github.head_ref || github.ref }}
@@ -28,7 +30,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup go
-        uses: ./.github/actions/setup-go
+        uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
 
       - name: Run checks
         shell: bash
