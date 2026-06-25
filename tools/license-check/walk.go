@@ -79,7 +79,7 @@ func (f *fileFilter) collect(paths []string) ([]string, error) {
 			if IsFragmentFile(d.Name()) {
 				return nil
 			}
-			if !f.match(path) {
+			if !f.match(rel) {
 				return nil
 			}
 			add(path)
