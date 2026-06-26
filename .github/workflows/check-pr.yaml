@@ -16,4 +16,4 @@ jobs:
         fetch-depth: 0
 
     - name: Run check-pr
-      uses: ./.github/actions/check-pr
+      uses: unikraft-cloud/x/.github/actions/check-pr@prod-staging
