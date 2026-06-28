@@ -92,6 +92,33 @@ func Encode(prefixOID asn1.ObjectIdentifier, v any, opts ...EncodeOption) ([]pki
 			continue
 		}
 
+		if tag.inline {
+			// Recurse into the embedded struct using the same prefix.
+			// The field must be a struct or pointer to struct.
+			fv := rv.Field(i)
+			if fv.Kind() == reflect.Pointer {
+				if fv.IsNil() {
+					continue
+				}
+				fv = fv.Elem()
+			}
+			if fv.Kind() != reflect.Struct {
+				return nil, fmt.Errorf("field %s: oid:\",inline\" requires a struct or pointer to struct", sf.Name)
+			}
+			// Make an addressable copy if needed so we can take its address.
+			if !fv.CanAddr() {
+				tmp := reflect.New(fv.Type()).Elem()
+				tmp.Set(fv)
+				fv = tmp
+			}
+			sub, err := Encode(prefixOID, fv.Addr().Interface(), opts...)
+			if err != nil {
+				return nil, fmt.Errorf("field %s (inline): %w", sf.Name, err)
+			}
+			exts = append(exts, sub...)
+			continue
+		}
+
 		if len(tag.suffixOID) == 0 {
 			if cfg.ignoreUntagged {
 				continue
@@ -160,7 +187,30 @@ func Decode(prefixOID asn1.ObjectIdentifier, exts []pkix.Extension, out any, opt
 		}
 
 		tag := parseFieldTag(sf)
-		if tag.skip || len(tag.suffixOID) == 0 {
+		if tag.skip {
+			continue
+		}
+
+		if tag.inline {
+			// Recurse into the embedded struct using the same prefix and
+			// the same extension map.
+			fv := rv.Field(i)
+			if fv.Kind() == reflect.Pointer {
+				if fv.IsNil() {
+					fv.Set(reflect.New(fv.Type().Elem()))
+				}
+				fv = fv.Elem()
+			}
+			if fv.Kind() != reflect.Struct {
+				return fmt.Errorf("field %s: oid:\",inline\" requires a struct or pointer to struct", sf.Name)
+			}
+			if err := Decode(prefixOID, exts, fv.Addr().Interface(), opts...); err != nil {
+				return fmt.Errorf("field %s (inline): %w", sf.Name, err)
+			}
+			continue
+		}
+
+		if len(tag.suffixOID) == 0 {
 			continue
 		}
 
@@ -190,6 +240,7 @@ type fieldTag struct {
 	critical  bool
 	omitempty bool
 	skip      bool
+	inline    bool
 }
 
 func parseFieldTag(sf reflect.StructField) fieldTag {
@@ -226,6 +277,8 @@ func parseFieldTag(sf reflect.StructField) fieldTag {
 			case "omitempty":
 				ft.omitempty = true
 				seenOmitEmpty = true
+			case "inline":
+				ft.inline = true
 			}
 		}
 	}

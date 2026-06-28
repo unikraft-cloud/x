@@ -17,6 +17,10 @@ type Inner struct {
 	Role string `oid:"10"`
 }
 
+type Embedded struct {
+	Region string `oid:"9"`
+}
+
 type HostAttrs struct {
 	Hostname    string    `oid:"1,critical"`
 	Fingerprint []byte    `oid:"2"`
@@ -26,7 +30,8 @@ type HostAttrs struct {
 	When        time.Time `oid:"6"`
 	Inner       Inner     `oid:"7"`
 	Optional    *string   `oid:"8,omitempty"`
-	SkipMe      string    `oid:"-"` // explicit skip
+	Embedded    `oid:",inline"`
+	SkipMe      string `oid:"-"` // explicit skip
 }
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {
@@ -42,6 +47,7 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 		When:        time.Date(2026, 1, 4, 12, 0, 0, 0, time.UTC),
 		Inner:       Inner{Role: "worker"},
 		Optional:    &opt,
+		Embedded:    Embedded{Region: "eu-west"},
 		SkipMe:      "should not appear",
 	}
 
@@ -83,6 +89,7 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 		!reflect.DeepEqual(in.Tags, out.Tags) ||
 		!in.When.Equal(out.When) ||
 		!reflect.DeepEqual(in.Inner, out.Inner) ||
+		!reflect.DeepEqual(in.Embedded, out.Embedded) ||
 		(out.Optional == nil || *out.Optional != *in.Optional) {
 		t.Fatalf("roundtrip mismatch:\n in=%#v\nout=%#v", in, out)
 	}
