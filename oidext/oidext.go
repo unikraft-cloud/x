@@ -42,6 +42,8 @@ import (
 var (
 	ErrNotStructPointer = errors.New("value must be a non-nil pointer to a struct")
 	ErrNotStruct        = errors.New("value must be a struct or pointer to struct")
+	ErrNotFieldPointer  = errors.New("value must be a non-nil pointer to a struct field")
+	ErrFieldNotFound    = errors.New("value must point to a tagged field in the provided struct")
 )
 
 // Encode encodes exported struct fields into pkix.Extensions. Each exported
@@ -233,6 +235,97 @@ func Decode(prefixOID asn1.ObjectIdentifier, exts []pkix.Extension, out any, opt
 	}
 
 	return nil
+}
+
+// Inspect returns the full ASN.1 OID for a struct field, given the same
+// prefixOID that would be passed to Encode or Decode.
+//
+// Constraints:
+//   - structPtr must be a non-nil pointer to the struct that owns the field.
+//   - fieldPtr must be a non-nil pointer to one of its exported fields.
+//   - The field must carry an `oid:"<suffix>"` tag.
+//
+// Example:
+//
+//	type Attrs struct {
+//	    Hostname string `oid:"1,critical"`
+//	    Port     int    `oid:"2"`
+//	}
+//
+//	var a Attrs
+//	prefix := asn1.ObjectIdentifier{1, 2, 840, 113549}
+//	oid, err := oidext.Inspect(prefix, &a, &a.Hostname)
+//	// oid == {1, 2, 840, 113549, 1}
+func Inspect(prefixOID asn1.ObjectIdentifier, structPtr any, fieldPtr any) (asn1.ObjectIdentifier, error) {
+	sv := reflect.ValueOf(structPtr)
+	if sv.Kind() != reflect.Pointer || sv.IsNil() {
+		return nil, ErrNotStructPointer
+	}
+	// structBase is the address of the struct; adding a field's compile-time
+	// Offset yields that field's address, which we compare against fieldPtr.
+	structBase := sv.Pointer()
+	sv = sv.Elem()
+	if sv.Kind() != reflect.Struct {
+		return nil, ErrNotStructPointer
+	}
+
+	fv := reflect.ValueOf(fieldPtr)
+	if fv.Kind() != reflect.Pointer || fv.IsNil() {
+		return nil, ErrNotFieldPointer
+	}
+	fieldAddr := fv.Pointer()
+
+	rt := sv.Type()
+	for i := range rt.NumField() {
+		sf := rt.Field(i)
+		if sf.PkgPath != "" {
+			continue
+		}
+
+		tag := parseFieldTag(sf)
+		if tag.skip {
+			continue
+		}
+
+		fv := sv.Field(i)
+
+		if tag.inline {
+			if fv.Kind() == reflect.Pointer {
+				if fv.IsNil() {
+					continue
+				}
+				fv = fv.Elem()
+			}
+			if fv.Kind() != reflect.Struct {
+				continue
+			}
+			// Make an addressable copy if needed so we can take its address.
+			if !fv.CanAddr() {
+				tmp := reflect.New(fv.Type()).Elem()
+				tmp.Set(fv)
+				fv = tmp
+			}
+			oid, err := Inspect(prefixOID, fv.Addr().Interface(), fieldPtr)
+			if err == nil {
+				return oid, nil
+			}
+			if !errors.Is(err, ErrFieldNotFound) {
+				return nil, fmt.Errorf("field %s (inline): %w", sf.Name, err)
+			}
+			continue
+		}
+
+		if structBase+sf.Offset != fieldAddr {
+			continue
+		}
+
+		if len(tag.suffixOID) == 0 {
+			return nil, fmt.Errorf("field %s: missing oid tag", sf.Name)
+		}
+		return slices.Concat(prefixOID, tag.suffixOID), nil
+	}
+
+	return nil, ErrFieldNotFound
 }
 
 type fieldTag struct {
