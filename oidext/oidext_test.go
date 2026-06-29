@@ -8,9 +8,11 @@ package oidext
 import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type Inner struct {
@@ -52,47 +54,37 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 	}
 
 	exts, err := Encode(prefix, in)
-	if err != nil {
-		t.Fatalf("Encode: %v", err)
-	}
+	require.NoError(t, err)
 
-	// Ensure Hostname extension is present and critical
+	// Ensure Hostname extension is present and critical.
 	wantHostnameOID := append(prefix, 1)
-	found := false
-	for _, e := range exts {
-		if e.Id.String() == wantHostnameOID.String() {
-			found = true
-			if !e.Critical {
-				t.Fatalf("expected hostname extension to be critical")
-			}
+	var hostnameExt *pkix.Extension
+	for i := range exts {
+		if exts[i].Id.String() == wantHostnameOID.String() {
+			hostnameExt = &exts[i]
+			break
 		}
 	}
-	if !found {
-		t.Fatalf("did not find hostname extension")
-	}
+	require.NotNil(t, hostnameExt, "hostname extension not found")
+	assert.True(t, hostnameExt.Critical, "hostname extension should be critical")
 
 	var out HostAttrs
-	if err := Decode(prefix, exts, &out, WithDecodeIgnoreUnknown()); err != nil {
-		t.Fatalf("Decode: %v", err)
-	}
+	err = Decode(prefix, exts, &out, WithDecodeIgnoreUnknown())
+	require.NoError(t, err)
 
-	// SkipMe is untagged via "-", should remain zero
-	if out.SkipMe != "" {
-		t.Fatalf("expected SkipMe to be empty, got %q", out.SkipMe)
-	}
+	// SkipMe is tagged via "-", should remain zero.
+	assert.Empty(t, out.SkipMe)
 
-	// Compare values (time.Time and pointer included)
-	if !reflect.DeepEqual(in.Hostname, out.Hostname) ||
-		!reflect.DeepEqual(in.Fingerprint, out.Fingerprint) ||
-		in.BootCount != out.BootCount ||
-		in.Enabled != out.Enabled ||
-		!reflect.DeepEqual(in.Tags, out.Tags) ||
-		!in.When.Equal(out.When) ||
-		!reflect.DeepEqual(in.Inner, out.Inner) ||
-		!reflect.DeepEqual(in.Embedded, out.Embedded) ||
-		(out.Optional == nil || *out.Optional != *in.Optional) {
-		t.Fatalf("roundtrip mismatch:\n in=%#v\nout=%#v", in, out)
-	}
+	assert.Equal(t, in.Hostname, out.Hostname)
+	assert.Equal(t, in.Fingerprint, out.Fingerprint)
+	assert.Equal(t, in.BootCount, out.BootCount)
+	assert.Equal(t, in.Enabled, out.Enabled)
+	assert.Equal(t, in.Tags, out.Tags)
+	assert.True(t, in.When.Equal(out.When))
+	assert.Equal(t, in.Inner, out.Inner)
+	assert.Equal(t, in.Embedded, out.Embedded)
+	require.NotNil(t, out.Optional)
+	assert.Equal(t, *in.Optional, *out.Optional)
 }
 
 func TestOmitemptyPointer(t *testing.T) {
@@ -110,41 +102,31 @@ func TestOmitemptyPointer(t *testing.T) {
 	}
 
 	exts, err := Encode(prefix, in)
-	if err != nil {
-		t.Fatalf("Encode: %v", err)
-	}
+	require.NoError(t, err)
 
-	// Optional (suffix 8) should not be present
+	// Optional (suffix 8) should not be present.
 	optionalOID := append(prefix, 8)
 	for _, e := range exts {
-		if e.Id.String() == optionalOID.String() {
-			t.Fatalf("did not expect optional extension to be present")
-		}
+		assert.NotEqual(t, optionalOID.String(), e.Id.String(), "optional extension should not be present")
 	}
 
-	// Decode should leave Optional nil
 	var out HostAttrs
-	if err := Decode(prefix, exts, &out); err != nil {
-		t.Fatalf("Decode: %v", err)
-	}
-	if out.Optional != nil {
-		t.Fatalf("expected out.Optional nil")
-	}
+	err = Decode(prefix, exts, &out)
+	require.NoError(t, err)
+	assert.Nil(t, out.Optional)
 }
 
 func TestRequireAll(t *testing.T) {
 	prefix := asn1.ObjectIdentifier{1, 2, 3}
 
-	// Only include one extension
+	// Only include one extension.
 	only := []pkix.Extension{
 		{Id: append(prefix, 1), Critical: true, Value: mustDER(t, "node")},
 	}
 
 	var out HostAttrs
 	err := Decode(prefix, only, &out, WithDecodeRequireAll())
-	if err == nil {
-		t.Fatalf("expected error due to missing required fields")
-	}
+	require.Error(t, err)
 }
 
 func TestIgnoreUntagged(t *testing.T) {
@@ -157,17 +139,11 @@ func TestIgnoreUntagged(t *testing.T) {
 	in := WithExtra{A: "x", B: "y"}
 
 	_, err := Encode(prefix, in)
-	if err == nil {
-		t.Fatalf("expected error for missing oid tag when IgnoreUntagged=false")
-	}
+	require.Error(t, err, "expected error for missing oid tag when IgnoreUntagged=false")
 
 	exts, err := Encode(prefix, in, WithEncodeIgnoreUntagged())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(exts) != 1 {
-		t.Fatalf("expected 1 extension, got %d", len(exts))
-	}
+	require.NoError(t, err)
+	assert.Len(t, exts, 1)
 }
 
 func TestInspect(t *testing.T) {
@@ -236,17 +212,11 @@ func TestInspect(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := Inspect(prefix, tc.structPtr, tc.fieldPtr)
 			if tc.wantErr {
-				if err == nil {
-					t.Fatalf("expected error, got nil (oid=%v)", got)
-				}
+				require.Error(t, err)
 				return
 			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got.String() != tc.wantOID.String() {
-				t.Fatalf("OID mismatch: got %v, want %v", got, tc.wantOID)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantOID.String(), got.String())
 		})
 	}
 }
@@ -254,9 +224,7 @@ func TestInspect(t *testing.T) {
 func mustDER(t *testing.T, s string) []byte {
 	t.Helper()
 	der, err := asn1.Marshal(s)
-	if err != nil {
-		t.Fatalf("asn1.Marshal: %v", err)
-	}
+	require.NoError(t, err)
 	return der
 }
 
@@ -274,19 +242,12 @@ func TestFloatEncoding(t *testing.T) {
 	}
 
 	exts, err := Encode(prefix, in)
-	if err != nil {
-		t.Fatalf("encode: %v", err)
-	}
+	require.NoError(t, err)
 
 	var out Floats
-	if err := Decode(prefix, exts, &out); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
+	err = Decode(prefix, exts, &out)
+	require.NoError(t, err)
 
-	if in.F32 != out.F32 {
-		t.Fatalf("float32 mismatch: %v vs %v", in.F32, out.F32)
-	}
-	if in.F64 != out.F64 {
-		t.Fatalf("float64 mismatch: %v vs %v", in.F64, out.F64)
-	}
+	assert.Equal(t, in.F32, out.F32) //nolint:testifylint // this is exact
+	assert.Equal(t, in.F64, out.F64) //nolint:testifylint // this is exact
 }
