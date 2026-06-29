@@ -17,7 +17,7 @@ runs:
       if: ${{ inputs.gh_pat != '' }}
       shell: bash
       run: |
-        git config --global url."https://${{ inputs.gh_pat }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+        git config --global url."https://x-access-token:${{ inputs.gh_pat }}@github.com/".insteadOf "https://github.com/"
 
     - name: Detect Go version file
       id: goversionfile
