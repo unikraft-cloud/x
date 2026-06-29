@@ -170,6 +170,87 @@ func TestIgnoreUntagged(t *testing.T) {
 	}
 }
 
+func TestInspect(t *testing.T) {
+	prefix := asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 0}
+
+	var h HostAttrs
+
+	tests := []struct {
+		name      string
+		structPtr any
+		fieldPtr  any
+		wantOID   asn1.ObjectIdentifier
+		wantErr   bool
+	}{
+		{
+			name:      "top-level field",
+			structPtr: &h,
+			fieldPtr:  &h.Hostname,
+			wantOID:   append(append(asn1.ObjectIdentifier{}, prefix...), 1),
+		},
+		{
+			name:      "another top-level field",
+			structPtr: &h,
+			fieldPtr:  &h.BootCount,
+			wantOID:   append(append(asn1.ObjectIdentifier{}, prefix...), 3),
+		},
+		{
+			name:      "inline field",
+			structPtr: &h,
+			fieldPtr:  &h.Region,
+			wantOID:   append(append(asn1.ObjectIdentifier{}, prefix...), 9),
+		},
+		{
+			name:      "nested struct field",
+			structPtr: &h.Inner,
+			fieldPtr:  &h.Inner.Role,
+			wantOID:   append(append(asn1.ObjectIdentifier{}, prefix...), 10),
+		},
+		{
+			name:      "nil structPtr",
+			structPtr: (*HostAttrs)(nil),
+			fieldPtr:  &h.Hostname,
+			wantErr:   true,
+		},
+		{
+			name:      "non-pointer structPtr",
+			structPtr: h,
+			fieldPtr:  &h.Hostname,
+			wantErr:   true,
+		},
+		{
+			name:      "nil fieldPtr",
+			structPtr: &h,
+			fieldPtr:  (*string)(nil),
+			wantErr:   true,
+		},
+		{
+			name:      "unrelated pointer",
+			structPtr: &h,
+			fieldPtr:  new(string),
+			wantErr:   true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := Inspect(prefix, tc.structPtr, tc.fieldPtr)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil (oid=%v)", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.String() != tc.wantOID.String() {
+				t.Fatalf("OID mismatch: got %v, want %v", got, tc.wantOID)
+			}
+		})
+	}
+}
+
 func mustDER(t *testing.T, s string) []byte {
 	t.Helper()
 	der, err := asn1.Marshal(s)
