@@ -11,6 +11,16 @@ on:
       - .github/workflows/std.yaml
 
   workflow_call:
+    inputs:
+      goprivate:
+        description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
+        type: string
+        required: false
+    secrets:
+      gh_pat:
+        description: GitHub PAT for accessing private repositories
+        required: false
+
 
 # Automatically cancel in-progress actions on the same branch
 concurrency:
@@ -31,6 +41,9 @@ jobs:
 
       - name: Setup go
         uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
+        with:
+          gh_pat: ${{ secrets.gh_pat }}
+          goprivate: ${{ inputs.goprivate }}
 
       - name: Run checks
         shell: bash
