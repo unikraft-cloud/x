@@ -18,6 +18,7 @@ func TestFilters(t *testing.T) {
 	type cEntry struct {
 		Name         string
 		Other        string
+		Size         string
 		Labels       map[string]string
 		NestedLabels map[string]map[string]string
 	}
@@ -87,6 +88,18 @@ func TestFilters(t *testing.T) {
 				"foo": "omg_asdf.asdf-qwer",
 			},
 		},
+		{
+			Name: "small",
+			Size: "10",
+		},
+		{
+			Name: "medium",
+			Size: "50",
+		},
+		{
+			Name: "large",
+			Size: "100",
+		},
 	}
 
 	var corpus []any
@@ -103,6 +116,8 @@ func TestFilters(t *testing.T) {
 				return obj.Name, nil, true
 			case "other":
 				return obj.Other, nil, true
+			case "size":
+				return obj.Size, nil, true
 			case "labels":
 				if len(fieldpath) < 2 {
 					return "", slices.Collect(maps.Keys(obj.Labels)), true
@@ -207,6 +222,9 @@ func TestFilters(t *testing.T) {
 				corpus[6],
 				corpus[7],
 				corpus[8],
+				corpus[9],
+				corpus[10],
+				corpus[11],
 			},
 		},
 		{
@@ -427,6 +445,36 @@ func TestFilters(t *testing.T) {
 			input:    "labels.*.missing",
 			errField: "labels.*.missing",
 		},
+		{
+			name:  "Greater",
+			input: "size>50",
+			expected: []any{
+				corpus[11],
+			},
+		},
+		{
+			name:  "GreaterEqual",
+			input: "size>=50",
+			expected: []any{
+				corpus[10],
+				corpus[11],
+			},
+		},
+		{
+			name:  "Less",
+			input: "size<50",
+			expected: []any{
+				corpus[9],
+			},
+		},
+		{
+			name:  "LessEqual",
+			input: "size<=50",
+			expected: []any{
+				corpus[9],
+				corpus[10],
+			},
+		},
 	} {
 		t.Run(testcase.name, func(t *testing.T) {
 			filter, err := Parse(testcase.input)
@@ -477,6 +525,10 @@ func TestOperatorStrings(t *testing.T) {
 		{operatorNotEqual, "!="},
 		{operatorMatches, "~="},
 		{operatorNotMatches, "!~="},
+		{operatorGreater, ">"},
+		{operatorLess, "<"},
+		{operatorGreaterEqual, ">="},
+		{operatorLessEqual, "<="},
 		{10, "unknown"},
 	} {
 		require.Equal(t, testcase.expected, testcase.op.String())

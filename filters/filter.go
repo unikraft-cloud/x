@@ -126,6 +126,10 @@ const (
 	operatorNotEqual
 	operatorMatches
 	operatorNotMatches
+	operatorGreater
+	operatorLess
+	operatorGreaterEqual
+	operatorLessEqual
 )
 
 func (op operator) String() string {
@@ -140,6 +144,14 @@ func (op operator) String() string {
 		return "~="
 	case operatorNotMatches:
 		return "!~="
+	case operatorGreater:
+		return ">"
+	case operatorLess:
+		return "<"
+	case operatorGreaterEqual:
+		return ">="
+	case operatorLessEqual:
+		return "<="
 	}
 
 	return "unknown"
@@ -213,6 +225,26 @@ func (m selector) Match(adaptor Adaptor) (bool, error) {
 		return m.re.MatchString(value), nil
 	case operatorNotMatches:
 		return !m.re.MatchString(value), nil
+	case operatorGreater:
+		if value == "" {
+			return false, nil
+		}
+		return compare(value, m.value, operatorGreater)
+	case operatorLess:
+		if value == "" {
+			return false, nil
+		}
+		return compare(value, m.value, operatorLess)
+	case operatorGreaterEqual:
+		if value == "" {
+			return false, nil
+		}
+		return compare(value, m.value, operatorGreaterEqual)
+	case operatorLessEqual:
+		if value == "" {
+			return false, nil
+		}
+		return compare(value, m.value, operatorLessEqual)
 	default:
 		return false, nil
 	}

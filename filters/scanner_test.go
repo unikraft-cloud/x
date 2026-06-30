@@ -308,6 +308,46 @@ func TestScanner(t *testing.T) {
 				{pos: 13, token: tokenEOF},
 			},
 		},
+		{
+			name:  "Greater",
+			input: "size>50MB",
+			expected: []tokenResult{
+				{pos: 0, token: tokenField, text: "size"},
+				{pos: 4, token: tokenOperator, text: ">"},
+				{pos: 5, token: tokenValue, text: "50MB"},
+				{pos: 9, token: tokenEOF},
+			},
+		},
+		{
+			name:  "GreaterEqual",
+			input: "size>=50MB",
+			expected: []tokenResult{
+				{pos: 0, token: tokenField, text: "size"},
+				{pos: 4, token: tokenOperator, text: ">="},
+				{pos: 6, token: tokenValue, text: "50MB"},
+				{pos: 10, token: tokenEOF},
+			},
+		},
+		{
+			name:  "Less",
+			input: "size<50MB",
+			expected: []tokenResult{
+				{pos: 0, token: tokenField, text: "size"},
+				{pos: 4, token: tokenOperator, text: "<"},
+				{pos: 5, token: tokenValue, text: "50MB"},
+				{pos: 9, token: tokenEOF},
+			},
+		},
+		{
+			name:  "LessEqual",
+			input: "size<=50MB",
+			expected: []tokenResult{
+				{pos: 0, token: tokenField, text: "size"},
+				{pos: 4, token: tokenOperator, text: "<="},
+				{pos: 6, token: tokenValue, text: "50MB"},
+				{pos: 10, token: tokenEOF},
+			},
+		},
 	} {
 		t.Run(testcase.name, func(t *testing.T) {
 			var sc scanner
