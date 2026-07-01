@@ -257,24 +257,124 @@ func Decode(prefixOID asn1.ObjectIdentifier, exts []pkix.Extension, out any, opt
 //	oid, err := oidext.Inspect(prefix, &a, &a.Hostname)
 //	// oid == {1, 2, 840, 113549, 1}
 func Inspect(prefixOID asn1.ObjectIdentifier, structPtr any, fieldPtr any) (asn1.ObjectIdentifier, error) {
+	oids, err := Inspects(prefixOID, structPtr, fieldPtr)
+	if err != nil {
+		return nil, err
+	}
+	return oids[0], nil
+}
+
+// Inspects returns the full ASN.1 OID for each of the given struct fields, in
+// the same order as fieldPtrs. It behaves exactly like calling Inspect once per
+// field pointer, but walks the struct a single time.
+//
+// Constraints:
+//   - structPtr must be a non-nil pointer to the struct that owns the fields.
+//   - every fieldPtr must be a non-nil pointer to one of its exported fields.
+//   - each field must carry an `oid:"<suffix>"` tag.
+//
+// If any fieldPtr does not resolve to a tagged field, Inspects returns
+// ErrFieldNotFound.
+func Inspects(prefixOID asn1.ObjectIdentifier, structPtr any, fieldPtrs ...any) ([]asn1.ObjectIdentifier, error) {
+	structBase, sv, err := structBaseValue(structPtr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve each requested field pointer to its address, keyed by address so
+	// a single walk can satisfy them all. Distinct fields have distinct
+	// addresses; duplicate pointers simply map to the same result slot.
+	wanted := make(map[uintptr][]int, len(fieldPtrs))
+	for i, fieldPtr := range fieldPtrs {
+		fv := reflect.ValueOf(fieldPtr)
+		if fv.Kind() != reflect.Pointer || fv.IsNil() {
+			return nil, ErrNotFieldPointer
+		}
+		addr := fv.Pointer()
+		wanted[addr] = append(wanted[addr], i)
+	}
+
+	out := make([]asn1.ObjectIdentifier, len(fieldPtrs))
+	found := make([]bool, len(fieldPtrs))
+
+	err = walkFields(prefixOID, structBase, sv, func(fieldAddr uintptr, oid asn1.ObjectIdentifier, sf reflect.StructField) (bool, error) {
+		idxs, ok := wanted[fieldAddr]
+		if !ok {
+			return false, nil
+		}
+		if len(oid) == 0 {
+			return true, fmt.Errorf("field %s: missing oid tag", sf.Name)
+		}
+		for _, idx := range idxs {
+			out[idx] = oid
+			found[idx] = true
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ok := range found {
+		if !ok {
+			return nil, ErrFieldNotFound
+		}
+	}
+	return out, nil
+}
+
+// All returns the full ASN.1 OID for every tagged, exported field of the
+// struct, in struct declaration order (recursing into inline structs). Unlike
+// Inspect, it takes no field pointers: it reports the complete OID set that
+// Encode would consider for the struct.
+//
+// structPtr may be a struct or a pointer to a struct.
+func All(prefixOID asn1.ObjectIdentifier, structPtr any) ([]asn1.ObjectIdentifier, error) {
+	structBase, sv, err := structBaseValue(structPtr)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []asn1.ObjectIdentifier
+	err = walkFields(prefixOID, structBase, sv, func(_ uintptr, oid asn1.ObjectIdentifier, sf reflect.StructField) (bool, error) {
+		if len(oid) == 0 {
+			return false, nil
+		}
+		out = append(out, oid)
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func structBaseValue(structPtr any) (uintptr, reflect.Value, error) {
 	sv := reflect.ValueOf(structPtr)
-	if sv.Kind() != reflect.Pointer || sv.IsNil() {
-		return nil, ErrNotStructPointer
+	if !sv.IsValid() {
+		return 0, reflect.Value{}, ErrNotStructPointer
 	}
-	// structBase is the address of the struct; adding a field's compile-time
-	// Offset yields that field's address, which we compare against fieldPtr.
-	structBase := sv.Pointer()
-	sv = sv.Elem()
+
+	var base uintptr
+	if sv.Kind() == reflect.Pointer {
+		if sv.IsNil() {
+			return 0, reflect.Value{}, ErrNotStructPointer
+		}
+		base = sv.Pointer()
+		sv = sv.Elem()
+	}
 	if sv.Kind() != reflect.Struct {
-		return nil, ErrNotStructPointer
+		return 0, reflect.Value{}, ErrNotStructPointer
 	}
+	return base, sv, nil
+}
 
-	fv := reflect.ValueOf(fieldPtr)
-	if fv.Kind() != reflect.Pointer || fv.IsNil() {
-		return nil, ErrNotFieldPointer
-	}
-	fieldAddr := fv.Pointer()
-
+func walkFields(
+	prefixOID asn1.ObjectIdentifier,
+	structBase uintptr,
+	sv reflect.Value,
+	visit func(fieldAddr uintptr, oid asn1.ObjectIdentifier, sf reflect.StructField) (bool, error),
+) error {
 	rt := sv.Type()
 	for i := range rt.NumField() {
 		sf := rt.Field(i)
@@ -290,42 +390,42 @@ func Inspect(prefixOID asn1.ObjectIdentifier, structPtr any, fieldPtr any) (asn1
 		fv := sv.Field(i)
 
 		if tag.inline {
+			// For a value-embedded struct the child's address is
+			// structBase + offset. For a pointer-embedded struct that offset
+			// locates the pointer word, not the pointee, so take the real
+			// address the pointer holds instead.
+			base := structBase + sf.Offset
 			if fv.Kind() == reflect.Pointer {
 				if fv.IsNil() {
 					continue
 				}
+				base = fv.Pointer()
 				fv = fv.Elem()
 			}
 			if fv.Kind() != reflect.Struct {
 				continue
 			}
-			// Make an addressable copy if needed so we can take its address.
-			if !fv.CanAddr() {
-				tmp := reflect.New(fv.Type()).Elem()
-				tmp.Set(fv)
-				fv = tmp
-			}
-			oid, err := Inspect(prefixOID, fv.Addr().Interface(), fieldPtr)
-			if err == nil {
-				return oid, nil
-			}
-			if !errors.Is(err, ErrFieldNotFound) {
-				return nil, fmt.Errorf("field %s (inline): %w", sf.Name, err)
+			if err := walkFields(prefixOID, base, fv, visit); err != nil {
+				return fmt.Errorf("field %s (inline): %w", sf.Name, err)
 			}
 			continue
 		}
 
-		if structBase+sf.Offset != fieldAddr {
-			continue
+		fullOID := tag.suffixOID
+		if len(fullOID) != 0 {
+			fullOID = slices.Concat(prefixOID, tag.suffixOID)
 		}
 
-		if len(tag.suffixOID) == 0 {
-			return nil, fmt.Errorf("field %s: missing oid tag", sf.Name)
+		stop, err := visit(structBase+sf.Offset, fullOID, sf)
+		if err != nil {
+			return err
 		}
-		return slices.Concat(prefixOID, tag.suffixOID), nil
+		if stop {
+			return nil
+		}
 	}
 
-	return nil, ErrFieldNotFound
+	return nil
 }
 
 type fieldTag struct {
