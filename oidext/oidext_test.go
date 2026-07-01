@@ -221,6 +221,148 @@ func TestInspect(t *testing.T) {
 	}
 }
 
+func TestInspects(t *testing.T) {
+	prefix := asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 0}
+
+	full := func(suffix int) asn1.ObjectIdentifier {
+		return append(append(asn1.ObjectIdentifier{}, prefix...), suffix)
+	}
+
+	t.Run("multiple fields, order preserved", func(t *testing.T) {
+		var h HostAttrs
+		// Deliberately not in declaration order to prove output tracks input.
+		got, err := Inspects(prefix, &h, &h.BootCount, &h.Hostname, &h.Region)
+		require.NoError(t, err)
+		require.Len(t, got, 3)
+		assert.Equal(t, full(3).String(), got[0].String())
+		assert.Equal(t, full(1).String(), got[1].String())
+		assert.Equal(t, full(9).String(), got[2].String())
+	})
+
+	t.Run("single field matches Inspect", func(t *testing.T) {
+		var h HostAttrs
+		got, err := Inspects(prefix, &h, &h.Hostname)
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		assert.Equal(t, full(1).String(), got[0].String())
+	})
+
+	t.Run("no fields yields empty result", func(t *testing.T) {
+		var h HostAttrs
+		got, err := Inspects(prefix, &h)
+		require.NoError(t, err)
+		assert.Empty(t, got)
+	})
+
+	t.Run("duplicate field pointer resolves both slots", func(t *testing.T) {
+		var h HostAttrs
+		got, err := Inspects(prefix, &h, &h.Hostname, &h.Hostname)
+		require.NoError(t, err)
+		require.Len(t, got, 2)
+		assert.Equal(t, full(1).String(), got[0].String())
+		assert.Equal(t, full(1).String(), got[1].String())
+	})
+
+	t.Run("unrelated pointer errors", func(t *testing.T) {
+		var h HostAttrs
+		_, err := Inspects(prefix, &h, &h.Hostname, new(string))
+		require.ErrorIs(t, err, ErrFieldNotFound)
+	})
+
+	t.Run("nil field pointer errors", func(t *testing.T) {
+		var h HostAttrs
+		_, err := Inspects(prefix, &h, (*string)(nil))
+		require.ErrorIs(t, err, ErrNotFieldPointer)
+	})
+
+	t.Run("nil struct pointer errors", func(t *testing.T) {
+		var h HostAttrs
+		_, err := Inspects(prefix, (*HostAttrs)(nil), &h.Hostname)
+		require.ErrorIs(t, err, ErrNotStructPointer)
+	})
+}
+
+func TestAll(t *testing.T) {
+	prefix := asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 0}
+
+	full := func(suffix int) string {
+		return append(append(asn1.ObjectIdentifier{}, prefix...), suffix).String()
+	}
+
+	t.Run("pointer to struct", func(t *testing.T) {
+		var h HostAttrs
+		got, err := All(prefix, &h)
+		require.NoError(t, err)
+
+		var strs []string
+		for _, o := range got {
+			strs = append(strs, o.String())
+		}
+		// Declaration order; SkipMe ("-") omitted, inline Region (9) trails.
+		want := []string{
+			full(1), full(2), full(3), full(4), full(5),
+			full(6), full(7), full(8), full(9),
+		}
+		assert.Equal(t, want, strs)
+	})
+
+	t.Run("plain struct value", func(t *testing.T) {
+		got, err := All(prefix, HostAttrs{})
+		require.NoError(t, err)
+		assert.Len(t, got, 9)
+	})
+
+	t.Run("All agrees with Inspect per field", func(t *testing.T) {
+		var h HostAttrs
+		fromAll, err := All(prefix, &h)
+		require.NoError(t, err)
+
+		one, err := Inspect(prefix, &h, &h.Inner)
+		require.NoError(t, err)
+		// Inner is suffix 7, the 7th tagged field in declaration order.
+		assert.Equal(t, fromAll[6].String(), one.String())
+	})
+
+	t.Run("nil struct pointer errors", func(t *testing.T) {
+		_, err := All(prefix, (*HostAttrs)(nil))
+		require.ErrorIs(t, err, ErrNotStructPointer)
+	})
+}
+
+func TestInspectPointerInline(t *testing.T) {
+	// A pointer-embedded inline struct: the field offset locates the pointer,
+	// not the pointee, so address resolution must follow the pointer.
+	type Outer struct {
+		Name      string `oid:"1"`
+		*Embedded `oid:",inline"`
+	}
+
+	prefix := asn1.ObjectIdentifier{1, 2, 3}
+	full := func(suffix int) string {
+		return append(append(asn1.ObjectIdentifier{}, prefix...), suffix).String()
+	}
+
+	o := Outer{Embedded: &Embedded{}}
+
+	got, err := Inspects(prefix, &o, &o.Name, &o.Region)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, full(1), got[0].String())
+	assert.Equal(t, full(9), got[1].String())
+
+	all, err := All(prefix, &o)
+	require.NoError(t, err)
+	require.Len(t, all, 2)
+	assert.Equal(t, full(1), all[0].String())
+	assert.Equal(t, full(9), all[1].String())
+
+	// A nil pointer-inline is skipped, not an error.
+	empty, err := All(prefix, &Outer{})
+	require.NoError(t, err)
+	require.Len(t, empty, 1)
+	assert.Equal(t, full(1), empty[0].String())
+}
+
 func mustDER(t *testing.T, s string) []byte {
 	t.Helper()
 	der, err := asn1.Marshal(s)
