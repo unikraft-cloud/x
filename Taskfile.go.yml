@@ -178,29 +178,28 @@ tasks:
     vars:
       package:
         ref: .package | default "./..."
+      config:
+        sh: |
+          for c in .golangci.{yml,yaml,toml,json}; do
+            if [ -f "$c" ]; then echo "$c" && exit 0; fi
+          done
+          mktemp --dry-run --tmpdir builtin-golangci-XXXX.yml
     env:
       GOLANGCI_CONFIG: "{{.golangci_config}}"
-    cmd: |
-      config_flag=""
-      if [ -f .golangci.yml ] || [ -f .golangci.yaml ] || \
-         [ -f .golangci.toml ] || [ -f .golangci.json ]; then
-        : # use the module's own config (golangci-lint auto-discovers it)
-      else
-        config_dir="$(mktemp -d)"
-        trap 'rm -rf "${config_dir}"' EXIT
-        config="${config_dir}/golangci.yml"
-        printf '%s\n' "${GOLANGCI_CONFIG}" > "${config}"
-        config_flag="--config ${config}"
-      fi
-      {{.golangci_bin}} run \
-        ${config_flag} \
-        --build-tags='{{.go_tags}}' \
-        --timeout=10m \
-        --show-stats=false \
-        --output.text.path=stderr \
-        {{.golangci_args}} \
-        {{.CLI_ARGS}} \
-        {{.package}}
+    cmds:
+    - '{{if regexMatch "builtin-golangci" .config}}echo "${GOLANGCI_CONFIG}" > {{.config}}{{end}}'
+    - defer: '{{if regexMatch "builtin-golangci" .config}}rm -f {{.config}}{{end}}'
+    - >-
+      {{.golangci_bin}} run
+      --config='{{.config}}'
+      --path-prefix='{{.TASKFILE_DIR}}'
+      --build-tags='{{.go_tags}}'
+      --timeout=10m
+      --show-stats=false
+      --output.text.path=stderr
+      {{.golangci_args}}
+      {{.CLI_ARGS}}
+      {{.package}}
 
   fmt:
     desc: "Run gofumpt"
