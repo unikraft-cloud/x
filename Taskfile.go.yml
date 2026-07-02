@@ -179,16 +179,12 @@ tasks:
       package:
         ref: .package | default "./..."
       config:
-        sh: |
-          for c in .golangci.{yml,yaml,toml,json}; do
-            if [ -f "$c" ]; then echo "$c" && exit 0; fi
-          done
-          mktemp --dry-run --tmpdir builtin-golangci-XXXX.yml
+        sh: mktemp --dry-run --tmpdir builtin-golangci-XXXX.yml
     env:
       GOLANGCI_CONFIG: "{{.golangci_config}}"
     cmds:
-    - '{{if regexMatch "builtin-golangci" .config}}echo "${GOLANGCI_CONFIG}" > {{.config}}{{end}}'
-    - defer: '{{if regexMatch "builtin-golangci" .config}}rm -f {{.config}}{{end}}'
+    - echo "${GOLANGCI_CONFIG}" > {{.config}}
+    - defer: rm -f {{.config}}
     - >-
       {{.golangci_bin}} run
       --config='{{.config}}'
