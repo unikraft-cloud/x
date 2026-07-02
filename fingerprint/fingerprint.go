@@ -119,6 +119,13 @@ func New() (*Fingerprint, error) {
 		return nil, err
 	}
 
+	// cpu.Info() does not return the number of cores, so we need to
+	// get that separately.
+	cpuCores, err := cpu.Counts(false)
+	if err != nil {
+		return nil, err
+	}
+
 	memInfo, err := mem.VirtualMemory()
 	if err != nil {
 		return nil, err
@@ -129,7 +136,7 @@ func New() (*Fingerprint, error) {
 	return &Fingerprint{
 		MachineId:      machineId,
 		Hostname:       dnsname.TrimCommonSuffixes(host.Hostname),
-		CpuCores:       ptr.NilIfZero(cpuInfo[0].Cores),
+		CpuCores:       ptr.NilIfZero(int32(cpuCores)),
 		CpusThreads:    new(int32(len(cpuInfo))),
 		CpuVendorId:    ptr.NilIfZero(cpuInfo[0].VendorID),
 		CpuFamily:      ptr.NilIfZero(cpuInfo[0].Family),
