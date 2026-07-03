@@ -150,7 +150,9 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 			return ocispec.Descriptor{}, fmt.Errorf("failed to package manifest: %w", err)
 		}
 		mfstDesc.Annotations = image.Annotations
-		mfstDesc.Platform = &image.Image.Platform
+		if image.Image != nil {
+			mfstDesc.Platform = &image.Image.Platform
+		}
 
 		mfstDescs = append(mfstDescs, mfstDesc)
 	}
