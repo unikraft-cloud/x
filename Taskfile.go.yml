@@ -29,7 +29,7 @@ vars:
     ref: .gotestsum_version | default "latest"
   gotestsum_bin: "{{.go_bin}} run gotest.tools/gotestsum@{{.gotestsum_version}}"
 
-  golangci_config: |
+  _golangci_config_default: |
     version: "2"
     run:
       issues-exit-code: 2
@@ -88,6 +88,8 @@ vars:
         - tmp/
         - dist/
         - examples$
+
+  golangci_config: '{{.golangci_config | default ._golangci_config_default}}'
 
 tasks:
   generate:
