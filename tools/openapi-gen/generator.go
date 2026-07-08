@@ -137,7 +137,9 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 		return nil, fmt.Errorf("creating parser: %w", err)
 	}
 
-	Preprocess(parser.doc, parser)
+	if err := Preprocess(parser.doc, parser); err != nil {
+		return nil, fmt.Errorf("preprocessing spec: %w", err)
+	}
 
 	g := &Generator{
 		parser:     parser,

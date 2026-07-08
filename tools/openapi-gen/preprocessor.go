@@ -6,6 +6,7 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/ettle/strcase"
@@ -39,7 +40,7 @@ type preprocessor struct {
 
 // Preprocess hoists all inline schemas in doc into named components/schemas
 // entries, in place.
-func Preprocess(doc *openapi3.T, parser *Parser) {
+func Preprocess(doc *openapi3.T, parser *Parser) error {
 	p := &preprocessor{
 		doc:       doc,
 		parser:    parser,
@@ -61,7 +62,7 @@ func Preprocess(doc *openapi3.T, parser *Parser) {
 		}
 	}
 
-	p.hoistOperationBodies()
+	return p.hoistOperationBodies()
 }
 
 // hoistSchema promotes every anonymous object/enum reachable from schema's
@@ -95,8 +96,10 @@ func (p *preprocessor) hoistValue(slot *openapi3.SchemaRef, name string) {
 
 	switch {
 	case isNameable(value):
-		// An inline object or enum: hoist it directly.
-		*slot = *p.promote(name, value)
+		// An inline object or enum: hoist it directly. The slot's own
+		// description (e.g. a property-specific blurb) would otherwise be
+		// lost once it becomes a bare $ref, so carry it over.
+		*slot = *refWithDescription(p.promote(name, value), value.Description)
 
 	case isInlineArrayItem(value):
 		// An array of inline objects/enums: hoist the item schema, leaving the
@@ -120,18 +123,37 @@ func (p *preprocessor) promote(name string, inline *openapi3.Schema) *openapi3.S
 	return &openapi3.SchemaRef{Ref: refPath(name)}
 }
 
+// refWithDescription attaches description to ref, if non-empty. OpenAPI 3.0
+// doesn't allow sibling keys next to $ref, so a non-empty description is
+// attached using the conventional allOf-wrapped form instead: {allOf:
+// [{$ref: ...}], description: ...}. getProperty (funcs.go) already treats
+// this shape the same as a bare $ref for type resolution, so callers
+// (templates) don't need to special-case it.
+func refWithDescription(ref *openapi3.SchemaRef, description string) *openapi3.SchemaRef {
+	if description == "" || ref.Ref == "" {
+		return ref
+	}
+	return &openapi3.SchemaRef{Value: &openapi3.Schema{
+		AllOf:       []*openapi3.SchemaRef{{Ref: ref.Ref}},
+		Description: description,
+	}}
+}
+
 // hoistOperationBodies hoists inline request and response body schemas, naming
 // them after the operation (e.g. "GetUsersResponse").
-func (p *preprocessor) hoistOperationBodies() {
+func (p *preprocessor) hoistOperationBodies() error {
 	for _, item := range p.doc.Paths.Map() {
 		for _, op := range operations(item) {
 			if op == nil || op.OperationID == "" {
 				continue
 			}
 			p.hoistRequestBody(op)
-			p.hoistResponseBody(op)
+			if err := p.hoistResponseBody(op); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func (p *preprocessor) hoistRequestBody(op *openapi3.Operation) {
@@ -157,13 +179,29 @@ func (p *preprocessor) hoistRequestBody(op *openapi3.Operation) {
 	}
 }
 
-func (p *preprocessor) hoistResponseBody(op *openapi3.Operation) {
+func (p *preprocessor) hoistResponseBody(op *openapi3.Operation) error {
 	if op.Responses == nil {
-		return
+		return nil
 	}
-	if op.Responses.Len() > 1 {
-		panic("operation " + op.OperationID + " has multiple response bodies; cannot derive a unique schema name")
+
+	// A unique name is only unresolvable when two or more responses carry an
+	// inline JSON body that would all hoist to the same OperationID+"Response"
+	// name. Responses that are $refs, have no JSON body, or hold a body that
+	// hoistBody wouldn't rename anyway (e.g. a bare scalar) don't conflict, so
+	// don't count them.
+	var inline int
+	for _, resp := range op.Responses.Map() {
+		if resp == nil || resp.Value == nil {
+			continue
+		}
+		if json := resp.Value.Content.Get("application/json"); json != nil && isHoistableBody(json.Schema) {
+			inline++
+		}
 	}
+	if inline > 1 {
+		return fmt.Errorf("operation %s has multiple inline response bodies; cannot derive a unique schema name", op.OperationID)
+	}
+
 	for _, resp := range op.Responses.Map() {
 		if resp == nil || resp.Value == nil {
 			continue
@@ -172,13 +210,21 @@ func (p *preprocessor) hoistResponseBody(op *openapi3.Operation) {
 			p.hoistBody(json.Schema, op.OperationID+"Response")
 		}
 	}
+	return nil
 }
 
 // hoistBody hoists an inline body schema, mirroring property hoisting but
 // suffixing array item schemas with "Item" (there is no property name to draw
 // a singular from).
+//
+// Unlike hoistValue, this always leaves a bare $ref rather than wrapping it
+// with the body's own description: templates resolve request/response body
+// types by checking Schema.Ref directly (they don't go through getProperty's
+// allOf-normalisation), so an allOf-wrapped ref here would break type
+// resolution. No template renders a body schema's own description as a
+// comment today, so nothing is lost by not preserving it.
 func (p *preprocessor) hoistBody(slot *openapi3.SchemaRef, name string) {
-	if slot == nil || slot.Ref != "" || slot.Value == nil {
+	if !isHoistableBody(slot) {
 		return
 	}
 	value := slot.Value
@@ -190,6 +236,18 @@ func (p *preprocessor) hoistBody(slot *openapi3.SchemaRef, name string) {
 	case isInlineArrayItem(value):
 		value.Items = p.promote(name+"Item", value.Items.Value)
 	}
+}
+
+// isHoistableBody reports whether slot holds an inline schema that hoistBody
+// would actually promote to a new named component: not already a $ref, and
+// itself an object/enum or an array of them. Anything else (a $ref, a bare
+// scalar, ...) is left untouched by hoistBody, so it can never collide with
+// another hoisted name.
+func isHoistableBody(slot *openapi3.SchemaRef) bool {
+	if slot == nil || slot.Ref != "" || slot.Value == nil {
+		return false
+	}
+	return isNameable(slot.Value) || isInlineArrayItem(slot.Value)
 }
 
 // --- schema classification ---------------------------------------------------

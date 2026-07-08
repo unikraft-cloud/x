@@ -82,9 +82,12 @@ func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
 		return
 	}
 
-	// Rename component schema keys, recording each type's originating package
-	// (its lowercased namespace) so cross-package references can be qualified
-	// after the prefix is stripped from the name.
+	// Rename component schema keys, flattening namespaced names (e.g.
+	// "Instances.Instance" -> "Instance" or "InstancesInstance" per mode) into
+	// valid Go identifiers. This function only renames; it records no
+	// namespace/package info. Cross-package qualification, where needed, is
+	// handled separately via the "x-package" extension and the
+	// "current_package" template var (see getTypePackage).
 	renamed := make(openapi3.Schemas, len(doc.Components.Schemas))
 	for name, ref := range doc.Components.Schemas {
 		flat := flattenName(name, mode)
