@@ -75,5 +75,23 @@ type {{$schemaName}} struct {
 	{{$propGoName}} {{$propType}} `json:"{{$propName}}{{if not $required}},omitempty{{end}}" yaml:"{{$propName}}{{if not $required}},omitempty{{end}}"`
 {{- end}}
 {{- end}}
+
+	// AdditionalProperties captures any JSON object members that do not map to
+	// an explicit field above.
+	AdditionalProperties map[string]jsontext.Value `json:",inline" yaml:"-"`
+}
+
+// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// (tagged `json:",inline"`) is populated with any unknown object members.
+func (m *{{$schemaName}}) UnmarshalJSON(data []byte) error {
+	type Alias {{$schemaName}}
+	return json.Unmarshal(data, (*Alias)(m))
+}
+
+// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// (tagged `json:",inline"`) is flattened into the parent JSON object.
+func (m {{$schemaName}}) MarshalJSON() ([]byte, error) {
+	type Alias {{$schemaName}}
+	return json.Marshal((Alias)(m))
 }
 {{- end}}
