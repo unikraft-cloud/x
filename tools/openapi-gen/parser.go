@@ -30,6 +30,7 @@ type Model struct {
 	SchemaName string
 	Schema     *openapi3.Schema
 	Package    string // from x-package extension
+	Namespace  string // derived from the "Namespace.Name" schema name prefix
 }
 
 // isURL reports whether s looks like an HTTP(S) URL.
@@ -132,6 +133,7 @@ func (p *Parser) ParseModels() []Model {
 			SchemaName: name,
 			Schema:     schema,
 			Package:    pkg,
+			Namespace:  schemaNamespace(name),
 		})
 	}
 

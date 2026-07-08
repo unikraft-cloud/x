@@ -42,17 +42,31 @@ go run unikraft.com/x/tools/openapi-gen@latest \
   -t github.com/org/repo@main#dir=templates/go-client
 ```
 
-| Flag          | Short | Description                                                          |
-| ------------- | ----- | -------------------------------------------------------------------- |
-| `--input`     | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)                 |
-| `--output`    | `-o`  | Output directory for generated files (required)                      |
-| `--var`       | `-v`  | Set a template variable as `key=value` (repeatable)                  |
-| `--templates` | `-t`  | Directory or Git ref to template overrides (required)                |
-| `--package`   |       | Filter to schemas/operations whose `x-package` matches this value    |
+| Flag                 | Short | Description                                                                |
+| -------------------- | ----- | --------------------------------------------------------------------------|
+| `--input`            | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)                      |
+| `--output`           | `-o`  | Output directory for generated files (required)                           |
+| `--var`              | `-v`  | Set a template variable as `key=value` (repeatable)                       |
+| `--templates`        | `-t`  | Directory or Git ref to template overrides (required)                    |
+| `--package`          |       | Filter to schemas/operations whose `x-package` matches this value        |
+| `--tag`              |       | Filter to operations carrying one of these tags (repeatable)              |
+| `--namespace`        |       | Filter to schemas in one of these namespaces, e.g. `Instances` (repeatable) |
+| `--namespace-flatten`|       | Rewrite namespaced schema names: `strip` drops the prefix, `join` concatenates segments |
 
 When `--package` is set, only schemas and operations whose `x-package` extension
 matches the given value are passed to templates. The value is also exposed to
 templates as the `x-package` variable (i.e. `{{ .Var "x-package" "" }}`).
+
+`--tag` and `--namespace` are the `x-package`-free equivalent, matching how
+platform-api's TypeSpec compiler shapes its output: operations are tagged per
+resource and models are named `Namespace.Type` (e.g. `Instances.Instance`).
+`--tag` filters operations by their OpenAPI `tags`; `--namespace` filters
+models by the prefix of their schema name. Since `Namespace.Type` isn't a
+valid Go identifier, pair `--namespace` with `--namespace-flatten` to strip or
+join the prefix once filtering is done. When exactly one `--namespace` is
+given, its lowercased value is also exposed to templates as the
+`current_package` variable, for distinguishing local from foreign type
+references.
 
 ## Internals
 
