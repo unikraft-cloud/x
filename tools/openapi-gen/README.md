@@ -78,8 +78,9 @@ references.
 ### Processing pipeline
 
 1. **Parse** — Load the OpenAPI spec with `kin-openapi`, extract YAML property ordering from the raw document.
-2. **Preprocess** — Flatten `allOf` wrappers around `$ref`, promote inline object/enum schemas to top-level `components/schemas` entries, assign type names to inline enums.
-3. **Generate** — Execute each template against a `TemplateData` value, `gofmt` the output, and write files.
+2. **Preprocess** — Hoist inline object/enum schemas (found via properties, composition, or array items) to top-level `components/schemas` entries, so every type a generator needs has a name.
+3. **Filter/flatten** — Apply `--package`, `--tag`, and `--namespace` filtering, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
+4. **Generate** — Execute each template against a `TemplateData` value, `gofmt` the output, and write files.
 
 ### Template data
 
@@ -136,8 +137,8 @@ Templates have access to all [Sprig](https://masterminds.github.io/sprig/) funct
 
 | Function               | Signature                       | Description                                                    |
 | ---------------------- | ------------------------------- | -------------------------------------------------------------- |
-| `propertyNamesOrdered`  | `schemaName, schema → []string` | Property names in YAML source order                            |
-| `getProperty`           | `schema, name → *Schema`        | Get a property schema (traverses `allOf`)                      |
+| `propertyNamesOrdered`  | `schemaName, schema → []string` | Property names in YAML source order, falling back to sorted composition order |
+| `getProperty`           | `schema, name → *Schema`        | Get a property schema (traverses `allOf`/`oneOf`/`anyOf`)      |
 | `getPropertyRequired`   | `schema, name → bool`           | True if property is required (traverses `allOf`)               |
 | `getTypePackage`        | `v → string`                    | Deprecated (proto-only): return `x-package` for a type ref (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
 
