@@ -6,47 +6,6 @@
 {{- if $schema.Description}}
 // {{$schema.Description | replace "\n" "\n// "}}
 {{- end}}
-{{- /* Inline enum types for fields */ -}}
-{{- range $propName := $propNames -}}
-{{- $prop := getProperty $schema $propName}}
-{{- $enumSchema := ""}}
-{{- $enumDescription := ""}}
-{{- if and $prop $prop.Enum}}
-{{- $enumSchema = $prop}}
-{{- $enumDescription = $prop.Description}}
-{{- else if and $prop (eq (getType $prop) "array") $prop.Items $prop.Items.Value $prop.Items.Value.Enum}}
-{{- $enumSchema = $prop.Items.Value}}
-{{- $enumDescription = $prop.Description}}
-{{- end}}
-{{- if $enumSchema}}
-{{- $enumTypeName := schemaToGoType $enumSchema }}
-{{- if $enumDescription -}}
-// {{$enumDescription | replace "\n" "\n// "}}
-{{end -}}
-type {{$enumTypeName}} string
-
-const (
-{{- range $enumSchema.Enum}}
-	{{$enumTypeName}}{{pascalcase (printf "%v" .)}} {{$enumTypeName}} = {{printf "%q" .}}
-{{- end}}
-)
-
-// Values returns all possible values of the {{$enumTypeName}} enum.
-func ({{$enumTypeName}}) Values() []{{$enumTypeName}} {
-	return []{{$enumTypeName}}{
-{{- range $enumSchema.Enum}}
-		{{$enumTypeName}}{{pascalcase (printf "%v" .)}},
-{{- end}}
-	}
-}
-
-// String returns the {{$enumTypeName}} as a string.
-func (e {{$enumTypeName}}) String() string {
-	return string(e)
-}
-{{ end }}
-
-{{- end}}
 type {{$schemaName}} struct {
 {{- range $propName := propertyNamesOrdered $schemaName $schema}}
 {{- $prop := getProperty $schema $propName}}
