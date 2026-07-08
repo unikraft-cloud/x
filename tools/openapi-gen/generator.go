@@ -158,6 +158,11 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 
 // FilterByPackage keeps only operations and models whose x-package matches
 // the given package name.
+//
+// Deprecated: x-package is a legacy extension emitted only by our proto-based
+// generation pipeline. Prefer FilterByTag (operations) and FilterByNamespace
+// (models), which work against any OpenAPI document, including specs
+// generated from platform-api's TypeSpec definitions.
 func (g *Generator) FilterByPackage(pkg string) {
 	// Filter operations
 	var filteredOps []PathOperation

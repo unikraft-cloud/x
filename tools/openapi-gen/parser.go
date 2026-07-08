@@ -29,8 +29,14 @@ type Parser struct {
 type Model struct {
 	SchemaName string
 	Schema     *openapi3.Schema
-	Package    string // from x-package extension
-	Namespace  string // derived from the "Namespace.Name" schema name prefix
+	// Package is derived from the x-package extension.
+	//
+	// Deprecated: x-package is only emitted by our proto-based generation
+	// pipeline. Prefer Namespace, which works for any OpenAPI document.
+	Package string
+	// Namespace is derived from the "Namespace.Name" schema name prefix
+	// (e.g. as emitted by platform-api's TypeSpec compiler).
+	Namespace string
 }
 
 // isURL reports whether s looks like an HTTP(S) URL.

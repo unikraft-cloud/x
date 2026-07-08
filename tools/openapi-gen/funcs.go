@@ -231,6 +231,11 @@ func (tf *templateFuncs) wrapComment(text string, width int, prefix string) stri
 // getTypePackage returns the x-package value for a type reference.
 // Accepts *openapi3.Schema, *openapi3.SchemaRef, *openapi3.Parameter, or string ($ref).
 // Returns empty string if no x-package is found.
+//
+// Deprecated: x-package is only emitted by our proto-based generation
+// pipeline. New templates that need to distinguish local from foreign type
+// references should compare against the "current_package" var (set from
+// --namespace) instead.
 func (tf *templateFuncs) getTypePackage(v any) string {
 	ref := tf.extractRef(v)
 	if ref == "" {

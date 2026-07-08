@@ -48,14 +48,19 @@ go run unikraft.com/x/tools/openapi-gen@latest \
 | `--output`           | `-o`  | Output directory for generated files (required)                           |
 | `--var`              | `-v`  | Set a template variable as `key=value` (repeatable)                       |
 | `--templates`        | `-t`  | Directory or Git ref to template overrides (required)                    |
-| `--package`          |       | Filter to schemas/operations whose `x-package` matches this value        |
+| `--package`          |       | Deprecated: use `--tag`/`--namespace` instead. Filter to schemas/operations whose `x-package` matches this value |
 | `--tag`              |       | Filter to operations carrying one of these tags (repeatable)              |
 | `--namespace`        |       | Filter to schemas in one of these namespaces, e.g. `Instances` (repeatable) |
 | `--namespace-flatten`|       | Rewrite namespaced schema names: `strip` drops the prefix, `join` concatenates segments |
 
-When `--package` is set, only schemas and operations whose `x-package` extension
-matches the given value are passed to templates. The value is also exposed to
+`--package` is deprecated: it only works against specs produced by our
+proto-based pipeline, which stamps schemas and operations with an `x-package`
+extension. When set, only schemas and operations whose `x-package` matches
+the given value are passed to templates, and the value is also exposed to
 templates as the `x-package` variable (i.e. `{{ .Var "x-package" "" }}`).
+Existing proto-sourced callers keep working, but new ones should use
+`--tag`/`--namespace` below; `--package` will be removed once those callers
+have migrated.
 
 `--tag` and `--namespace` are the `x-package`-free equivalent, matching how
 platform-api's TypeSpec compiler shapes its output: operations are tagged per
@@ -134,7 +139,7 @@ Templates have access to all [Sprig](https://masterminds.github.io/sprig/) funct
 | `propertyNamesOrdered`  | `schemaName, schema → []string` | Property names in YAML source order                            |
 | `getProperty`           | `schema, name → *Schema`        | Get a property schema (traverses `allOf`)                      |
 | `getPropertyRequired`   | `schema, name → bool`           | True if property is required (traverses `allOf`)               |
-| `getTypePackage`        | `v → string`                    | Return `x-package` for a type ref (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
+| `getTypePackage`        | `v → string`                    | Deprecated (proto-only): return `x-package` for a type ref (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
 
 ### Iteration helpers
 
