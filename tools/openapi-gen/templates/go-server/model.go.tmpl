@@ -22,6 +22,9 @@ package {{$.Var "package" ""}}
 
 import (
 	"time"
+
+	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 {{- if $extPkgs}}
 
 {{- range $pkg, $_ := $extPkgs}}

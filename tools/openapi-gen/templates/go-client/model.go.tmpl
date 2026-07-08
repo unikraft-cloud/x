@@ -5,12 +5,16 @@ package {{ .Var "package" "client" }}
 import (
 	"encoding/json"
 	"time"
+
+	jsonv2 "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 )
 
 // Prevent unused import errors.
 var (
 	_ = time.Time{}
 	_ = json.Marshal
+	_ = jsonv2.Marshal
 )
 {{ range .Models }}
 {{- $schema := .Schema }}
@@ -39,6 +43,24 @@ type {{ $schemaName }} struct {
 	{{ pascalcase . }} {{ if and (not $required) (not (hasPrefix "[]" $propType)) }}*{{ end }}{{ $propType }} `json:"{{ . }}{{ if not $required }},omitempty{{ end }}"`
 {{- end }}
 {{- end }}
+
+	// AdditionalProperties captures any JSON object members that do not map to
+	// an explicit field above.
+	AdditionalProperties map[string]jsontext.Value `json:",inline"`
+}
+
+// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// (tagged `json:",inline"`) is populated with any unknown object members.
+func (m *{{ $schemaName }}) UnmarshalJSON(data []byte) error {
+	type Alias {{ $schemaName }}
+	return jsonv2.Unmarshal(data, (*Alias)(m))
+}
+
+// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// (tagged `json:",inline"`) is flattened into the parent JSON object.
+func (m {{ $schemaName }}) MarshalJSON() ([]byte, error) {
+	type Alias {{ $schemaName }}
+	return jsonv2.Marshal((Alias)(m))
 }
 {{- range $ie := inlineEnums $schemaName $schema }}
 
