@@ -155,7 +155,7 @@ type {{$serviceName}} interface {
 {{- $qualifiedRespType = printf "%sv1.%s" $respPkg $responseType}}
 {{- end}}
 {{- if $isSSE}}
-	{{$op.OperationID}}(g *gin.Context, cancel context.CancelFunc, req *{{$qualifiedReqType}}) <-chan *{{$qualifiedRespType}}
+	{{$op.OperationID}}(g *gin.Context, cancel context.CancelFunc{{range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}{{if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}) <-chan *{{$qualifiedRespType}}
 {{- else}}
 	{{$op.OperationID}}(g *gin.Context
 {{- range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}
@@ -388,7 +388,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 	g.Request = g.Request.WithContext(streamCtx)
 
 	// Call the service method to get the stream channels
-	dataCh := handler.service.{{$op.OperationID}}(g, cancel, &req)
+	dataCh := handler.service.{{$op.OperationID}}(g, cancel{{range $pathParams}}, params.{{pascalcase .Name}}{{end}}{{if $hasRequestBody}}, {{if $requestBodyIsArray}}body{{else}}&req{{end}}{{end}})
 
 	// Flush headers after calling the service.
 	g.Writer.Flush()
