@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"golang.org/x/sync/errgroup"
@@ -20,7 +21,10 @@ type cli struct {
 	Output    string            `short:"o" help:"Output directory for generated files." required:""`
 	Var       map[string]string `short:"v" help:"Set a template variable (e.g. --var package=myapi)." mapsep:","`
 	Templates string            `short:"t" help:"Directory or Git ref (host/org/repo@ref#dir=path) with template overrides." required:""`
-	Package   string            `help:"Filter to only include schemas and operations with this x-package value."`
+	Package   string            `help:"Deprecated: use --tag and --namespace instead. Filter to only include schemas and operations with this x-package value."`
+	Tag       []string          `help:"Filter to only include operations carrying one of these tags." sep:"none"`
+	Namespace []string          `help:"Filter to only include schemas in one of these namespaces (e.g. Instances)." sep:"none"`
+	Flatten   string            `name:"namespace-flatten" help:"Rewrite namespaced schema names: 'strip' drops the namespace prefix, 'join' concatenates segments." enum:",strip,join" default:""`
 }
 
 func main() {
@@ -45,6 +49,13 @@ func run(cli *cli) error {
 		vars["x-package"] = cli.Package
 	}
 
+	// Expose the current package (lowercased namespace) for templates to
+	// distinguish local vs. foreign type references. Derived purely from
+	// --namespace so no spec extension is required.
+	if len(cli.Namespace) == 1 {
+		vars["current_package"] = strings.ToLower(cli.Namespace[0])
+	}
+
 	templateDir := cli.Templates
 	if g := parseGitRef(templateDir); g != nil && g.dir != "" {
 		resolved, cleanup, err := resolveTemplateDirFromGit(g)
@@ -63,6 +74,18 @@ func run(cli *cli) error {
 	if cli.Package != "" {
 		generator.FilterByPackage(cli.Package)
 	}
+
+	if len(cli.Tag) > 0 {
+		generator.FilterByTag(cli.Tag)
+	}
+
+	if len(cli.Namespace) > 0 {
+		generator.FilterByNamespace(cli.Namespace)
+	}
+
+	// Flatten namespaced schema names last, after filtering has matched on the
+	// original "Namespace.Name" form.
+	generator.Flatten(flattenModeFromString(cli.Flatten))
 
 	if err := os.MkdirAll(cli.Output, 0o755); err != nil {
 		return fmt.Errorf("error creating output directory: %w", err)

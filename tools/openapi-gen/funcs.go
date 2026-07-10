@@ -95,7 +95,7 @@ func (tf *templateFuncs) inlineEnums(schemaName string, schema *openapi3.Schema)
 		if len(prop.Enum) > 0 && prop.Title != "" {
 			result = append(result, inlineEnum{Name: prop.Title, Schema: prop})
 		}
-		if prop.Type != nil && prop.Type.Is("array") && prop.Items != nil && prop.Items.Value != nil {
+		if prop.Type != nil && prop.Type.Is("array") && prop.Items != nil && prop.Items.Ref == "" && prop.Items.Value != nil {
 			item := prop.Items.Value
 			if len(item.Enum) > 0 && item.Title != "" {
 				result = append(result, inlineEnum{Name: item.Title, Schema: item})
@@ -113,122 +113,40 @@ func (tf *templateFuncs) getType(schema *openapi3.Schema) string {
 	return schema.Type.Slice()[0]
 }
 
-// propertyNamesOrdered returns property names in the order they appear in YAML
+// propertyNamesOrdered returns property names in the order they appear in YAML,
+// falling back to a deterministic flattening of the schema's composition when
+// the source order is unavailable.
 func (tf *templateFuncs) propertyNamesOrdered(schemaName string, schema *openapi3.Schema) []string {
-	// First try to get order from YAML parser
 	if order := tf.parser.GetPropertyOrder(schemaName); len(order) > 0 {
 		return order
 	}
-
-	// Fallback to collecting from schema (unordered)
-	if schema == nil {
-		return nil
-	}
-
-	names := make([]string, 0)
-	seen := make(map[string]bool)
-
-	// Collect from allOf
-	if len(schema.AllOf) > 0 {
-		for _, allOfRef := range schema.AllOf {
-			allOfSchema := allOfRef.Value
-			if allOfSchema != nil && len(allOfSchema.Properties) > 0 {
-				for name := range allOfSchema.Properties {
-					if !seen[name] {
-						names = append(names, name)
-						seen[name] = true
-					}
-				}
-			}
-			if allOfSchema != nil && len(allOfSchema.OneOf) > 0 {
-				for _, oneOfRef := range allOfSchema.OneOf {
-					oneOfSchema := oneOfRef.Value
-					if oneOfSchema != nil && len(oneOfSchema.Properties) > 0 {
-						for name := range oneOfSchema.Properties {
-							if !seen[name] {
-								names = append(names, name)
-								seen[name] = true
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Collect from direct properties
-	if len(schema.Properties) > 0 {
-		for name := range schema.Properties {
-			if !seen[name] {
-				names = append(names, name)
-				seen[name] = true
-			}
-		}
-	}
-
-	return names
+	return schemaPropertyNames(schema)
 }
 
-// getProperty returns a property schema (checking allOf too)
+// getProperty returns the schema of a named property, flattening allOf/oneOf/
+// anyOf composition to find it.
 func (tf *templateFuncs) getProperty(schema *openapi3.Schema, name string) *openapi3.Schema {
 	if schema == nil {
 		return nil
 	}
 
-	var propRef *openapi3.SchemaRef
-
-	// Check direct properties first
-	if len(schema.Properties) > 0 {
-		if ref, ok := schema.Properties[name]; ok {
-			propRef = ref
+	for _, prop := range schemaProperties(schema, true) {
+		if prop.name != name {
+			continue
 		}
-	}
 
-	// Check in allOf schemas if not found
-	if propRef == nil && len(schema.AllOf) > 0 {
-		for _, allOfRef := range schema.AllOf {
-			allOfSchema := allOfRef.Value
-			if allOfSchema != nil && len(allOfSchema.Properties) > 0 {
-				if ref, ok := allOfSchema.Properties[name]; ok {
-					propRef = ref
-					break
-				}
-			}
-			// Also check in oneOf within allOf
-			if allOfSchema != nil && len(allOfSchema.OneOf) > 0 {
-				for _, oneOfRef := range allOfSchema.OneOf {
-					oneOfSchema := oneOfRef.Value
-					if oneOfSchema != nil && len(oneOfSchema.Properties) > 0 {
-						if ref, ok := oneOfSchema.Properties[name]; ok {
-							propRef = ref
-							break
-						}
-					}
-				}
-				if propRef != nil {
-					break
-				}
+		// Normalise a direct $ref into the allOf-wrapped form so callers treat
+		// it like other optional fields: schemaToGoType extracts the type and
+		// getType returns "", so optional $ref fields get a pointer prefix.
+		if prop.ref.Ref != "" {
+			return &openapi3.Schema{
+				AllOf: []*openapi3.SchemaRef{{Ref: prop.ref.Ref}},
 			}
 		}
+		return prop.ref.Value
 	}
 
-	if propRef == nil {
-		return nil
-	}
-
-	// If it's a $ref, create a simple schema with allOf pointing to the ref.
-	// This ensures consistent handling between direct $ref and allOf: [$ref],
-	// allowing schemaToGoType to extract the type and getType to return ""
-	// (so optional $ref fields get pointer prefixes like other optional fields).
-	if propRef.Ref != "" {
-		return &openapi3.Schema{
-			AllOf: []*openapi3.SchemaRef{
-				{Ref: propRef.Ref},
-			},
-		}
-	}
-
-	return propRef.Value
+	return nil
 }
 
 // getPropertyRequired checks if a property is required (checking allOf too).
@@ -313,6 +231,11 @@ func (tf *templateFuncs) wrapComment(text string, width int, prefix string) stri
 // getTypePackage returns the x-package value for a type reference.
 // Accepts *openapi3.Schema, *openapi3.SchemaRef, *openapi3.Parameter, or string ($ref).
 // Returns empty string if no x-package is found.
+//
+// Deprecated: x-package is only emitted by our proto-based generation
+// pipeline. New templates that need to distinguish local from foreign type
+// references should compare against the "current_package" var (set from
+// --namespace) instead.
 func (tf *templateFuncs) getTypePackage(v any) string {
 	ref := tf.extractRef(v)
 	if ref == "" {

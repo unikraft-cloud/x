@@ -137,7 +137,9 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 		return nil, fmt.Errorf("creating parser: %w", err)
 	}
 
-	Preprocess(parser.doc, parser)
+	if err := Preprocess(parser.doc, parser); err != nil {
+		return nil, fmt.Errorf("preprocessing spec: %w", err)
+	}
 
 	g := &Generator{
 		parser:     parser,
@@ -158,6 +160,11 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 
 // FilterByPackage keeps only operations and models whose x-package matches
 // the given package name.
+//
+// Deprecated: x-package is a legacy extension emitted only by our proto-based
+// generation pipeline. Prefer FilterByTag (operations) and FilterByNamespace
+// (models), which work against any OpenAPI document, including specs
+// generated from platform-api's TypeSpec definitions.
 func (g *Generator) FilterByPackage(pkg string) {
 	// Filter operations
 	var filteredOps []PathOperation
@@ -179,6 +186,58 @@ func (g *Generator) FilterByPackage(pkg string) {
 		}
 	}
 	g.models = filteredModels
+}
+
+// FilterByTag keeps only operations carrying at least one of the given tags.
+// Models are left untouched (filter them separately via FilterByNamespace).
+func (g *Generator) FilterByTag(tags []string) {
+	want := make(map[string]bool, len(tags))
+	for _, t := range tags {
+		want[t] = true
+	}
+	var filtered []PathOperation
+	for _, op := range g.operations {
+		if op.Operation == nil {
+			continue
+		}
+		for _, t := range op.Operation.Tags {
+			if want[t] {
+				filtered = append(filtered, op)
+				break
+			}
+		}
+	}
+	g.operations = filtered
+}
+
+// FilterByNamespace keeps only models belonging to one of the given namespaces.
+// Operations are left untouched (filter them separately via FilterByTag).
+func (g *Generator) FilterByNamespace(namespaces []string) {
+	want := make(map[string]bool, len(namespaces))
+	for _, ns := range namespaces {
+		want[ns] = true
+	}
+	var filtered []Model
+	for _, m := range g.models {
+		if want[m.Namespace] {
+			filtered = append(filtered, m)
+		}
+	}
+	g.models = filtered
+}
+
+// Flatten rewrites namespaced schema names (e.g. "Instances.Instance") into
+// valid Go identifiers. It runs after any namespace/tag filtering so those
+// filters can match on the original "Namespace.Name" form, and it updates the
+// already-parsed model names to stay in sync with the rewritten document.
+func (g *Generator) Flatten(mode flattenMode) {
+	if mode == flattenNone {
+		return
+	}
+	flattenNamespaces(g.parser.doc, g.parser, mode)
+	for i := range g.models {
+		g.models[i].SchemaName = flattenName(g.models[i].SchemaName, mode)
+	}
 }
 
 func loadTemplates(parser *Parser, templateDir string, models *[]Model, vars *map[string]string) (*template.Template, []string, error) {
