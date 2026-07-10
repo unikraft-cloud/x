@@ -3,7 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package main
+package gitref
 
 import (
 	"fmt"
@@ -16,13 +16,13 @@ import (
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
-// gitRef holds the parsed components of a Git repository reference.
+// Ref holds the parsed components of a Git repository reference.
 //
 // Supported forms:
 //
 //	host/org/repo@ref#file=path   (single file)
 //	host/org/repo@ref#dir=path    (directory)
-type gitRef struct {
+type Ref struct {
 	host string
 	org  string
 	repo string
@@ -31,17 +31,23 @@ type gitRef struct {
 	dir  string
 }
 
-func (g gitRef) sshURL() string {
+func (g Ref) sshURL() string {
 	return fmt.Sprintf("git@%s:%s/%s.git", g.host, g.org, g.repo)
 }
 
-func (g gitRef) httpsURL() string {
+func (g Ref) httpsURL() string {
 	return fmt.Sprintf("https://%s/%s/%s.git", g.host, g.org, g.repo)
 }
 
-// parseGitRef parses a Git repository reference.  It recognises both
+// Dir returns the directory fragment of the reference (from #dir=path), or an
+// empty string when the reference targets a single file.
+func (g Ref) Dir() string {
+	return g.dir
+}
+
+// Parse parses a Git repository reference.  It recognises both
 // #file=path and #dir=path fragments.  Returns nil when s does not match.
-func parseGitRef(s string) *gitRef {
+func Parse(s string) *Ref {
 	atIdx := strings.Index(s, "@")
 	if atIdx < 0 {
 		return nil
@@ -72,7 +78,7 @@ func parseGitRef(s string) *gitRef {
 		return nil
 	}
 
-	return &gitRef{
+	return &Ref{
 		host: parts[0],
 		org:  parts[1],
 		repo: parts[2],
@@ -86,7 +92,7 @@ func parseGitRef(s string) *gitRef {
 // It tries SSH (via ssh-agent) first, falling back to unauthenticated
 // HTTPS.  The caller is responsible for removing the returned directory
 // when it is no longer needed.
-func cloneGitRepo(g *gitRef) (string, error) {
+func cloneGitRepo(g *Ref) (string, error) {
 	tmpDir, err := os.MkdirTemp("", "openapi-gen-git-*")
 	if err != nil {
 		return "", fmt.Errorf("creating temp directory: %w", err)
@@ -148,9 +154,9 @@ func cloneGitRepo(g *gitRef) (string, error) {
 	return tmpDir, nil
 }
 
-// readSpecFromGit clones the repository and returns the contents of the
+// ReadSpec clones the repository and returns the contents of the
 // file specified by g.file.
-func readSpecFromGit(g *gitRef) ([]byte, error) {
+func ReadSpec(g *Ref) ([]byte, error) {
 	tmpDir, err := cloneGitRepo(g)
 	if err != nil {
 		return nil, err
@@ -165,11 +171,11 @@ func readSpecFromGit(g *gitRef) ([]byte, error) {
 	return data, nil
 }
 
-// resolveTemplateDirFromGit clones the repository and returns the absolute
+// ResolveDir clones the repository and returns the absolute
 // path to the directory specified by g.dir inside the clone.  The caller
 // must call the returned cleanup function when the directory is no longer
 // needed.
-func resolveTemplateDirFromGit(g *gitRef) (dir string, cleanup func(), err error) {
+func ResolveDir(g *Ref) (dir string, cleanup func(), err error) {
 	tmpDir, err := cloneGitRepo(g)
 	if err != nil {
 		return "", nil, err

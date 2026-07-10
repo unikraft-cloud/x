@@ -3,7 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package main
+package openapi
 
 import (
 	"fmt"
@@ -25,6 +25,12 @@ type templateFuncs struct {
 	parser *Parser
 	models *[]Model
 	vars   *map[string]string
+}
+
+// Funcs returns the template function map bound to the given parser, models
+// and variables. It is the entry point used by callers outside this package.
+func Funcs(parser *Parser, models *[]Model, vars *map[string]string) template.FuncMap {
+	return templateFuncs{parser: parser, models: models, vars: vars}.Funcs()
 }
 
 // Funcs returns all custom template functions

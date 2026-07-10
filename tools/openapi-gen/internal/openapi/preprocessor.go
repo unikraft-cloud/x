@@ -3,7 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package main
+package openapi
 
 import (
 	"fmt"
@@ -36,6 +36,12 @@ type preprocessor struct {
 	// reached both as a top-level component and via recursion into a hoisted
 	// copy). It is keyed by component name.
 	processed map[string]bool
+}
+
+// Preprocess hoists all inline schemas in the parser's document into named
+// components/schemas entries, in place.
+func (p *Parser) Preprocess() error {
+	return Preprocess(p.doc, p)
 }
 
 // Preprocess hoists all inline schemas in doc into named components/schemas

@@ -3,141 +3,36 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package main
+package generator
 
 import (
-	"bytes"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
 
-	"golang.org/x/tools/imports"
+	"unikraft.com/x/tools/openapi-gen/internal/openapi"
 )
-
-// GeneratedFile represents a file to be generated from a template
-type GeneratedFile struct {
-	TemplateName string
-	Data         any
-	Basename     string
-}
-
-func formatSource(src []byte, filename string) ([]byte, error) {
-	switch filepath.Ext(filename) {
-	case ".go":
-		formatted, err := imports.Process(filename, src, nil)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: goimports failed for %s: %v\n", filename, err)
-			fmt.Fprintf(os.Stderr, "Unformatted source:\n%s\n", string(src))
-			return nil, fmt.Errorf("formatting code: %w", err)
-		}
-		return formatted, nil
-	default:
-		return src, nil
-	}
-}
-
-func writeGenerated(data []byte, filename, outputDir string) error {
-	formatted, err := formatSource(data, filename)
-	if err != nil {
-		return err
-	}
-	filename = filepath.Clean(filename)
-	if filepath.IsAbs(filename) {
-		return fmt.Errorf("filename %q cannot be absolute", filename)
-	}
-	if filename == "." || filename == ".." {
-		return fmt.Errorf("filename %q cannot point to relative dir", filename)
-	}
-	cleanOutputDir := filepath.Clean(outputDir)
-	target := filepath.Join(cleanOutputDir, filename)
-	rel, err := filepath.Rel(cleanOutputDir, target)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return fmt.Errorf("filename %q cannot escape current dir", filename)
-	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return fmt.Errorf("creating directory parent: %w", err)
-	}
-	if err := os.WriteFile(target, formatted, 0o644); err != nil {
-		return fmt.Errorf("writing file: %w", err)
-	}
-	fmt.Printf("Generated %s\n", filename)
-	return nil
-}
-
-// Generate writes the generated file to the specified directory
-func (f *GeneratedFile) Generate(templates *template.Template, outputDir string) error {
-	tmpl := templates.Lookup(f.TemplateName)
-	if tmpl == nil {
-		return fmt.Errorf("template %s not found", f.TemplateName)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, f.Data); err != nil {
-		return fmt.Errorf("executing template: %w", err)
-	}
-	if len(bytes.TrimSpace(buf.Bytes())) == 0 {
-		return nil
-	}
-
-	preamble, sections, ok, err := splitFileMarkers(buf.Bytes())
-	if err != nil {
-		return err
-	}
-	if ok {
-		baseFilename := outputFilename(f.Basename, f.TemplateName)
-		if len(bytes.TrimSpace(preamble)) != 0 {
-			if err := writeGenerated(preamble, baseFilename, outputDir); err != nil {
-				return err
-			}
-		}
-		for _, section := range sections {
-			if err := writeGenerated(section.content, section.name, outputDir); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	filename := outputFilename(f.Basename, f.TemplateName)
-	return writeGenerated(buf.Bytes(), filename, outputDir)
-}
-
-func outputFilename(basename, templateName string) string {
-	filename := basename
-	if filename == "" {
-		filename = strings.TrimSuffix(templateName, ".tmpl")
-	}
-	if !strings.Contains(filename, ".gen") {
-		if name, ext, ok := strings.Cut(filename, "."); ok {
-			filename = name + ".gen." + ext
-		} else {
-			filename += ".gen"
-		}
-	}
-	return filename
-}
 
 // Generator handles code generation from OpenAPI specs
 type Generator struct {
-	parser        *Parser
+	parser        *openapi.Parser
 	templates     *template.Template
 	templateNames []string
 	vars          map[string]string
-	operations    []PathOperation
-	models        []Model
+	operations    []openapi.PathOperation
+	models        []openapi.Model
 }
 
 func NewGenerator(specPath string, vars map[string]string, templateDir string) (*Generator, error) {
-	parser, err := NewParser(specPath)
+	parser, err := openapi.NewParser(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating parser: %w", err)
 	}
 
-	if err := Preprocess(parser.doc, parser); err != nil {
+	if err := parser.Preprocess(); err != nil {
 		return nil, fmt.Errorf("preprocessing spec: %w", err)
 	}
 
@@ -166,8 +61,7 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 // (models), which work against any OpenAPI document, including specs
 // generated from platform-api's TypeSpec definitions.
 func (g *Generator) FilterByPackage(pkg string) {
-	// Filter operations
-	var filteredOps []PathOperation
+	var filteredOps []openapi.PathOperation
 	for _, op := range g.operations {
 		if op.Operation == nil {
 			continue
@@ -178,8 +72,7 @@ func (g *Generator) FilterByPackage(pkg string) {
 	}
 	g.operations = filteredOps
 
-	// Filter models
-	var filteredModels []Model
+	var filteredModels []openapi.Model
 	for _, m := range g.models {
 		if m.Package == pkg {
 			filteredModels = append(filteredModels, m)
@@ -195,7 +88,7 @@ func (g *Generator) FilterByTag(tags []string) {
 	for _, t := range tags {
 		want[t] = true
 	}
-	var filtered []PathOperation
+	var filtered []openapi.PathOperation
 	for _, op := range g.operations {
 		if op.Operation == nil {
 			continue
@@ -217,7 +110,7 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 	for _, ns := range namespaces {
 		want[ns] = true
 	}
-	var filtered []Model
+	var filtered []openapi.Model
 	for _, m := range g.models {
 		if want[m.Namespace] {
 			filtered = append(filtered, m)
@@ -227,20 +120,14 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 }
 
 // Flatten rewrites namespaced schema names (e.g. "Instances.Instance") into
-// valid Go identifiers. It runs after any namespace/tag filtering so those
-// filters can match on the original "Namespace.Name" form, and it updates the
-// already-parsed model names to stay in sync with the rewritten document.
-func (g *Generator) Flatten(mode flattenMode) {
-	if mode == flattenNone {
-		return
-	}
-	flattenNamespaces(g.parser.doc, g.parser, mode)
-	for i := range g.models {
-		g.models[i].SchemaName = flattenName(g.models[i].SchemaName, mode)
-	}
+// valid Go identifiers per mode ("strip", "join", or "" for no-op). It runs
+// after any namespace/tag filtering so those filters can match on the original
+// "Namespace.Name" form.
+func (g *Generator) Flatten(mode string) {
+	g.parser.Flatten(g.models, mode)
 }
 
-func loadTemplates(parser *Parser, templateDir string, models *[]Model, vars *map[string]string) (*template.Template, []string, error) {
+func loadTemplates(parser *openapi.Parser, templateDir string, models *[]openapi.Model, vars *map[string]string) (*template.Template, []string, error) {
 	if templateDir == "" {
 		return nil, nil, fmt.Errorf("template directory not specified")
 	}
@@ -254,7 +141,7 @@ func loadTemplates(parser *Parser, templateDir string, models *[]Model, vars *ma
 		return nil, nil, fmt.Errorf("no templates found in %s", templateDir)
 	}
 
-	tmpl := template.New("").Funcs((&templateFuncs{parser: parser, models: models, vars: vars}).Funcs())
+	tmpl := template.New("").Funcs(openapi.Funcs(parser, models, vars))
 
 	if _, err := tmpl.ParseFiles(files...); err != nil {
 		return nil, nil, fmt.Errorf("loading template overrides: %w", err)
@@ -296,7 +183,7 @@ func (g *Generator) GenerateAll() []GeneratedFile {
 	// Propagate vars to each operation so define blocks can access
 	// them via .Var inside templates.
 	for i := range g.operations {
-		g.operations[i].vars = g.vars
+		g.operations[i].SetVars(g.vars)
 	}
 
 	data := TemplateData{
@@ -318,8 +205,8 @@ func (g *Generator) GenerateAll() []GeneratedFile {
 
 type TemplateData struct {
 	vars       map[string]string
-	Operations []PathOperation
-	Models     []Model
+	Operations []openapi.PathOperation
+	Models     []openapi.Model
 }
 
 func (d TemplateData) Var(key, fallback string) string {

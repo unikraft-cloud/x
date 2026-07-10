@@ -3,7 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package main
+package openapi
 
 import (
 	"fmt"
@@ -17,6 +17,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"gopkg.in/yaml.v3"
+
+	"unikraft.com/x/tools/openapi-gen/internal/gitref"
 )
 
 // Parser handles parsing OpenAPI specs into our template data structures
@@ -58,8 +60,8 @@ func readSpec(input string) ([]byte, error) {
 		}
 		return io.ReadAll(resp.Body)
 	}
-	if g := parseGitRef(input); g != nil {
-		return readSpecFromGit(g)
+	if g := gitref.Parse(input); g != nil {
+		return gitref.ReadSpec(g)
 	}
 	return os.ReadFile(input)
 }
@@ -86,7 +88,7 @@ func NewParser(input string) (*Parser, error) {
 		if err != nil {
 			return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
 		}
-	case parseGitRef(input) != nil:
+	case gitref.Parse(input) != nil:
 		doc, err = loader.LoadFromData(data)
 		if err != nil {
 			return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
@@ -299,6 +301,11 @@ func (o PathOperation) Var(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// SetVars sets the template variables exposed to this operation via Var.
+func (o *PathOperation) SetVars(vars map[string]string) {
+	o.vars = vars
 }
 
 // ParseOperations extracts all operations from the OpenAPI spec
