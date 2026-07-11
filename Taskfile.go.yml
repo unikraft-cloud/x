@@ -122,6 +122,13 @@ tasks:
       git_sha:
         sh: git update-index -q --refresh && git rev-parse HEAD
 
+      cgo_enabled:
+        ref: .cgo_enabled | default ""
+      goos:
+        ref: .goos | default ""
+      goarch:
+        ref: .goarch | default ""
+
       go_gcflags: >-
         {{- ternary "-N -l" "" .go_debug }}
       go_ldflags_extra:
@@ -133,6 +140,9 @@ tasks:
         -X "{{.go_module}}/internal/version.BuildTime={{now}}"
         {{.go_ldflags_extra}}
     cmd: >-
+      {{ with .cgo_enabled }}CGO_ENABLED={{.}}{{ end }}
+      {{ with .goos }}GOOS={{.}}{{ end }}
+      {{ with .goarch }}GOARCH={{.}}{{ end }}
       {{.go_bin}} build -v {{.CLI_ARGS}}
       -buildmode=pie
       -gcflags=all='{{.go_gcflags}}'
