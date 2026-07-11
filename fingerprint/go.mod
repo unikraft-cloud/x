@@ -1,19 +1,19 @@
 module unikraft.com/x/fingerprint
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/sys v0.46.0
-	tailscale.com v1.98.8
+	tailscale.com v1.100.0
 	unikraft.com/x/ptr v0.0.0-20260108134909-16540cbbe59c
 )
 
 require (
 	github.com/dblohm7/wingoes v0.0.0-20240119213807-a09d6be7affa // indirect
-	github.com/go-json-experiment/json v0.0.0-20250813024750-ebf49471dced // indirect
+	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
