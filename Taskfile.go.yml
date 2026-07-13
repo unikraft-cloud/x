@@ -120,7 +120,7 @@ tasks:
       git_tag:
         sh: git update-index -q --refresh && git describe --abbrev=0 --tags --dirty || printf "0.0.0"
       git_sha:
-        sh: git update-index -q --refresh && git rev-parse HEAD
+        sh: git update-index -q --refresh && git rev-parse HEAD || printf "dev"
 
       go_gcflags: >-
         {{- ternary "-N -l" "" .go_debug }}
