@@ -17,6 +17,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"unikraft.com/cloud/sdk/platform"
 	"unikraft.com/x/log"
 {{- /* Collect external packages referenced by this tag's operations */}}
 {{- $extPkgs := dict}}
@@ -116,6 +117,7 @@ type {{$serviceName}} interface {
 {{- end}}
 {{- $responseType := ""}}
 {{- $responseSchema := ""}}
+{{- $responseHasData := false}}
 {{- $isSSE := false}}
 {{- if $op.Responses}}
 {{- $defaultResp := $op.Responses.Default}}
@@ -126,6 +128,9 @@ type {{$serviceName}} interface {
 {{- if $respContent.Schema.Ref}}
 {{- $responseType = refName $respContent.Schema.Ref}}
 {{- $responseSchema = $respContent.Schema}}
+{{- if and $respContent.Schema.Value (getProperty $respContent.Schema.Value "data")}}
+{{- $responseHasData = true}}
+{{- end}}
 {{- end}}
 {{- end}}
 {{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
@@ -134,6 +139,9 @@ type {{$serviceName}} interface {
 {{- if $sseContent.Schema.Ref}}
 {{- $responseType = refName $sseContent.Schema.Ref}}
 {{- $responseSchema = $sseContent.Schema}}
+{{- if and $sseContent.Schema.Value (getProperty $sseContent.Schema.Value "data")}}
+{{- $responseHasData = true}}
+{{- end}}
 {{- end}}
 {{- end}}
 {{- end}}
@@ -160,7 +168,7 @@ type {{$serviceName}} interface {
 	{{$op.OperationID}}(g *gin.Context
 {{- range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}
 {{- if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}
-{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) (*{{$qualifiedRespType}}, int, error)
+{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) (*platform.Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}], int, error)
 {{- end}}
 {{- end}}
 {{- end}}
@@ -263,6 +271,7 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- end}}
 
 func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Context) {
+	now := time.Now()
 {{- /* Bind path params */}}
 {{- if $pathParams}}
 
@@ -279,7 +288,12 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, err)
+			g.JSON(http.StatusBadRequest, platform.Response[any]{
+				Status:   platform.ResponseStatusError,
+				Message:  err.Error(),
+				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
+				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			})
 		}
 		return
 	}
@@ -295,7 +309,12 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, err)
+			g.JSON(http.StatusBadRequest, platform.Response[any]{
+				Status:   platform.ResponseStatusError,
+				Message:  err.Error(),
+				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
+				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			})
 		}
 		return
 	}
@@ -315,7 +334,12 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, err)
+			g.JSON(http.StatusBadRequest, platform.Response[any]{
+				Status:   platform.ResponseStatusError,
+				Message:  err.Error(),
+				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
+				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			})
 		}
 		return
 	}
@@ -333,7 +357,12 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, err)
+			g.JSON(http.StatusBadRequest, platform.Response[any]{
+				Status:   platform.ResponseStatusError,
+				Message:  err.Error(),
+				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
+				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			})
 		}
 		return
 	}
@@ -359,7 +388,12 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, err)
+			g.JSON(http.StatusBadRequest, platform.Response[any]{
+				Status:   platform.ResponseStatusError,
+				Message:  err.Error(),
+				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
+				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			})
 		}
 		return
 	}
@@ -453,11 +487,19 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 {{- if $hasRequestBody}}{{if $requestBodyIsArray}}, body{{else}}, &req{{end}}{{end}}
 {{- range $queryParams}},
 		query.{{pascalcase .Name}}{{end}})
+	if resp != nil {
+ 		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
+ 	}
 	if err != nil {
 		if handler.resp != nil {
 			handler.resp(g, code, err)
 		} else {
-			g.JSON(code, err)
+			g.JSON(code, platform.Response[any]{
+				Status:   platform.ResponseStatusError,
+				Message:  err.Error(),
+				Errors:   []platform.ResponseError{{"{{"}}Status: uint64(code){{"}}"}},
+				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			})
 		}
 	} else if handler.resp != nil {
 		handler.resp(g, code, resp)
