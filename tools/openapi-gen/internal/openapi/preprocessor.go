@@ -80,21 +80,23 @@ func (p *preprocessor) hoistSchema(schema *openapi3.Schema, name string) {
 		return
 	}
 	p.processed[name] = true
+	pkg, _ := schema.Extensions["x-package"].(string)
 
 	// Only properties we are free to mutate are considered: a schema's own
 	// properties and those of its *inline* allOf/oneOf/anyOf branches.
 	// Properties reached through a $ref branch belong to another top-level
 	// schema and are hoisted when that schema is processed.
 	for _, prop := range schemaProperties(schema, false) {
-		p.hoistValue(prop.ref, name+strcase.ToPascal(prop.name))
+		p.hoistValue(prop.ref, name+strcase.ToPascal(prop.name), pkg)
 	}
 }
 
 // hoistValue rewrites a single property/body slot whose value is an anonymous
-// schema into a $ref to a new component named name. Slots that already hold a
-// $ref (including the allOf-wrapped "$ref plus description" form) or a scalar
-// are left untouched.
-func (p *preprocessor) hoistValue(slot *openapi3.SchemaRef, name string) {
+// schema into a $ref to a new component named name. The owning schema's
+// package is inherited by a promoted schema unless the inline schema declares
+// its own package. Slots that already hold a $ref (including the allOf-wrapped
+// "$ref plus description" form) or a scalar are left untouched.
+func (p *preprocessor) hoistValue(slot *openapi3.SchemaRef, name, pkg string) {
 	if slot == nil || slot.Ref != "" || slot.Value == nil {
 		return
 	}
@@ -105,19 +107,29 @@ func (p *preprocessor) hoistValue(slot *openapi3.SchemaRef, name string) {
 		// An inline object or enum: hoist it directly. The slot's own
 		// description (e.g. a property-specific blurb) would otherwise be
 		// lost once it becomes a bare $ref, so carry it over.
-		*slot = *refWithDescription(p.promote(name, value), value.Description)
+		*slot = *refWithDescription(p.promote(name, value, pkg), value.Description)
 
 	case isInlineArrayItem(value):
 		// An array of inline objects/enums: hoist the item schema, leaving the
 		// array itself in place.
-		value.Items = p.promote(name, value.Items.Value)
+		value.Items = p.promote(name, value.Items.Value, pkg)
 	}
 }
 
 // promote registers a copy of inline as a top-level component named name,
-// records its property order, recurses into it, and returns a $ref to it.
-func (p *preprocessor) promote(name string, inline *openapi3.Schema) *openapi3.SchemaRef {
+// records its property order, recurses into it, and returns a $ref to it. A
+// promoted schema inherits pkg only when it does not explicitly set
+// x-package itself.
+func (p *preprocessor) promote(name string, inline *openapi3.Schema, pkg string) *openapi3.SchemaRef {
 	clone := cloneSchema(inline)
+	if pkg != "" {
+		if clone.Extensions == nil {
+			clone.Extensions = make(map[string]any)
+		}
+		if _, ok := clone.Extensions["x-package"]; !ok {
+			clone.Extensions["x-package"] = pkg
+		}
+	}
 	p.doc.Components.Schemas[name] = &openapi3.SchemaRef{Value: clone}
 
 	if order := schemaPropertyNames(clone); len(order) > 0 {
@@ -237,10 +249,10 @@ func (p *preprocessor) hoistBody(slot *openapi3.SchemaRef, name string) {
 
 	switch {
 	case isNameable(value):
-		*slot = *p.promote(name, value)
+		*slot = *p.promote(name, value, "")
 
 	case isInlineArrayItem(value):
-		value.Items = p.promote(name+"Item", value.Items.Value)
+		value.Items = p.promote(name+"Item", value.Items.Value, "")
 	}
 }
 
