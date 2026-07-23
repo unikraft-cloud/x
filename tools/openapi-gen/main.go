@@ -7,13 +7,11 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"runtime"
-	"strings"
 
 	"github.com/alecthomas/kong"
-	"golang.org/x/sync/errgroup"
 	"unikraft.com/x/kingkong"
+
+	"unikraft.com/x/tools/openapi-gen/generator"
 )
 
 type cli struct {
@@ -34,79 +32,18 @@ func main() {
 		kong.Description("Generate code from templates and an OpenAPI spec"),
 		kong.Help(kingkong.HelpPrinter("")),
 	)
-	err := run(&cli)
+
+	err := generator.Run(generator.Options{
+		Input:     cli.Input,
+		Output:    cli.Output,
+		Var:       cli.Var,
+		Templates: cli.Templates,
+		Package:   cli.Package,
+		Tag:       cli.Tag,
+		Namespace: cli.Namespace,
+		Flatten:   cli.Flatten,
+	})
 	ctx.FatalIfErrorf(err)
-}
-
-func run(cli *cli) error {
-	vars := cli.Var
-	if vars == nil {
-		vars = make(map[string]string)
-	}
-
-	// Store --package in vars for template access
-	if cli.Package != "" {
-		vars["x-package"] = cli.Package
-	}
-
-	// Expose the current package (lowercased namespace) for templates to
-	// distinguish local vs. foreign type references. Derived purely from
-	// --namespace so no spec extension is required.
-	if len(cli.Namespace) == 1 {
-		vars["current_package"] = strings.ToLower(cli.Namespace[0])
-	}
-
-	templateDir := cli.Templates
-	if g := parseGitRef(templateDir); g != nil && g.dir != "" {
-		resolved, cleanup, err := resolveTemplateDirFromGit(g)
-		if err != nil {
-			return fmt.Errorf("error resolving templates from git: %w", err)
-		}
-		defer cleanup()
-		templateDir = resolved
-	}
-
-	generator, err := NewGenerator(cli.Input, vars, templateDir)
-	if err != nil {
-		return fmt.Errorf("error creating generator: %w", err)
-	}
-
-	if cli.Package != "" {
-		generator.FilterByPackage(cli.Package)
-	}
-
-	if len(cli.Tag) > 0 {
-		generator.FilterByTag(cli.Tag)
-	}
-
-	if len(cli.Namespace) > 0 {
-		generator.FilterByNamespace(cli.Namespace)
-	}
-
-	// Flatten namespaced schema names last, after filtering has matched on the
-	// original "Namespace.Name" form.
-	generator.Flatten(flattenModeFromString(cli.Flatten))
-
-	if err := os.MkdirAll(cli.Output, 0o755); err != nil {
-		return fmt.Errorf("error creating output directory: %w", err)
-	}
-
-	files := generator.GenerateAll()
-
-	eg := new(errgroup.Group)
-	eg.SetLimit(runtime.GOMAXPROCS(0))
-	for _, file := range files {
-		eg.Go(func() error {
-			if err := file.Generate(generator.templates, cli.Output); err != nil {
-				return fmt.Errorf("error generating %s: %w", file.Basename, err)
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
 
 	fmt.Println("Code generation completed successfully!")
-	return nil
 }

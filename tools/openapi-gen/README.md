@@ -75,6 +75,28 @@ references.
 
 ## Internals
 
+### Go SDK
+
+The OpenAPI generator can be used as a package:
+
+```golang
+import "unikraft.com/x/tools/openapi-gen/generator"
+
+err := generator.Run(generator.Options{
+	Input:     "path/to/openapi.yaml",
+	Output:    "path/to/output/directory",
+	Var:       map[string]string{
+		"var1": "value1",
+		"var2": "value2",
+	},
+	Templates: "path/to/templates/directory",
+	Package:   "package-name",
+	Tag:       []string{"tag1", "tag2"},
+	Namespace: []string{"namespace-name"},
+	Flatten:   "strip",
+})
+```
+
 ### Processing pipeline
 
 1. **Parse** — Load the OpenAPI spec with `kin-openapi`, extract YAML property ordering from the raw document.

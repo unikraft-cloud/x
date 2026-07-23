@@ -3,7 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package main
+package openapi
 
 import (
 	"strings"
@@ -34,6 +34,23 @@ func flattenModeFromString(s string) flattenMode {
 		return flattenJoin
 	default:
 		return flattenNone
+	}
+}
+
+// Flatten rewrites namespaced schema names (e.g. "Instances.Instance") in the
+// parsed document and in models into valid Go identifiers according to mode
+// ("strip" drops the namespace prefix, "join" concatenates segments, "" is a
+// no-op). It runs after any namespace/tag filtering so those filters can match
+// on the original "Namespace.Name" form, and it updates the given models in
+// place to stay in sync with the rewritten document.
+func (p *Parser) Flatten(models []Model, mode string) {
+	m := flattenModeFromString(mode)
+	if m == flattenNone {
+		return
+	}
+	flattenNamespaces(p.doc, p, m)
+	for i := range models {
+		models[i].SchemaName = flattenName(models[i].SchemaName, m)
 	}
 }
 

@@ -3,7 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package main
+package sections
 
 import (
 	"bytes"
@@ -11,14 +11,17 @@ import (
 	"strings"
 )
 
-type fileSection struct {
-	name    string
-	content []byte
+type Section struct {
+	Name    string
+	Content []byte
 }
 
-func splitFileMarkers(content []byte) ([]byte, []fileSection, bool, error) {
+// Split separates content into an optional preamble and the file sections
+// delimited by "--- <name>" markers.  The boolean reports whether any marker
+// was present.
+func Split(content []byte) ([]byte, []Section, bool, error) {
 	lines := bytes.Split(content, []byte("\n"))
-	sections := []fileSection{}
+	sections := []Section{}
 	var preambleLines [][]byte
 
 	var currentName string
@@ -32,9 +35,9 @@ func splitFileMarkers(content []byte) ([]byte, []fileSection, bool, error) {
 				return nil, nil, true, fmt.Errorf("file marker missing variant")
 			}
 			if currentName != "" {
-				sections = append(sections, fileSection{
-					name:    currentName,
-					content: bytes.Join(currentLines, []byte("\n")),
+				sections = append(sections, Section{
+					Name:    currentName,
+					Content: bytes.Join(currentLines, []byte("\n")),
 				})
 			}
 			currentName = name
@@ -52,9 +55,9 @@ func splitFileMarkers(content []byte) ([]byte, []fileSection, bool, error) {
 		return nil, nil, false, nil
 	}
 	if currentName != "" {
-		sections = append(sections, fileSection{
-			name:    currentName,
-			content: bytes.Join(currentLines, []byte("\n")),
+		sections = append(sections, Section{
+			Name:    currentName,
+			Content: bytes.Join(currentLines, []byte("\n")),
 		})
 	}
 
