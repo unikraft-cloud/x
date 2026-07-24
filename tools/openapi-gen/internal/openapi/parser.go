@@ -293,7 +293,10 @@ type PathOperation struct {
 	Path      string
 	Method    string
 	Operation *openapi3.Operation
-	vars      map[string]string
+	// PathItem is the parent path item, retained so parameter helpers can merge
+	// path-level parameters that every operation on the path inherits.
+	PathItem *openapi3.PathItem
+	vars     map[string]string
 }
 
 func (o PathOperation) Var(key, fallback string) string {
@@ -338,6 +341,7 @@ func (p *Parser) ParseOperations() []PathOperation {
 				Path:      path,
 				Method:    o.method,
 				Operation: o.op,
+				PathItem:  pathItem,
 			})
 		}
 	}

@@ -66,6 +66,23 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["enumBaseGoType"] = tf.enumGoBaseType
 	funcs["goSafeName"] = goSafeName
 
+	// Add TypeScript helpers
+	funcs["schemaToTsType"] = tf.schemaToTsType
+	funcs["paramToTsType"] = tf.paramToTsType
+	funcs["enumTsBaseType"] = tf.enumTsBaseType
+	funcs["enumTsValue"] = tf.enumTsValue
+	funcs["tsSafeName"] = tsSafeName
+	funcs["tsDoc"] = tsDoc
+	funcs["tsTypeRef"] = tf.tsTypeRef
+	funcs["qualifyModels"] = tf.qualifyModels
+
+	// Operation introspection helpers (language-neutral)
+	funcs["pathParameters"] = tf.pathParameters
+	funcs["queryParameters"] = tf.queryParameters
+	funcs["requestJSONSchema"] = tf.requestJSONSchema
+	funcs["requestBodyRequired"] = requestBodyRequired
+	funcs["responseJSONSchema"] = tf.responseJSONSchema
+
 	// Misc
 	funcs["enumValue"] = tf.enumValue
 	funcs["inlineEnums"] = tf.inlineEnums
