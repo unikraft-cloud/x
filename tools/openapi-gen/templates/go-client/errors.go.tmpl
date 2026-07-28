@@ -9,13 +9,13 @@ import (
 // ErrorResponse represents an error response from the API.
 type ErrorResponse struct {
 	// Message is the error message.
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitzero"`
 
 	// Error string is an alternative error field used by some APIs.
-	ErrorMsg string `json:"error,omitempty"`
+	ErrorMsg string `json:"error,omitzero"`
 
 	// Code is an optional error code.
-	Code string `json:"code,omitempty"`
+	Code string `json:"code,omitzero"`
 }
 
 // GetMessage returns the error message from the response.

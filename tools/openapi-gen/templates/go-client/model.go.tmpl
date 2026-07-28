@@ -40,24 +40,24 @@ type {{ $schemaName }} struct {
 {{- if $prop }}
 {{- $propType := schemaToGoType $prop }}
 {{- $required := getPropertyRequired $schema . }}
-	{{ pascalcase . }} {{ if and (not $required) (not (hasPrefix "[]" $propType)) }}*{{ end }}{{ $propType }} `json:"{{ . }}{{ if not $required }},omitempty{{ end }}"`
+	{{ pascalcase . }} {{ if and (not $required) (not (hasPrefix "[]" $propType)) }}*{{ end }}{{ $propType }} `json:"{{ . }},omitzero"`
 {{- end }}
 {{- end }}
 
 	// AdditionalProperties captures any JSON object members that do not map to
 	// an explicit field above.
-	AdditionalProperties map[string]jsontext.Value `json:",inline"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 // UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
-// (tagged `json:",inline"`) is populated with any unknown object members.
+// (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *{{ $schemaName }}) UnmarshalJSON(data []byte) error {
 	type Alias {{ $schemaName }}
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
 // MarshalJSON delegates to go-json-experiment so that AdditionalProperties
-// (tagged `json:",inline"`) is flattened into the parent JSON object.
+// (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m {{ $schemaName }}) MarshalJSON() ([]byte, error) {
 	type Alias {{ $schemaName }}
 	return jsonv2.Marshal((Alias)(m))
