@@ -36,12 +36,36 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 	imageLayers := make([][]ocispec.Descriptor, len(images))
 
 	for i, image := range images {
-		var layers []ocispec.Descriptor
+		// Counted and allocated before any goroutine starts, and then only
+		// written to element by element.
+		//
+		// This used to append as each layer was added, which is a write to the
+		// slice while goroutines already started are reading it, and worse: an
+		// append moves the backing array, so a descriptor written through the
+		// slice as it was lands in an array nothing reads and is lost. Every
+		// image with both a kernel and an initrd -- which is every image with a
+		// root filesystem -- is exactly where the second append reallocates.
+		count := len(image.Roms)
+		for _, has := range []bool{image.Kernel != nil, image.KernelDebug != nil, image.Initrd != nil} {
+			if has {
+				count++
+			}
+		}
+
+		layers := make([]ocispec.Descriptor, count)
+
+		// Each goroutine is handed the one position it owns, so they write
+		// distinct elements of a slice nothing reassigns.
+		at := 0
+		next := func() int {
+			at++
+
+			return at - 1
+		}
 
 		// Kernel layer
 		if image.Kernel != nil {
-			idx := len(layers)
-			layers = append(layers, ocispec.Descriptor{})
+			idx := next()
 			eg.Go(func() error {
 				kernelDesc, err := packageLayer(egCtx, store, image, image.Kernel, ocispec.MediaTypeImageLayer, WellKnownKernelPath)
 				if err != nil {
@@ -58,8 +82,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 
 		// Kernel debug layer
 		if image.KernelDebug != nil {
-			idx := len(layers)
-			layers = append(layers, ocispec.Descriptor{})
+			idx := next()
 			eg.Go(func() error {
 				kernelDesc, err := packageLayer(egCtx, store, image, image.KernelDebug, ocispec.MediaTypeImageLayer, WellKnownKernelDbgPath)
 				if err != nil {
@@ -76,8 +99,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 
 		// Initrd layer
 		if image.Initrd != nil {
-			idx := len(layers)
-			layers = append(layers, ocispec.Descriptor{})
+			idx := next()
 			eg.Go(func() error {
 				initrdDesc, err := packageLayer(egCtx, store, image, image.Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
 				if err != nil {
@@ -94,8 +116,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 
 		// ROM layers
 		for _, rom := range image.Roms {
-			idx := len(layers)
-			layers = append(layers, ocispec.Descriptor{})
+			idx := next()
 			eg.Go(func() error {
 				romDesc, err := packageLayer(egCtx, store, image, rom, MediaTypeRom, "")
 				if err != nil {
