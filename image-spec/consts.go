@@ -36,7 +36,14 @@ const (
 )
 
 const (
-	MediaTypeKernel = "application/vnd.unikraft.kernel.v1"
-	MediaTypeInitrd = "application/vnd.unikraft.initrd.v1"
-	MediaTypeRom    = "application/vnd.unikraft.rom.v1"
+	// MediaTypePrefix is the namespace of every media type Unikraft defines.
+	//
+	// A reader uses it to tell a layer of ours that it does not understand from
+	// a layer of somebody else's that it is right to ignore.
+	MediaTypePrefix = "application/vnd.unikraft."
+
+	MediaTypeKernel      = MediaTypePrefix + "kernel.v1"
+	MediaTypeKernelDebug = MediaTypePrefix + "kernel.dbg.v1"
+	MediaTypeInitrd      = MediaTypePrefix + "initrd.v1"
+	MediaTypeRom         = MediaTypePrefix + "rom.v1"
 )

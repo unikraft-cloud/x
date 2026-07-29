@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"strings"
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
@@ -87,12 +88,61 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, desc ocispec
 				img.Initrd = NewContentStoreFile(store, layer, p)
 			}
 
+		case MediaTypeKernel:
+			img.Kernel = NewContentStoreFile(store, layer, kernelPath(layer, WellKnownKernelPath))
+
+		case MediaTypeKernelDebug:
+			img.KernelDebug = NewContentStoreFile(store, layer, kernelPath(layer, WellKnownKernelDbgPath))
+
+		case MediaTypeInitrd:
+			img.Initrd = NewContentStoreFile(store, layer, kernelPath(layer, WellKnownInitrdPath))
+
 		case MediaTypeRom:
 			img.Roms = append(img.Roms, NewContentStoreFile(store, layer, ""))
+
+		default:
+			// A layer of a kind this reader does not know, in a namespace only
+			// Unikraft writes, is refused rather than skipped.
+			//
+			// Skipping is what a reader must do with a layer of somebody else's
+			// image -- a compressed container layer says nothing about a
+			// unikernel and there are many of them. But skipping one of ours
+			// leaves an image with no kernel and no error, and a caller then
+			// boots nothing at all. That is the worst way for this to fail, and
+			// it is what a reader older than the layer it is given would do.
+			if unikraftMediaType(layer.MediaType) {
+				return nil, fmt.Errorf(
+					"layer %s is a %s, which this version does not understand: it was written by something newer",
+					layer.Digest, layer.MediaType,
+				)
+			}
 		}
 	}
 
 	return img, nil
+}
+
+// unikraftMediaType reports whether a media type is one of Unikraft's own.
+//
+// By prefix, so that a type added after this was built is still recognised as
+// ours and refused loudly rather than passed over.
+func unikraftMediaType(mediaType string) bool {
+	return strings.HasPrefix(mediaType, MediaTypePrefix)
+}
+
+// kernelPath is where a layer says its content belongs, or the well known place
+// for its kind.
+//
+// A layer carrying its kind in its media type has no need of an annotation to
+// say what it is, but one may still say where it goes.
+func kernelPath(layer ocispec.Descriptor, wellKnown string) string {
+	for _, annotation := range []string{AnnotationKernelPath, AnnotationKernelDbgPath, AnnotationKernelInitrdPath} {
+		if p := layer.Annotations[annotation]; p != "" {
+			return p
+		}
+	}
+
+	return wellKnown
 }
 
 // ContentStoreFile is a File backed by a content.Provider and OCI descriptor.
