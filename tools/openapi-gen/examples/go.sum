@@ -109,7 +109,5 @@ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-unikraft.com/cloud/sdk v0.3.1-0.20260724112216-eca98f84e2dc h1:B5U77vmwMrT6+XY+WOuQzBImQO3/n2olsIkP1pD2ZgU=
-unikraft.com/cloud/sdk v0.3.1-0.20260724112216-eca98f84e2dc/go.mod h1:E7cpZs4j++bpi69dl6IlieUeUyie3eH9gdIT8UjFM80=
 unikraft.com/x/log v0.0.0-20260126094137-ab6e717e5679 h1:9SvFmRc/cIRzVaRediX9ihdYdZJJv2kcwHdjosCqyKg=
 unikraft.com/x/log v0.0.0-20260126094137-ab6e717e5679/go.mod h1:f/+5628rnWTnRaRrCDD9mOMf7OV5QmkGIgARlTu4XGE=

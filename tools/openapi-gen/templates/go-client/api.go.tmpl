@@ -25,6 +25,9 @@ var (
 type genericService struct {
 	client *Client
 }
+{{- /* response_envelope=true wraps results in Response[T] (response.go.tmpl);
+   off by default since not every service follows this response shape. */ -}}
+{{- $wrapResponse := eq ($.Var "response_envelope" "false") "true" -}}
 {{- range $tag := uniqueTags $.Operations }}
 
 // {{ pascalcase $tag }}Service provides access to {{ $tag }} operations.
@@ -65,6 +68,7 @@ type {{ pascalcase $op.OperationID }}Opts struct {
 
 {{- /* Determine the success response type */ -}}
 {{- $successResp := "" -}}
+{{- $successHasData := false -}}
 {{- if $op.Responses -}}
 {{- range $entry := sortedResponseCodes $op.Responses -}}
 {{- if or (eq $entry.Code "200") (eq $entry.Code "201") (eq $entry.Code "202") -}}
@@ -73,14 +77,25 @@ type {{ pascalcase $op.OperationID }}Opts struct {
 {{- if .Schema -}}
 {{- if .Schema.Ref -}}
 {{- $successResp = refName .Schema.Ref -}}
+{{- if and .Schema.Value (getProperty .Schema.Value "data") -}}
+{{- $successHasData = true -}}
+{{- else -}}
+{{- $successHasData = false -}}
+{{- end -}}
 {{- else if .Schema.Value -}}
 {{- $successResp = schemaToGoType .Schema.Value -}}
+{{- $successHasData = false -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
+{{- end }}
+{{- /* The envelope's data type is the "...Data" sibling schema, per convention. */ -}}
+{{- $successDataType := $successResp -}}
+{{- if $successHasData -}}
+{{- $successDataType = printf "%sData" $successResp -}}
 {{- end }}
 
 {{- /* Determine request body type */ -}}
@@ -117,7 +132,7 @@ func (s *{{ pascalcase $svcTag }}Service) {{ pascalcase $op.OperationID }}(ctx c
 , opts *{{ pascalcase $op.OperationID }}Opts
 {{- end -}}
 ) (
-{{- if $successResp }}*{{ $successResp }}, {{ end -}}
+{{- if $successResp }}*{{ if $wrapResponse }}Response[{{ $successDataType }}]{{ else }}{{ $successResp }}{{ end }}, {{ end -}}
 error) {
 	pathParams := map[string]string{
 {{- range $op.Parameters }}
@@ -172,7 +187,11 @@ error) {
 {{- end }}
 {{- end }}
 {{ if $successResp }}
+{{- if $wrapResponse }}
+	var result Response[{{ $successDataType }}]
+{{- else }}
 	var result {{ $successResp }}
+{{- end }}
 	_, err = s.client.do(req, &result)
 	if err != nil {
 		return nil, err
