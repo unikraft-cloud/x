@@ -40,7 +40,7 @@ type {{ $schemaName }} struct {
 {{- if $prop }}
 {{- $propType := schemaToGoType $prop }}
 {{- $required := getPropertyRequired $schema . }}
-	{{ pascalcase . }} {{ if and (not $required) (not (hasPrefix "[]" $propType)) }}*{{ end }}{{ $propType }} `json:"{{ . }},omitzero"`
+	{{ pascalcase . }} {{ if and (not $required) (not (hasPrefix "[]" $propType)) }}*{{ end }}{{ $propType }} `json:"{{ . }}{{ if not $required }},omitzero{{ end }}"`
 {{- end }}
 {{- end }}
 

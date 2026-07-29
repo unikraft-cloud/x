@@ -31,7 +31,7 @@ type {{$schemaName}} struct {
 		{{- end}}
 	{{- end}}
 {{- end}}
-	{{$propGoName}} {{$propType}} `json:"{{$propName}},omitzero" yaml:"{{$propName}},omitempty"`
+	{{$propGoName}} {{$propType}} `json:"{{$propName}}{{if not $required}},omitzero{{end}}" yaml:"{{$propName}}{{if not $required}},omitempty{{end}}"`
 {{- end}}
 {{- end}}
 
