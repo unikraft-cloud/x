@@ -7,11 +7,23 @@ package {{$.Var "package" ""}}
 {{- $currentPkg := $.Var "x-package" "" -}}
 {{- $basePkg := $.Var "base_package" "api" -}}
 {{- $extPkgs := dict}}
+{{- /* Only the imports actually used may be emitted: the generator formats
+       its output with gofmt, which does not prune unused imports.  time is
+       reached through a date-time property, and the json packages through the
+       marshallers on a non-enum model. */}}
+{{- $needsTime := false}}
+{{- $needsJSON := false}}
 {{- range $model := .Models}}
+{{- if not $model.Schema.Enum}}
+{{- $needsJSON = true}}
+{{- end}}
 {{- /* Check each property for external type references */}}
 {{- range $propName := propertyNamesOrdered $model.SchemaName $model.Schema}}
 {{- $prop := getProperty $model.Schema $propName}}
 {{- if $prop}}
+{{- if contains "time.Time" (schemaToGoType $prop)}}
+{{- $needsTime = true}}
+{{- end}}
 {{- $typePkg := getTypePackage $prop}}
 {{- if and $typePkg (ne $typePkg $currentPkg)}}
 {{- $_ := set $extPkgs $typePkg true}}
@@ -19,19 +31,25 @@ package {{$.Var "package" ""}}
 {{- end}}
 {{- end}}
 {{- end}}
+{{- if or $needsTime $needsJSON $extPkgs}}
 
 import (
+{{- if $needsTime}}
 	"time"
-
+{{- end}}
+{{- if $needsJSON}}
+{{- if $needsTime}}{{"\n"}}{{end}}
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
+{{- end}}
 {{- if $extPkgs}}
-
+{{- "\n"}}
 {{- range $pkg, $_ := $extPkgs}}
 	{{$pkg}}v1 "{{$basePkg}}/{{$pkg}}/v1"
 {{- end}}
 {{- end}}
 )
+{{- end}}
 
 {{- range $model := .Models}}
 
