@@ -57,11 +57,20 @@ tasks:
   - task: imgtool
   - task: license-check
 
+  openapi-gen-examples-check:
+    desc: "Verify tools/openapi-gen/examples is regenerated from api.yaml"
+    dir: tools/openapi-gen/examples
+    cmds:
+    - go generate ./...
+    - git add -A -- .
+    - git diff --cached --exit-code -- .
+
   # ci tasks
 
   ci/check:
   - task: forall
     vars: { gotask: static-check }
+  - task: openapi-gen-examples-check
 
   ci/test:
   - task: forall

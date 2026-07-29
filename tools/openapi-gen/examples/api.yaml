@@ -1,0 +1,170 @@
+# Example spec for tools/openapi-gen's go-server and go-client templates.
+openapi: 3.0.3
+info:
+  title: Widgets Example API
+  version: "1.0.0"
+paths:
+  /widgets:
+    get:
+      operationId: ListWidgets
+      tags: [Widgets]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWidgetsResponse'
+        default:
+          description: default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWidgetsResponse'
+    post:
+      operationId: CreateWidget
+      tags: [Widgets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWidgetRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWidgetResponse'
+        default:
+          description: default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWidgetResponse'
+  /widgets/{id}:
+    get:
+      operationId: GetWidget
+      tags: [Widgets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWidgetResponse'
+        default:
+          description: default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWidgetResponse'
+    delete:
+      operationId: DeleteWidget
+      tags: [Widgets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteWidgetResponse'
+        default:
+          description: default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteWidgetResponse'
+  /widgets/{id}/events:
+    get:
+      operationId: WatchWidget
+      tags: [Widgets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        default:
+          description: default
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/Widget'
+components:
+  schemas:
+    Widget:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        size:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    CreateWidgetRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+    ListWidgetsResponseData:
+      type: object
+      properties:
+        widgets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Widget'
+    ListWidgetsResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ListWidgetsResponseData'
+    CreateWidgetResponseData:
+      type: object
+      properties:
+        widget:
+          $ref: '#/components/schemas/Widget'
+    CreateWidgetResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CreateWidgetResponseData'
+    GetWidgetResponseData:
+      type: object
+      properties:
+        widget:
+          $ref: '#/components/schemas/Widget'
+    GetWidgetResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/GetWidgetResponseData'
+    DeleteWidgetResponse:
+      type: object
+      properties: {}
