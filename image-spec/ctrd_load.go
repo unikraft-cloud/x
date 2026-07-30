@@ -22,7 +22,7 @@ import (
 )
 
 func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
-	mfsts, err := manifest(ctx, store, desc, platform)
+	mfsts, err := Manifests(ctx, store, desc, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
 	}
@@ -30,7 +30,7 @@ func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descr
 }
 
 func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
-	mfsts, err := manifest(ctx, store, desc, platform)
+	mfsts, err := Manifests(ctx, store, desc, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
 	}
