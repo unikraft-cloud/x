@@ -17,7 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - tool: protoc-gen-go-gin
         - tool: protoc-gen-go-struct
 
     steps:

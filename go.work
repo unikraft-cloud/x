@@ -37,6 +37,5 @@ use (
 	./tools/license-check
 	./tools/openapi-gen
 	./tools/openapi-gen/examples
-	./tools/protoc-gen-go-gin
 	./tools/protoc-gen-go-struct
 )
