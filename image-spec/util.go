@@ -18,9 +18,12 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// manifest is a forked version of images.Manifest that returns all matching
+// Manifests is a forked version of images.Manifest that returns all matching
 // manifests instead of just the first one.
-func manifest(ctx context.Context, provider content.Provider, image ocispec.Descriptor, platform platforms.MatchComparer) ([]ocispec.Manifest, error) {
+//
+// The manifests are ordered by how well they match the given platform, best
+// first.
+func Manifests(ctx context.Context, provider content.Provider, image ocispec.Descriptor, platform platforms.MatchComparer) ([]ocispec.Manifest, error) {
 	var (
 		m        []ocispec.Manifest
 		wasIndex bool
