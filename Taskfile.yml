@@ -27,12 +27,6 @@ tasks:
         module: '{{.ITEM}}'
         gotask: '{{.gotask}}'
 
-  protoc-gen-go-gin:
-  - task: go:build
-    vars:
-      go_module: unikraft.com/x/tools/protoc-gen-go-gin
-      package: ./tools/protoc-gen-go-gin
-
   protoc-gen-go-struct:
   - task: go:build
     vars:
@@ -52,7 +46,6 @@ tasks:
       package: ./tools/license-check
 
   tools:
-  - task: protoc-gen-go-gin
   - task: protoc-gen-go-struct
   - task: imgtool
   - task: license-check

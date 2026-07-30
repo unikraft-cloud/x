@@ -1,6 +1,11 @@
 # `protoc-gen-go-struct`
 
-A plugin for the Protocol Buffers compiler (`protoc`).  It generates Go struct
+> [!WARNING]
+>
+> This tool is deprecated. Instead, consumers should aim to use the OpenAPI
+> generator in <../openapi-gen/>.
+
+A plugin for the Protocol Buffers compiler (`protoc`). It generates Go struct
 definitions from your `.proto` message definitions, making it easy to work with
 Protobuf messages as native Go types.
 
@@ -64,9 +69,9 @@ You can also use [Buf](https://buf.build) to generate Go structs with this plugi
 ```yaml
 version: v2
 plugins:
-- local: ["go", "run", "unikraft.com/x/tools/protoc-gen-go-struct@latest"]
-  out: gen/go
-  opt: paths=source_relative
+  - local: ["go", "run", "unikraft.com/x/tools/protoc-gen-go-struct@latest"]
+    out: gen/go
+    opt: paths=source_relative
 ```
 
 Then run:
@@ -75,14 +80,12 @@ Then run:
 buf generate
 ```
 
-
 This will generate Go struct files in the `gen/go` directory.
 
 ## Notes
 
 - This plugin is intended for simple use cases where you want plain Go structs from Protobuf messages.
 - It does not generate serialization or RPC code—only struct definitions.
-
 
 ## License
 

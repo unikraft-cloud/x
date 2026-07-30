@@ -9,7 +9,9 @@ import (
 	"bytes"
 	"embed"
 	"flag"
+	"fmt"
 	"maps"
+	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -70,6 +72,8 @@ type EnumValue struct {
 var tmpl embed.FS
 
 func main() {
+	fmt.Fprintln(os.Stderr, "warning: "+pluginName+" is deprecated; use the OpenAPI generator in tools/openapi-gen instead")
+
 	var flags flag.FlagSet
 	basePackage := flags.String("base_package", "", "Base package to prefix imports")
 	nativeTime := flags.Bool("native_time", false, "Use time.Time instead of timestamppb.Timestamp")
