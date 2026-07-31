@@ -126,6 +126,10 @@ const (
 	operatorNotEqual
 	operatorMatches
 	operatorNotMatches
+	operatorGreater
+	operatorLess
+	operatorGreaterEqual
+	operatorLessEqual
 )
 
 func (op operator) String() string {
@@ -140,6 +144,14 @@ func (op operator) String() string {
 		return "~="
 	case operatorNotMatches:
 		return "!~="
+	case operatorGreater:
+		return ">"
+	case operatorLess:
+		return "<"
+	case operatorGreaterEqual:
+		return ">="
+	case operatorLessEqual:
+		return "<="
 	}
 
 	return "unknown"
@@ -198,7 +210,7 @@ func (m selector) Match(adaptor Adaptor) (bool, error) {
 	if !present {
 		return false, &FieldNotFoundError{Path: fullFieldpath(root, m.fieldpath)}
 	}
-	value := adaptor.Value()
+	value := adaptor.String()
 	entries := adaptor.Entries()
 	present = value != "" || entries != nil
 
@@ -206,13 +218,31 @@ func (m selector) Match(adaptor Adaptor) (bool, error) {
 	case operatorPresent:
 		return present, nil
 	case operatorEqual:
+		if result, ok := adaptor.Compare(m.value); ok {
+			return present && result == 0, nil
+		}
 		return present && value == m.value, nil
 	case operatorNotEqual:
+		if result, ok := adaptor.Compare(m.value); ok {
+			return result != 0, nil
+		}
 		return value != m.value, nil
 	case operatorMatches:
 		return m.re.MatchString(value), nil
 	case operatorNotMatches:
 		return !m.re.MatchString(value), nil
+	case operatorGreater:
+		result, ok := adaptor.Compare(m.value)
+		return ok && result > 0, nil
+	case operatorGreaterEqual:
+		result, ok := adaptor.Compare(m.value)
+		return ok && result >= 0, nil
+	case operatorLess:
+		result, ok := adaptor.Compare(m.value)
+		return ok && result < 0, nil
+	case operatorLessEqual:
+		result, ok := adaptor.Compare(m.value)
+		return ok && result <= 0, nil
 	default:
 		return false, nil
 	}

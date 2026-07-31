@@ -28,7 +28,7 @@ func collectKeys(filter Filter, keys *[][]string) {
 		// For leaf filters, we need to extract the field path.
 		// The filter will call the adaptor with the field path when matching.
 		// We use a fake adaptor to capture the field path.
-		_, _ = filter.Match(AdapterFunc(func(fieldpath []string) (string, []string, bool) {
+		_, _ = filter.Match(AdapterFunc(func(fieldpath []string) (any, []string, bool) {
 			// Make a copy of the fieldpath to avoid aliasing issues
 			pathCopy := make([]string, len(fieldpath))
 			copy(pathCopy, fieldpath)
@@ -119,7 +119,7 @@ func restrictCollect(filter Filter, key string, candidates []string) map[string]
 		referencesKey := false
 		for _, candidate := range candidates {
 			var found bool
-			matched, _ := filter.Match(AdapterFunc(func(fieldpath []string) (string, []string, bool) {
+			matched, _ := filter.Match(AdapterFunc(func(fieldpath []string) (any, []string, bool) {
 				if len(fieldpath) == 1 && fieldpath[0] == key {
 					found = true
 					return candidate, nil, true

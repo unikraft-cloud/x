@@ -18,13 +18,15 @@ func TestFilters(t *testing.T) {
 	type cEntry struct {
 		Name         string
 		Other        string
+		Score        int64
 		Labels       map[string]string
 		NestedLabels map[string]map[string]string
 	}
 
 	corpusS := []cEntry{
 		{
-			Name: "foo",
+			Name:  "foo",
+			Score: 10,
 			Labels: map[string]string{
 				"foo": "true",
 			},
@@ -38,7 +40,8 @@ func TestFilters(t *testing.T) {
 			},
 		},
 		{
-			Name: "bar",
+			Name:  "bar",
+			Score: 3,
 			NestedLabels: map[string]map[string]string{
 				"x": {
 					"foo": "true",
@@ -97,12 +100,14 @@ func TestFilters(t *testing.T) {
 	// adapt shows an example of how to build an adaptor function for a type.
 	adapt := func(o any) Adaptor {
 		obj := o.(cEntry)
-		return AdapterFunc(func(fieldpath []string) (string, []string, bool) {
+		return AdapterFunc(func(fieldpath []string) (any, []string, bool) {
 			switch fieldpath[0] {
 			case "name":
 				return obj.Name, nil, true
 			case "other":
 				return obj.Other, nil, true
+			case "score":
+				return obj.Score, nil, true
 			case "labels":
 				if len(fieldpath) < 2 {
 					return "", slices.Collect(maps.Keys(obj.Labels)), true
@@ -418,6 +423,37 @@ func TestFilters(t *testing.T) {
 			input: "nestedlabels.*.*!=true",
 		},
 		{
+			name:  "ScoreGreater",
+			input: "score>5",
+			expected: []any{
+				corpus[0],
+			},
+		},
+		{
+			name:  "ScoreGreaterEqual",
+			input: "score>=3",
+			expected: []any{
+				corpus[0],
+				corpus[1],
+			},
+		},
+		{
+			name:  "ScoreLess",
+			input: "score<5",
+			expected: []any{
+				corpus[1],
+				corpus[2], corpus[3], corpus[4], corpus[5], corpus[6], corpus[7], corpus[8], // Score: 0
+			},
+		},
+		{
+			name:  "ScoreLessEqual",
+			input: "score<=3",
+			expected: []any{
+				corpus[1],
+				corpus[2], corpus[3], corpus[4], corpus[5], corpus[6], corpus[7], corpus[8], // Score: 0
+			},
+		},
+		{
 			name:     "MissingField",
 			input:    "missing.field==value",
 			errField: "missing.field",
@@ -477,6 +513,10 @@ func TestOperatorStrings(t *testing.T) {
 		{operatorNotEqual, "!="},
 		{operatorMatches, "~="},
 		{operatorNotMatches, "!~="},
+		{operatorGreater, ">"},
+		{operatorLess, "<"},
+		{operatorGreaterEqual, ">="},
+		{operatorLessEqual, "<="},
 		{10, "unknown"},
 	} {
 		require.Equal(t, testcase.expected, testcase.op.String())
