@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/kong v1.16.0
 	github.com/ettle/strcase v0.2.0
 	github.com/getkin/kin-openapi v0.140.0
-	github.com/go-git/go-git/v5 v5.19.1
+	github.com/go-git/go-git/v5 v5.19.2
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	golang.org/x/sync v0.21.0
@@ -61,9 +61,9 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	unikraft.com/x/colors v0.0.0-20260105163520-49d071286efd // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20250930190923-15fda4a56ffe // indirect
