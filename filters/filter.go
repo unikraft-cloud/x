@@ -218,13 +218,13 @@ func (m selector) Match(adaptor Adaptor) (bool, error) {
 	case operatorPresent:
 		return present, nil
 	case operatorEqual:
-		if result, ok := adaptor.Compare(m.value); ok {
-			return present && result == 0, nil
+		if result, ok := adaptor.Equals(m.value); ok {
+			return present && result, nil
 		}
 		return present && value == m.value, nil
 	case operatorNotEqual:
-		if result, ok := adaptor.Compare(m.value); ok {
-			return result != 0, nil
+		if result, ok := adaptor.Equals(m.value); ok {
+			return !result, nil
 		}
 		return value != m.value, nil
 	case operatorMatches:

@@ -22,6 +22,7 @@ type Adaptor interface {
 	Select(fieldpath []string) (Adaptor, bool)
 	String() string
 	Value() any
+	Equals(other string) (bool, bool)
 	Compare(other string) (int, bool)
 	Entries() []string
 }
@@ -61,6 +62,10 @@ func (f AdapterFunc) Value() any {
 		return nil
 	}
 	return value
+}
+
+func (f AdapterFunc) Equals(other string) (bool, bool) {
+	return equalsBasic(f.Value(), other)
 }
 
 func (f AdapterFunc) Compare(other string) (int, bool) {
@@ -111,6 +116,10 @@ func (a *prefixAdaptor) Value() any {
 	return exists.Value()
 }
 
+func (a *prefixAdaptor) Equals(other string) (bool, bool) {
+	return equalsBasic(a.Value(), other)
+}
+
 func (a *prefixAdaptor) Compare(other string) (int, bool) {
 	return compareBasic(a.Value(), other)
 }
@@ -156,10 +165,13 @@ func compareBasic(a any, other string) (int, bool) {
 		if bv, ok := b.(float64); ok {
 			return cmp.Compare(av, bv), true
 		}
-	case string:
-		if bv, ok := b.(string); ok {
-			return cmp.Compare(av, bv), true
-		}
 	}
 	return 0, false
+}
+
+func equalsBasic(a any, other string) (bool, bool) {
+	if result, ok := compareBasic(a, other); ok {
+		return result == 0, true
+	}
+	return fmt.Sprint(a) == other, true
 }

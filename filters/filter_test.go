@@ -454,6 +454,10 @@ func TestFilters(t *testing.T) {
 			},
 		},
 		{
+			name:  "NameOrderingUnsupported",
+			input: "name>bar",
+		},
+		{
 			name:     "MissingField",
 			input:    "missing.field==value",
 			errField: "missing.field",
