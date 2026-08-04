@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/denisbrodbeck/machineid v1.0.1
-	github.com/gofrs/uuid/v5 v5.4.0
+	github.com/gofrs/uuid/v5 v5.5.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/sys v0.47.0
 	tailscale.com v1.98.8
