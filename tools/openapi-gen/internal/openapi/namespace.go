@@ -64,6 +64,18 @@ func schemaNamespace(name string) string {
 	return prefix
 }
 
+// schemaNamespaceOf returns the namespace a schema was named under. Flattening
+// rewrites the names it would otherwise be read from, so consult what Flatten
+// recorded before falling back to the name itself.
+func (p *Parser) schemaNamespaceOf(name string) string {
+	if p != nil {
+		if namespace, ok := p.namespaces[name]; ok {
+			return namespace
+		}
+	}
+	return schemaNamespace(name)
+}
+
 // flattenName transforms a possibly-namespaced schema name per mode. Names
 // without a namespace prefix are returned unchanged, making the operation
 // idempotent and safe to apply more than once.
@@ -101,16 +113,31 @@ func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
 
 	// Rename component schema keys, flattening namespaced names (e.g.
 	// "Instances.Instance" -> "Instance" or "InstancesInstance" per mode) into
-	// valid Go identifiers. This function only renames; it records no
-	// namespace/package info. Cross-package qualification, where needed, is
-	// handled separately via the "x-package" extension and the
+	// valid Go identifiers. The namespace each name carried is recorded on the
+	// parser, since the flattened name no longer shows it and consumers such as
+	// goUnions need it to qualify a type from another namespace. Package-level
+	// qualification is handled separately via the "x-package" extension and the
 	// "current_package" template var (see getTypePackage).
 	renamed := make(openapi3.Schemas, len(doc.Components.Schemas))
+	namespaces := map[string]string{}
 	for name, ref := range doc.Components.Schemas {
 		flat := flattenName(name, mode)
 		renamed[flat] = ref
+		namespace := schemaNamespace(name)
+		if namespace == "" && parser != nil {
+			// Flattening is idempotent, so a second pass sees the names an
+			// earlier one already stripped the namespace from. Carry over what
+			// it recorded rather than forgetting where the schema came from.
+			namespace = parser.namespaces[name]
+		}
+		if namespace != "" {
+			namespaces[flat] = namespace
+		}
 	}
 	doc.Components.Schemas = renamed
+	if parser != nil {
+		parser.namespaces = namespaces
+	}
 
 	// Rename registered property orders.
 	if parser != nil && parser.propertyOrders != nil {
