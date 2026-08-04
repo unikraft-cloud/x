@@ -295,6 +295,14 @@ func (p *parser) operator() (operator, error) {
 			return operatorMatches, nil
 		case "!~=":
 			return operatorNotMatches, nil
+		case ">":
+			return operatorGreater, nil
+		case "<":
+			return operatorLess, nil
+		case ">=":
+			return operatorGreaterEqual, nil
+		case "<=":
+			return operatorLessEqual, nil
 		default:
 			return 0, p.mkerr(pos, "unsupported operator %q", s)
 		}
@@ -302,7 +310,7 @@ func (p *parser) operator() (operator, error) {
 		return 0, p.mkerr(pos, "%s", p.scanner.err)
 	}
 
-	return 0, p.mkerr(pos, `expected an operator ("="|"=="|"!="|"~=")`)
+	return 0, p.mkerr(pos, `expected an operator ("="|"=="|"!="|"~="|">"|"<"|">="|"<=")`)
 }
 
 func (p *parser) value(allowAltQuotes bool) (string, error) {
