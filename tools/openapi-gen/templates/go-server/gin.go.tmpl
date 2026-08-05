@@ -6,25 +6,21 @@
 {{template "header" .}}
 package {{$.Var "package" ""}}
 
-import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"time"
-
-	"github.com/gin-gonic/gin"
-
-	"unikraft.com/cloud/sdk/platform"
-	"unikraft.com/x/log"
-{{- /* Collect external packages referenced by this tag's operations */}}
+{{- /* Collect external packages referenced by this tag's operations, along
+       with the feature flags that decide which imports are actually needed.
+       The generator only runs gofmt over its output, which does not prune
+       unused imports, so anything emitted here has to be used. */}}
 {{- $extPkgs := dict}}
+{{- $hasSSE := false}}
+{{- $hasBody := false}}
+{{- $hasArrayBody := false}}
+{{- $hasBinds := false}}
 {{- range $allOps}}
 {{- if has $tagName .Operation.Tags}}
 {{- $op := .Operation}}
 {{- if and $op.RequestBody $op.RequestBody.Value}}
+{{- $hasBody = true}}
+{{- $hasBinds = true}}
 {{- $content := index $op.RequestBody.Value.Content "application/json"}}
 {{- if $content}}
 {{- if $content.Schema.Ref}}
@@ -32,6 +28,7 @@ import (
 {{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
 {{- else if $content.Schema.Value}}
 {{- if and $content.Schema.Value.Type (eq (getType $content.Schema.Value) "array")}}
+{{- $hasArrayBody = true}}
 {{- if $content.Schema.Value.Items.Ref}}
 {{- $p := getTypePackage $content.Schema.Value.Items}}
 {{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
@@ -40,27 +37,28 @@ import (
 {{- end}}
 {{- end}}
 {{- end}}
-{{- if $op.Responses}}
-{{- $defaultResp := $op.Responses.Default}}
-{{- if and $defaultResp $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
-{{- if $respContent}}
-{{- if $respContent.Schema.Ref}}
-{{- $p := getTypePackage $respContent.Schema}}
+{{- /* The success response is whatever responseJSONSchema/responseSSESchema
+       pick, which is the lowest 2xx or else `default`.  Every site below
+       resolves it the same way, so the imports cannot disagree with the
+       signatures they are emitted for. */}}
+{{- $respSchema := responseJSONSchema $op}}
+{{- if and $respSchema $respSchema.Ref}}
+{{- $p := getTypePackage $respSchema}}
 {{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
 {{- end}}
-{{- end}}
-{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
-{{- if $sseContent}}
-{{- if $sseContent.Schema.Ref}}
-{{- $p := getTypePackage $sseContent.Schema}}
+{{- $sseSchema := responseSSESchema $op}}
+{{- if $sseSchema}}
+{{- $hasSSE = true}}
+{{- if $sseSchema.Ref}}
+{{- $p := getTypePackage $sseSchema}}
 {{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
-{{- end}}
-{{- end}}
 {{- end}}
 {{- end}}
 {{- /* Also scan query/path parameters for $ref types */}}
 {{- range $op.Parameters}}
+{{- if or (eq .Value.In "path") (eq .Value.In "query")}}
+{{- $hasBinds = true}}
+{{- end}}
 {{- if .Value.Schema}}
 {{- if .Value.Schema.Ref}}
 {{- $p := getTypePackage .Value.Schema}}
@@ -70,8 +68,37 @@ import (
 {{- end}}
 {{- end}}
 {{- end}}
+
+import (
+{{- if $hasBody}}
+	"bytes"
+{{- end}}
+{{- if $hasSSE}}
+	"context"
+{{- end}}
+{{- if or $hasSSE $hasArrayBody}}
+	"encoding/json"
+{{- end}}
+{{- if $hasSSE}}
+	"fmt"
+{{- end}}
+{{- if $hasBody}}
+	"io"
+{{- end}}
+{{- if $hasBinds}}
+	"net/http"
+{{- end}}
+	"time"
+
+	"github.com/gin-gonic/gin"
+{{- if or $hasBinds $hasSSE $extPkgs}}
+{{- "\n"}}
+{{- if or $hasBinds $hasSSE}}
+	"unikraft.com/x/log"
+{{- end}}
 {{- range $pkg, $_ := $extPkgs}}
 	{{$pkg}}v1 "{{$basePkg}}/{{$pkg}}/v1"
+{{- end}}
 {{- end}}
 )
 
@@ -117,34 +144,18 @@ type {{$serviceName}} interface {
 {{- end}}
 {{- $responseType := ""}}
 {{- $responseSchema := ""}}
-{{- $responseHasData := false}}
 {{- $isSSE := false}}
-{{- if $op.Responses}}
-{{- $defaultResp := $op.Responses.Default}}
-{{- if $defaultResp}}
-{{- if $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
-{{- if $respContent}}
-{{- if $respContent.Schema.Ref}}
-{{- $responseType = refName $respContent.Schema.Ref}}
-{{- $responseSchema = $respContent.Schema}}
-{{- if and $respContent.Schema.Value (getProperty $respContent.Schema.Value "data")}}
-{{- $responseHasData = true}}
+{{- $respSchema := responseJSONSchema $op}}
+{{- if and $respSchema $respSchema.Ref}}
+{{- $responseType = refName $respSchema.Ref}}
+{{- $responseSchema = $respSchema}}
 {{- end}}
-{{- end}}
-{{- end}}
-{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
-{{- if $sseContent}}
+{{- $sseSchema := responseSSESchema $op}}
+{{- if $sseSchema}}
 {{- $isSSE = true}}
-{{- if $sseContent.Schema.Ref}}
-{{- $responseType = refName $sseContent.Schema.Ref}}
-{{- $responseSchema = $sseContent.Schema}}
-{{- if and $sseContent.Schema.Value (getProperty $sseContent.Schema.Value "data")}}
-{{- $responseHasData = true}}
-{{- end}}
-{{- end}}
-{{- end}}
-{{- end}}
+{{- if $sseSchema.Ref}}
+{{- $responseType = refName $sseSchema.Ref}}
+{{- $responseSchema = $sseSchema}}
 {{- end}}
 {{- end}}
 {{- if $op.Description}}
@@ -162,13 +173,21 @@ type {{$serviceName}} interface {
 {{- if and $respPkg (ne $respPkg $currentPkg)}}
 {{- $qualifiedRespType = printf "%sv1.%s" $respPkg $responseType}}
 {{- end}}
+{{- /* An operation may answer with no JSON body at all -- 204, or a media type
+       this generator does not model.  There is no named type to point at then,
+       so the service hands back `any` rather than the `*` that would not
+       parse. */}}
+{{- $respGoType := "any"}}
+{{- if $qualifiedRespType}}
+{{- $respGoType = printf "*%s" $qualifiedRespType}}
+{{- end}}
 {{- if $isSSE}}
-	{{$op.OperationID}}(g *gin.Context, cancel context.CancelFunc{{range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}{{if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}) <-chan *{{$qualifiedRespType}}
+	{{$op.OperationID}}(g *gin.Context, cancel context.CancelFunc{{range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}{{if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}) <-chan {{$respGoType}}
 {{- else}}
 	{{$op.OperationID}}(g *gin.Context
 {{- range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}
 {{- if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}
-{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) (*platform.Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}], int, error)
+{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) ({{$respGoType}}, int, error)
 {{- end}}
 {{- end}}
 {{- end}}
@@ -234,27 +253,29 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- end}}
 {{- $responseType := ""}}
 {{- $responseSchema := ""}}
+{{- $responseHasOpTime := false}}
 {{- $isSSE := false}}
-{{- if $op.Responses}}
-{{- $defaultResp := $op.Responses.Default}}
-{{- if $defaultResp}}
-{{- if $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
-{{- if $respContent}}
-{{- if $respContent.Schema.Ref}}
-{{- $responseType = refName $respContent.Schema.Ref}}
-{{- $responseSchema = $respContent.Schema}}
+{{- $respSchema := responseJSONSchema $op}}
+{{- if and $respSchema $respSchema.Ref}}
+{{- $responseType = refName $respSchema.Ref}}
+{{- $responseSchema = $respSchema}}
+{{- /* Only fill op_time_us in when the field is plainly assignable: required,
+       so the model is a value rather than a pointer, and a uint64, since an
+       integer property may carry any format.  Anything else is the service's
+       to set. */}}
+{{- if $respSchema.Value}}
+{{- $opTime := getProperty $respSchema.Value "op_time_us"}}
+{{- if and $opTime (getPropertyRequired $respSchema.Value "op_time_us") (eq (schemaToGoType $opTime) "uint64")}}
+{{- $responseHasOpTime = true}}
 {{- end}}
 {{- end}}
-{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
-{{- if $sseContent}}
+{{- end}}
+{{- $sseSchema := responseSSESchema $op}}
+{{- if $sseSchema}}
 {{- $isSSE = true}}
-{{- if $sseContent.Schema.Ref}}
-{{- $responseType = refName $sseContent.Schema.Ref}}
-{{- $responseSchema = $sseContent.Schema}}
-{{- end}}
-{{- end}}
-{{- end}}
+{{- if $sseSchema.Ref}}
+{{- $responseType = refName $sseSchema.Ref}}
+{{- $responseSchema = $sseSchema}}
 {{- end}}
 {{- end}}
 {{- /* Qualify request body type */}}
@@ -270,8 +291,16 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- $qualifiedRespType = printf "%sv1.%s" $respPkg $responseType}}
 {{- end}}
 
+{{- /* `now` is read by the error envelopes emitted on a bind failure and by
+       the op_time_us fill-in after a non-SSE service call.  An SSE operation
+       with no parameters and no body reads it nowhere, and Go rejects the
+       unused declaration. */}}
+{{- $needsNow := or (not $isSSE) $pathParams $hasRequestBody $queryParams}}
+
 func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Context) {
+{{- if $needsNow}}
 	now := time.Now()
+{{- end}}
 {{- /* Bind path params */}}
 {{- if $pathParams}}
 
@@ -288,11 +317,11 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			g.JSON(http.StatusBadRequest, gin.H{
+				"status":     "error",
+				"message":    err.Error(),
+				"errors":     []gin.H{{"{{"}}"status": http.StatusBadRequest{{"}}"}},
+				"op_time_us": uint64(time.Since(now).Microseconds()),
 			})
 		}
 		return
@@ -309,11 +338,11 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			g.JSON(http.StatusBadRequest, gin.H{
+				"status":     "error",
+				"message":    err.Error(),
+				"errors":     []gin.H{{"{{"}}"status": http.StatusBadRequest{{"}}"}},
+				"op_time_us": uint64(time.Since(now).Microseconds()),
 			})
 		}
 		return
@@ -334,11 +363,11 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			g.JSON(http.StatusBadRequest, gin.H{
+				"status":     "error",
+				"message":    err.Error(),
+				"errors":     []gin.H{{"{{"}}"status": http.StatusBadRequest{{"}}"}},
+				"op_time_us": uint64(time.Since(now).Microseconds()),
 			})
 		}
 		return
@@ -357,11 +386,11 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			g.JSON(http.StatusBadRequest, gin.H{
+				"status":     "error",
+				"message":    err.Error(),
+				"errors":     []gin.H{{"{{"}}"status": http.StatusBadRequest{{"}}"}},
+				"op_time_us": uint64(time.Since(now).Microseconds()),
 			})
 		}
 		return
@@ -388,11 +417,11 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			g.JSON(http.StatusBadRequest, gin.H{
+				"status":     "error",
+				"message":    err.Error(),
+				"errors":     []gin.H{{"{{"}}"status": http.StatusBadRequest{{"}}"}},
+				"op_time_us": uint64(time.Since(now).Microseconds()),
 			})
 		}
 		return
@@ -487,18 +516,20 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 {{- if $hasRequestBody}}{{if $requestBodyIsArray}}, body{{else}}, &req{{end}}{{end}}
 {{- range $queryParams}},
 		query.{{pascalcase .Name}}{{end}})
+{{- if $responseHasOpTime}}
 	if resp != nil {
- 		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
- 	}
+		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
+	}
+{{- end}}
 	if err != nil {
 		if handler.resp != nil {
 			handler.resp(g, code, err)
 		} else {
-			g.JSON(code, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: uint64(code){{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
+			g.JSON(code, gin.H{
+				"status":     "error",
+				"message":    err.Error(),
+				"errors":     []gin.H{{"{{"}}"status": code{{"}}"}},
+				"op_time_us": uint64(time.Since(now).Microseconds()),
 			})
 		}
 	} else if handler.resp != nil {

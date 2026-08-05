@@ -82,6 +82,7 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["requestJSONSchema"] = tf.requestJSONSchema
 	funcs["requestBodyRequired"] = requestBodyRequired
 	funcs["responseJSONSchema"] = tf.responseJSONSchema
+	funcs["responseSSESchema"] = tf.responseSSESchema
 
 	// Misc
 	funcs["enumValue"] = tf.enumValue

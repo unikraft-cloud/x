@@ -14,6 +14,9 @@ import (
 // jsonMediaType is the request/response content type generators care about.
 const jsonMediaType = "application/json"
 
+// sseMediaType is the response content type of a server-sent event stream.
+const sseMediaType = "text/event-stream"
+
 // resolveParam returns the concrete Parameter for a ParameterRef, resolving a
 // $ref against components/parameters when the value is not already populated.
 func (tf *templateFuncs) resolveParam(ref *openapi3.ParameterRef) *openapi3.Parameter {
@@ -111,32 +114,47 @@ func requestBodyRequired(op *openapi3.Operation) bool {
 	return op.RequestBody.Value.Required
 }
 
-// responseJSONSchema returns the schema of an operation's success response
-// (preferring 2xx, falling back to `default`), or nil when there is no JSON
-// body to decode.
-func (tf *templateFuncs) responseJSONSchema(op *openapi3.Operation) *openapi3.SchemaRef {
+// successResponse returns an operation's success response, preferring the
+// lowest 2xx code and falling back to `default`, or nil when there is none.
+func successResponse(op *openapi3.Operation) *openapi3.ResponseRef {
 	if op == nil || op.Responses == nil {
 		return nil
 	}
-	// Prefer the lowest 2xx code, then `default`.
-	var chosen *openapi3.ResponseRef
 	for _, entry := range sortedResponseCodes(op.Responses) {
 		if strings.HasPrefix(entry.Code, "2") {
-			chosen = entry.Ref
-			break
+			return entry.Ref
 		}
 	}
-	if chosen == nil {
-		chosen = op.Responses.Value("default")
-	}
+	return op.Responses.Value("default")
+}
+
+// responseSchemaOfType returns the schema of an operation's success response
+// under the given media type, or nil when it carries no such body.
+func responseSchemaOfType(op *openapi3.Operation, mediaType string) *openapi3.SchemaRef {
+	chosen := successResponse(op)
 	if chosen == nil || chosen.Value == nil {
 		return nil
 	}
-	mt := chosen.Value.Content.Get(jsonMediaType)
+	mt := chosen.Value.Content.Get(mediaType)
 	if mt == nil {
 		return nil
 	}
 	return mt.Schema
+}
+
+// responseJSONSchema returns the schema of an operation's success response
+// (preferring 2xx, falling back to `default`), or nil when there is no JSON
+// body to decode.
+func (tf *templateFuncs) responseJSONSchema(op *openapi3.Operation) *openapi3.SchemaRef {
+	return responseSchemaOfType(op, jsonMediaType)
+}
+
+// responseSSESchema returns the schema of the events streamed by an
+// operation's success response, or nil when it is not an event stream.  The
+// response is selected on the same terms as responseJSONSchema so that a
+// template cannot disagree with itself about which response it is looking at.
+func (tf *templateFuncs) responseSSESchema(op *openapi3.Operation) *openapi3.SchemaRef {
+	return responseSchemaOfType(op, sseMediaType)
 }
 
 // tsTypeRef renders a *openapi3.SchemaRef as a TypeScript type: a $ref becomes
