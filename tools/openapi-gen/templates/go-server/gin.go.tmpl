@@ -75,6 +75,16 @@ import (
 {{- end}}
 )
 
+// Ensure imports are used.
+var (
+	_ = bytes.NewReader
+	_ = fmt.Sprintf
+	_ = json.Marshal
+	_ io.Reader
+	_ http.Client
+	_ context.Context
+	_ = log.New
+)
 
 {{- $serviceName := $tagName}}
 
