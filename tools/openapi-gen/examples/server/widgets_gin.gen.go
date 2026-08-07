@@ -13,7 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"unikraft.com/cloud/sdk/platform"
 	"unikraft.com/x/log"
 )
 
@@ -30,10 +29,10 @@ var (
 
 // Widgets provides the API handlers.
 type Widgets interface {
-	CreateWidget(g *gin.Context, req *CreateWidgetRequest) (*platform.Response[CreateWidgetResponseData], int, error)
-	DeleteWidget(g *gin.Context, id string) (*platform.Response[any], int, error)
-	GetWidget(g *gin.Context, id string) (*platform.Response[GetWidgetResponseData], int, error)
-	ListWidgets(g *gin.Context, limit *int) (*platform.Response[ListWidgetsResponseData], int, error)
+	CreateWidget(g *gin.Context, req *CreateWidgetRequest) (*CreateWidgetResponse, int, error)
+	DeleteWidget(g *gin.Context, id string) (*DeleteWidgetResponse, int, error)
+	GetWidget(g *gin.Context, id string) (*GetWidgetResponse, int, error)
+	ListWidgets(g *gin.Context, limit *int) (*ListWidgetsResponse, int, error)
 	WatchWidget(g *gin.Context, cancel context.CancelFunc, id string) <-chan *Widget
 }
 
@@ -58,7 +57,6 @@ func RegisterWidgets(engine gin.IRouter, service Widgets, resp func(*gin.Context
 }
 
 func (handler *WidgetsHandler) createWidget(g *gin.Context) {
-	now := time.Now()
 	bodyBytes, err := g.GetRawData()
 	if err != nil {
 		log.G(g.Request.Context()).
@@ -68,12 +66,7 @@ func (handler *WidgetsHandler) createWidget(g *gin.Context) {
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: http.StatusBadRequest}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		}
 		return
 	}
@@ -90,12 +83,7 @@ func (handler *WidgetsHandler) createWidget(g *gin.Context) {
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: http.StatusBadRequest}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		}
 		return
 	}
@@ -103,19 +91,11 @@ func (handler *WidgetsHandler) createWidget(g *gin.Context) {
 	// Restore the body for further use.
 	g.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	resp, code, err := handler.service.CreateWidget(g, &req)
-	if resp != nil {
-		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
-	}
 	if err != nil {
 		if handler.resp != nil {
 			handler.resp(g, code, err)
 		} else {
-			g.JSON(code, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: uint64(code)}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(code, gin.H{"message": err.Error()})
 		}
 	} else if handler.resp != nil {
 		handler.resp(g, code, resp)
@@ -125,7 +105,6 @@ func (handler *WidgetsHandler) createWidget(g *gin.Context) {
 }
 
 func (handler *WidgetsHandler) deleteWidget(g *gin.Context) {
-	now := time.Now()
 
 	var params struct {
 		Id string `uri:"id"`
@@ -138,29 +117,16 @@ func (handler *WidgetsHandler) deleteWidget(g *gin.Context) {
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: http.StatusBadRequest}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		}
 		return
 	}
 	resp, code, err := handler.service.DeleteWidget(g, params.Id)
-	if resp != nil {
-		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
-	}
 	if err != nil {
 		if handler.resp != nil {
 			handler.resp(g, code, err)
 		} else {
-			g.JSON(code, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: uint64(code)}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(code, gin.H{"message": err.Error()})
 		}
 	} else if handler.resp != nil {
 		handler.resp(g, code, resp)
@@ -170,7 +136,6 @@ func (handler *WidgetsHandler) deleteWidget(g *gin.Context) {
 }
 
 func (handler *WidgetsHandler) getWidget(g *gin.Context) {
-	now := time.Now()
 
 	var params struct {
 		Id string `uri:"id"`
@@ -183,29 +148,16 @@ func (handler *WidgetsHandler) getWidget(g *gin.Context) {
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: http.StatusBadRequest}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		}
 		return
 	}
 	resp, code, err := handler.service.GetWidget(g, params.Id)
-	if resp != nil {
-		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
-	}
 	if err != nil {
 		if handler.resp != nil {
 			handler.resp(g, code, err)
 		} else {
-			g.JSON(code, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: uint64(code)}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(code, gin.H{"message": err.Error()})
 		}
 	} else if handler.resp != nil {
 		handler.resp(g, code, resp)
@@ -215,7 +167,6 @@ func (handler *WidgetsHandler) getWidget(g *gin.Context) {
 }
 
 func (handler *WidgetsHandler) listWidgets(g *gin.Context) {
-	now := time.Now()
 	// Bind query parameters
 	var query struct {
 		Limit *int `form:"limit"`
@@ -228,30 +179,17 @@ func (handler *WidgetsHandler) listWidgets(g *gin.Context) {
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: http.StatusBadRequest}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		}
 		return
 	}
 	resp, code, err := handler.service.ListWidgets(g,
 		query.Limit)
-	if resp != nil {
-		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
-	}
 	if err != nil {
 		if handler.resp != nil {
 			handler.resp(g, code, err)
 		} else {
-			g.JSON(code, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: uint64(code)}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(code, gin.H{"message": err.Error()})
 		}
 	} else if handler.resp != nil {
 		handler.resp(g, code, resp)
@@ -261,7 +199,6 @@ func (handler *WidgetsHandler) listWidgets(g *gin.Context) {
 }
 
 func (handler *WidgetsHandler) watchWidget(g *gin.Context) {
-	now := time.Now()
 
 	var params struct {
 		Id string `uri:"id"`
@@ -274,12 +211,7 @@ func (handler *WidgetsHandler) watchWidget(g *gin.Context) {
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{Status: http.StatusBadRequest}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			g.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		}
 		return
 	}

@@ -5,7 +5,6 @@ go 1.26.1
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68
-	unikraft.com/cloud/sdk v0.3.1-0.20260724112216-eca98f84e2dc
 	unikraft.com/x/log v0.0.0-20260126094137-ab6e717e5679
 )
 

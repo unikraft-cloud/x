@@ -1,3 +1,39 @@
+{{- /* response_envelope=true wraps results in Response[T] (response.go.tmpl);
+   response_package points that at an external package instead of generating
+   it locally, and implies response_envelope=true; response_alias overrides
+   its assumed import name. */ -}}
+{{- $responsePackage := $.Var "response_package" "" -}}
+{{- $responseAlias := $.Var "response_alias" "" -}}
+{{- $wrapResponse := or (eq ($.Var "response_envelope" "false") "true") (ne $responsePackage "") -}}
+{{- $respPrefix := "" -}}
+{{- if $responsePackage -}}
+{{- if eq $responseAlias "" -}}{{- $responseAlias = base $responsePackage -}}{{- end -}}
+{{- $respPrefix = printf "%s." $responseAlias -}}
+{{- end -}}
+{{- define "badRequestErrorJSON" -}}
+{{- if .Wrap -}}
+g.JSON(http.StatusBadRequest, {{.Prefix}}Response[any]{
+	Status:   {{.Prefix}}ResponseStatusError,
+	Message:  err.Error(),
+	Errors:   []{{.Prefix}}ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
+	OpTimeUs: uint64(time.Since(now).Microseconds()),
+})
+{{- else -}}
+g.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+{{- end -}}
+{{- end }}
+{{- define "serviceErrorJSON" -}}
+{{- if .Wrap -}}
+g.JSON(code, {{.Prefix}}Response[any]{
+	Status:   {{.Prefix}}ResponseStatusError,
+	Message:  err.Error(),
+	Errors:   []{{.Prefix}}ResponseError{{"{{"}}Status: uint64(code){{"}}"}},
+	OpTimeUs: uint64(time.Since(now).Microseconds()),
+})
+{{- else -}}
+g.JSON(code, gin.H{"message": err.Error()})
+{{- end -}}
+{{- end }}
 {{- $allOps := .Operations -}}
 {{- $currentPkg := $.Var "x-package" "" -}}
 {{- $basePkg := $.Var "base_package" "api" -}}
@@ -17,8 +53,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"unikraft.com/cloud/sdk/platform"
 	"unikraft.com/x/log"
+{{- if $responsePackage}}
+{{- if ne $responseAlias (base $responsePackage)}}
+	{{$responseAlias}} "{{$responsePackage}}"
+{{- else}}
+	"{{$responsePackage}}"
+{{- end}}
+{{- end}}
 {{- /* Collect external packages referenced by this tag's operations */}}
 {{- $extPkgs := dict}}
 {{- range $allOps}}
@@ -178,7 +220,7 @@ type {{$serviceName}} interface {
 	{{$op.OperationID}}(g *gin.Context
 {{- range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}
 {{- if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}
-{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) (*platform.Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}], int, error)
+{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) ({{if $wrapResponse}}*{{$respPrefix}}Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}]{{else}}{{if $qualifiedRespType}}*{{$qualifiedRespType}}{{else}}any{{end}}{{end}}, int, error)
 {{- end}}
 {{- end}}
 {{- end}}
@@ -281,7 +323,9 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- end}}
 
 func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Context) {
+{{- if $wrapResponse}}
 	now := time.Now()
+{{- end}}
 {{- /* Bind path params */}}
 {{- if $pathParams}}
 
@@ -298,12 +342,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			{{template "badRequestErrorJSON" (dict "Wrap" $wrapResponse "Prefix" $respPrefix)}}
 		}
 		return
 	}
@@ -319,12 +358,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			{{template "badRequestErrorJSON" (dict "Wrap" $wrapResponse "Prefix" $respPrefix)}}
 		}
 		return
 	}
@@ -344,12 +378,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			{{template "badRequestErrorJSON" (dict "Wrap" $wrapResponse "Prefix" $respPrefix)}}
 		}
 		return
 	}
@@ -367,12 +396,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			{{template "badRequestErrorJSON" (dict "Wrap" $wrapResponse "Prefix" $respPrefix)}}
 		}
 		return
 	}
@@ -398,12 +422,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 		if handler.resp != nil {
 			handler.resp(g, http.StatusBadRequest, err)
 		} else {
-			g.JSON(http.StatusBadRequest, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: http.StatusBadRequest{{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			{{template "badRequestErrorJSON" (dict "Wrap" $wrapResponse "Prefix" $respPrefix)}}
 		}
 		return
 	}
@@ -497,19 +516,16 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 {{- if $hasRequestBody}}{{if $requestBodyIsArray}}, body{{else}}, &req{{end}}{{end}}
 {{- range $queryParams}},
 		query.{{pascalcase .Name}}{{end}})
+{{- if $wrapResponse}}
 	if resp != nil {
- 		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
- 	}
+		resp.OpTimeUs = uint64(time.Since(now).Microseconds())
+	}
+{{- end}}
 	if err != nil {
 		if handler.resp != nil {
 			handler.resp(g, code, err)
 		} else {
-			g.JSON(code, platform.Response[any]{
-				Status:   platform.ResponseStatusError,
-				Message:  err.Error(),
-				Errors:   []platform.ResponseError{{"{{"}}Status: uint64(code){{"}}"}},
-				OpTimeUs: uint64(time.Since(now).Microseconds()),
-			})
+			{{template "serviceErrorJSON" (dict "Wrap" $wrapResponse "Prefix" $respPrefix)}}
 		}
 	} else if handler.resp != nil {
 		handler.resp(g, code, resp)

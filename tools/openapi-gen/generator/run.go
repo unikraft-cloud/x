@@ -146,6 +146,10 @@ func (g *Generator) WriteAll(outputDir string) error {
 		return err
 	}
 
+	if err := cleanGenerated(outputDir); err != nil {
+		return err
+	}
+
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return fmt.Errorf("error creating output directory: %w", err)
 	}
