@@ -17,6 +17,17 @@ import (
 	"unikraft.com/x/log"
 )
 
+// Ensure imports are used.
+var (
+	_ = bytes.NewReader
+	_ = fmt.Sprintf
+	_ = json.Marshal
+	_ io.Reader
+	_ http.Client
+	_ context.Context
+	_ = log.New
+)
+
 // Widgets provides the API handlers.
 type Widgets interface {
 	CreateWidget(g *gin.Context, req *CreateWidgetRequest) (*platform.Response[CreateWidgetResponseData], int, error)

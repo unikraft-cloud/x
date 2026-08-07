@@ -9,6 +9,11 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 )
 
+// Ensure imports are used.
+var (
+	_ time.Time
+)
+
 type CreateWidgetRequest struct {
 	Name string `json:"name,omitzero" yaml:"name,omitempty"`
 	Size *int   `json:"size,omitzero" yaml:"size,omitempty"`

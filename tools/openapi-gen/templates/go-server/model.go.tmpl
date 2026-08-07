@@ -33,6 +33,11 @@ import (
 {{- end}}
 )
 
+// Ensure imports are used.
+var (
+	_ time.Time
+)
+
 {{- range $model := .Models}}
 
 {{- if $model.Schema.Enum}}
