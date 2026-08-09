@@ -76,6 +76,15 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["tsTypeRef"] = tf.tsTypeRef
 	funcs["qualifyModels"] = tf.qualifyModels
 
+	// Add Python helpers
+	funcs["schemaToPyType"] = tf.schemaToPyType
+	funcs["paramToPyType"] = tf.paramToPyType
+	funcs["enumPyValue"] = tf.enumPyValue
+	funcs["enumPyLiteral"] = enumPyLiteral
+	funcs["pySafeName"] = pySafeName
+	funcs["pyDoc"] = pyDoc
+	funcs["pyTypeRef"] = tf.pyTypeRef
+
 	// Operation introspection helpers (language-neutral)
 	funcs["pathParameters"] = tf.pathParameters
 	funcs["queryParameters"] = tf.queryParameters
