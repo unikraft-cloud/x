@@ -7,9 +7,9 @@ require (
 	codeberg.org/gruf/go-fastcopy v1.2.1
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
-	go.opentelemetry.io/otel v1.44.0
-	go.opentelemetry.io/otel/metric v1.44.0
-	go.opentelemetry.io/otel/trace v1.44.0
+	go.opentelemetry.io/otel v1.45.0
+	go.opentelemetry.io/otel/metric v1.45.0
+	go.opentelemetry.io/otel/trace v1.45.0
 	unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9
 )
 
@@ -25,7 +25,7 @@ require (
 	github.com/getsentry/sentry-go v0.33.0 // indirect
 	github.com/getsentry/sentry-go/zerolog v0.33.0 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
-	github.com/go-logr/logr v1.4.3 // indirect
+	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
