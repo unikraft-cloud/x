@@ -35,12 +35,11 @@ const (
 // {{ wrapComment $schema.Description 76 "// " }}
 {{- end }}
 type {{ $schemaName }} struct {
-{{- range propertyNamesOrdered $schema }}
-{{- $prop := getProperty $schema . }}
-{{- if $prop }}
-{{- $propType := schemaToGoType $prop }}
-{{- $required := getPropertyRequired $schema . }}
-	{{ pascalcase . }} {{ if and (not $required) (not (hasPrefix "[]" $propType)) }}*{{ end }}{{ $propType }} `json:"{{ . }},omitzero"`
+{{- range $p := properties $schema }}
+{{- if $p.Schema }}
+{{- $propType := schemaToGoType $p.Schema }}
+{{- $required := getPropertyRequired $schema $p.Name }}
+	{{ pascalcase $p.Name }} {{ if and (not $required) (not (hasPrefix "[]" $propType)) }}*{{ end }}{{ $propType }} `json:"{{ $p.Name }},omitzero"`
 {{- end }}
 {{- end }}
 

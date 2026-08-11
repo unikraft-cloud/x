@@ -326,17 +326,6 @@ func schemaProperties(schema *openapi3.Schema, followRefs bool) []schemaProp {
 	return props
 }
 
-// schemaPropertyNames returns the names of every property contributed by
-// schema, in spec order, including via composition.
-func schemaPropertyNames(schema *openapi3.Schema) []string {
-	props := schemaProperties(schema, true)
-	names := make([]string, len(props))
-	for i, prop := range props {
-		names[i] = prop.name
-	}
-	return names
-}
-
 // compositionBranches returns the allOf, oneOf and anyOf sub-schemas of s.
 func compositionBranches(s *openapi3.Schema) []*openapi3.SchemaRef {
 	branches := make([]*openapi3.SchemaRef, 0, len(s.AllOf)+len(s.OneOf)+len(s.AnyOf))
