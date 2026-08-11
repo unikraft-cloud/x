@@ -47,7 +47,7 @@ func TestBuildImage(t *testing.T) {
 			export: func(t *testing.T) (content.Provider, ocispec.Descriptor) {
 				t.Helper()
 				contentDir := t.TempDir()
-				desc, err := SaveOCILayout(ctx, contentDir, "test-image", image)
+				desc, err := SaveOCILayout(ctx, contentDir, image)
 				require.NoError(t, err)
 
 				store, err := local.NewStore(contentDir)
@@ -165,10 +165,10 @@ func TestBuildImageMultiPlatform(t *testing.T) {
 			store, err := local.NewStore(storeDir)
 			require.NoError(t, err)
 
-			_, err = packageLayer(ctx, ingestDefaults(store, content.WithRef("latest")), images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
+			_, err = packageLayer(ctx, store, images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
 			require.NoError(t, err)
 
-			idxDesc, err := SaveContent(ctx, store, "latest", images...)
+			idxDesc, err := SaveContent(ctx, store, images...)
 			require.NoError(t, err)
 
 			idxBlob, err := content.ReadBlob(ctx, store, idxDesc)
