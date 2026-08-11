@@ -55,6 +55,7 @@ tasks:
     dir: tools/openapi-gen/examples
     cmds:
     - go generate ./...
+    - go build ./...
     - git add -A -- .
     - git diff --cached --exit-code -- .
 
