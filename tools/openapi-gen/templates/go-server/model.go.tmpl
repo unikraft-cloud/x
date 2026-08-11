@@ -9,7 +9,7 @@ package {{$.Var "package" ""}}
 {{- $extPkgs := dict}}
 {{- range $model := .Models}}
 {{- /* Check each property for external type references */}}
-{{- range $propName := propertyNamesOrdered $model.SchemaName $model.Schema}}
+{{- range $propName := propertyNamesOrdered $model.Schema}}
 {{- $prop := getProperty $model.Schema $propName}}
 {{- if $prop}}
 {{- $typePkg := getTypePackage $prop}}

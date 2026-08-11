@@ -67,7 +67,7 @@ import (
 {{- if has $tagName .Operation.Tags}}
 {{- $op := .Operation}}
 {{- if and $op.RequestBody $op.RequestBody.Value}}
-{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- $content := $op.RequestBody.Value.Content.Get "application/json"}}
 {{- if $content}}
 {{- if $content.Schema.Ref}}
 {{- $p := getTypePackage $content.Schema}}
@@ -85,14 +85,14 @@ import (
 {{- if $op.Responses}}
 {{- $defaultResp := $op.Responses.Default}}
 {{- if and $defaultResp $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- $respContent := $defaultResp.Value.Content.Get "application/json"}}
 {{- if $respContent}}
 {{- if $respContent.Schema.Ref}}
 {{- $p := getTypePackage $respContent.Schema}}
 {{- if and $p (ne $p $currentPkg)}}{{- $_ := set $extPkgs $p true}}{{- end}}
 {{- end}}
 {{- end}}
-{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
+{{- $sseContent := $defaultResp.Value.Content.Get "text/event-stream"}}
 {{- if $sseContent}}
 {{- if $sseContent.Schema.Ref}}
 {{- $p := getTypePackage $sseContent.Schema}}
@@ -151,7 +151,7 @@ type {{$serviceName}} interface {
 {{- $requestBodySchema := ""}}
 {{- $requestBodyIsArray := false}}
 {{- if $hasRequestBody}}
-{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- $content := $op.RequestBody.Value.Content.Get "application/json"}}
 {{- if $content}}
 {{- if $content.Schema.Ref}}
 {{- $requestBodyType = refName $content.Schema.Ref}}
@@ -175,7 +175,7 @@ type {{$serviceName}} interface {
 {{- $defaultResp := $op.Responses.Default}}
 {{- if $defaultResp}}
 {{- if $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- $respContent := $defaultResp.Value.Content.Get "application/json"}}
 {{- if $respContent}}
 {{- if $respContent.Schema.Ref}}
 {{- $responseType = refName $respContent.Schema.Ref}}
@@ -185,7 +185,7 @@ type {{$serviceName}} interface {
 {{- end}}
 {{- end}}
 {{- end}}
-{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
+{{- $sseContent := $defaultResp.Value.Content.Get "text/event-stream"}}
 {{- if $sseContent}}
 {{- $isSSE = true}}
 {{- if $sseContent.Schema.Ref}}
@@ -268,7 +268,7 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- $requestBodySchema := ""}}
 {{- $requestBodyIsArray := false}}
 {{- if $hasRequestBody}}
-{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- $content := $op.RequestBody.Value.Content.Get "application/json"}}
 {{- if $content}}
 {{- if $content.Schema.Ref}}
 {{- $requestBodyType = refName $content.Schema.Ref}}
@@ -291,14 +291,14 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- $defaultResp := $op.Responses.Default}}
 {{- if $defaultResp}}
 {{- if $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- $respContent := $defaultResp.Value.Content.Get "application/json"}}
 {{- if $respContent}}
 {{- if $respContent.Schema.Ref}}
 {{- $responseType = refName $respContent.Schema.Ref}}
 {{- $responseSchema = $respContent.Schema}}
 {{- end}}
 {{- end}}
-{{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
+{{- $sseContent := $defaultResp.Value.Content.Get "text/event-stream"}}
 {{- if $sseContent}}
 {{- $isSSE = true}}
 {{- if $sseContent.Schema.Ref}}
