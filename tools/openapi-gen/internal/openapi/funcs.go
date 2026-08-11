@@ -54,8 +54,8 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["getProperty"] = tf.getProperty
 	funcs["getPropertyRequired"] = tf.getPropertyRequired
 
-	// Property ordering, flattening allOf/oneOf/anyOf composition.
-	funcs["propertyNamesOrdered"] = schemaPropertyNames
+	// Properties, flattening allOf/oneOf/anyOf composition, in spec order.
+	funcs["properties"] = tf.properties
 
 	// Custom extensions
 	funcs["getTypePackage"] = tf.getTypePackage
@@ -108,16 +108,15 @@ func (tf *templateFuncs) inlineEnums(schema *openapi3.Schema) []inlineEnum {
 		return nil
 	}
 	var result []inlineEnum
-	for _, propName := range schemaPropertyNames(schema) {
-		prop := tf.getProperty(schema, propName)
-		if prop == nil {
+	for _, prop := range tf.properties(schema) {
+		if prop.Schema == nil {
 			continue
 		}
-		if len(prop.Enum) > 0 && prop.Title != "" {
-			result = append(result, inlineEnum{Name: prop.Title, Schema: prop})
+		if len(prop.Schema.Enum) > 0 && prop.Schema.Title != "" {
+			result = append(result, inlineEnum{Name: prop.Schema.Title, Schema: prop.Schema})
 		}
-		if prop.Type != nil && prop.Type.Is("array") && prop.Items != nil && prop.Items.Ref == "" && prop.Items.Value != nil {
-			item := prop.Items.Value
+		if prop.Schema.Type != nil && prop.Schema.Type.Is("array") && prop.Schema.Items != nil && prop.Schema.Items.Ref == "" && prop.Schema.Items.Value != nil {
+			item := prop.Schema.Items.Value
 			if len(item.Enum) > 0 && item.Title != "" {
 				result = append(result, inlineEnum{Name: item.Title, Schema: item})
 			}
@@ -134,6 +133,28 @@ func (tf *templateFuncs) getType(schema *openapi3.Schema) string {
 	return schema.Type.Slice()[0]
 }
 
+// Property pairs a property name with its resolved schema. Returned by
+// properties for templates that range over every property of a schema and
+// need both, without a separate getProperty lookup per name.
+type Property struct {
+	Name   string
+	Schema *openapi3.Schema
+}
+
+// properties returns every property contributed by schema, flattening
+// allOf/oneOf/anyOf composition, in spec order.
+func (tf *templateFuncs) properties(schema *openapi3.Schema) []Property {
+	if schema == nil {
+		return nil
+	}
+	props := schemaProperties(schema, true)
+	result := make([]Property, len(props))
+	for i, prop := range props {
+		result[i] = Property{Name: prop.name, Schema: normalizedPropSchema(prop.ref)}
+	}
+	return result
+}
+
 // getProperty returns the schema of a named property, flattening allOf/oneOf/
 // anyOf composition to find it.
 func (tf *templateFuncs) getProperty(schema *openapi3.Schema, name string) *openapi3.Schema {
@@ -142,22 +163,25 @@ func (tf *templateFuncs) getProperty(schema *openapi3.Schema, name string) *open
 	}
 
 	for _, prop := range schemaProperties(schema, true) {
-		if prop.name != name {
-			continue
+		if prop.name == name {
+			return normalizedPropSchema(prop.ref)
 		}
-
-		// Normalise a direct $ref into the allOf-wrapped form so callers treat
-		// it like other optional fields: schemaToGoType extracts the type and
-		// getType returns "", so optional $ref fields get a pointer prefix.
-		if prop.ref.Ref != "" {
-			return &openapi3.Schema{
-				AllOf: []*openapi3.SchemaRef{{Ref: prop.ref.Ref}},
-			}
-		}
-		return prop.ref.Value
 	}
 
 	return nil
+}
+
+// normalizedPropSchema returns ref's schema, normalising a direct $ref into
+// the allOf-wrapped form so callers treat it like other optional fields:
+// schemaToGoType extracts the type and getType returns "", so optional $ref
+// fields get a pointer prefix.
+func normalizedPropSchema(ref *openapi3.SchemaRef) *openapi3.Schema {
+	if ref.Ref != "" {
+		return &openapi3.Schema{
+			AllOf: []*openapi3.SchemaRef{{Ref: ref.Ref}},
+		}
+	}
+	return ref.Value
 }
 
 // getPropertyRequired checks if a property is required (checking allOf too).
