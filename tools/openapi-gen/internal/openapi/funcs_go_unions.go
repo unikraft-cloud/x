@@ -456,8 +456,8 @@ func (tf *templateFuncs) goUnions(overrides ...map[string]any) *GoUnions {
 	namedSeen := map[string]bool{}
 
 	for _, model := range *tf.models {
-		for _, propName := range schemaPropertyNames(model.Schema) {
-			prop := tf.getProperty(model.Schema, propName)
+		for _, p := range tf.properties(model.Schema) {
+			propName, prop := p.Name, p.Schema
 			if prop == nil {
 				continue
 			}
