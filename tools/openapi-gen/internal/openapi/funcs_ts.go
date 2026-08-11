@@ -196,7 +196,7 @@ func baseTsType(schema *openapi3.Schema, parser *Parser) string {
 		if schema.AdditionalProperties.Has != nil && *schema.AdditionalProperties.Has {
 			return "Record<string, unknown>"
 		}
-		if len(schema.Properties) > 0 && schema.Title != "" {
+		if schema.Properties.Len() > 0 && schema.Title != "" {
 			return schema.Title
 		}
 		if schema.AdditionalProperties.Has != nil && !*schema.AdditionalProperties.Has {
@@ -268,7 +268,7 @@ func tsComposite(schema *openapi3.Schema, parser *Parser) string {
 func refTsName(parser *Parser, ref string) string {
 	name := extractTypeFromRef(ref)
 	if parser != nil && parser.doc != nil && parser.doc.Components != nil {
-		if sr, ok := parser.doc.Components.Schemas[name]; ok {
+		if sr, ok := parser.doc.Components.Schemas.Get(name); ok {
 			if schemaIsEmpty(sr.Value) {
 				return "unknown"
 			}

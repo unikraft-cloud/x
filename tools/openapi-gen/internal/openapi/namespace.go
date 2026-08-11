@@ -48,7 +48,7 @@ func (p *Parser) Flatten(models []Model, mode string) {
 	if m == flattenNone {
 		return
 	}
-	flattenNamespaces(p.doc, p, m)
+	flattenNamespaces(p.doc, m)
 	for i := range models {
 		models[i].SchemaName = flattenName(models[i].SchemaName, m)
 	}
@@ -91,10 +91,10 @@ func flattenRefString(ref string, mode flattenMode) string {
 }
 
 // flattenNamespaces rewrites every namespaced schema name in the document —
-// component keys, property orders, $ref targets and inline Title type names —
-// according to mode. After this pass, all type names are valid Go identifiers
-// and the rest of the generator can remain namespace-agnostic.
-func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
+// component keys, $ref targets and inline Title type names — according to
+// mode. After this pass, all type names are valid Go identifiers and the rest
+// of the generator can remain namespace-agnostic.
+func flattenNamespaces(doc *openapi3.T, mode flattenMode) {
 	if mode == flattenNone || doc.Components == nil {
 		return
 	}
@@ -105,26 +105,16 @@ func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
 	// namespace/package info. Cross-package qualification, where needed, is
 	// handled separately via the "x-package" extension and the
 	// "current_package" template var (see getTypePackage).
-	renamed := make(openapi3.Schemas, len(doc.Components.Schemas))
-	for name, ref := range doc.Components.Schemas {
-		flat := flattenName(name, mode)
-		renamed[flat] = ref
+	renamed := openapi3.NewSchemasWithCapacity(doc.Components.Schemas.Len())
+	for name, ref := range doc.Components.Schemas.Iter() {
+		renamed.Set(flattenName(name, mode), ref)
 	}
 	doc.Components.Schemas = renamed
-
-	// Rename registered property orders.
-	if parser != nil && parser.propertyOrders != nil {
-		newOrders := make(map[string][]string, len(parser.propertyOrders))
-		for name, order := range parser.propertyOrders {
-			newOrders[flattenName(name, mode)] = order
-		}
-		parser.propertyOrders = newOrders
-	}
 
 	// Rewrite refs and inline Titles throughout the document. A shared seen set
 	// keeps shared/recursive schema pointers from being visited twice.
 	seen := make(map[*openapi3.Schema]bool)
-	for _, ref := range doc.Components.Schemas {
+	for _, ref := range doc.Components.Schemas.Iter() {
 		flattenSchemaRef(ref, mode, seen)
 	}
 	if doc.Paths != nil {
@@ -153,7 +143,7 @@ func flattenSchemaRef(ref *openapi3.SchemaRef, mode flattenMode, seen map[*opena
 		s.Title = flattenName(s.Title, mode)
 	}
 
-	for _, p := range s.Properties {
+	for _, p := range s.Properties.Iter() {
 		flattenSchemaRef(p, mode, seen)
 	}
 	for _, a := range s.AllOf {
@@ -186,18 +176,18 @@ func flattenOperation(op *openapi3.Operation, mode flattenMode, seen map[*openap
 		}
 	}
 	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		for _, c := range op.RequestBody.Value.Content {
+		for _, c := range op.RequestBody.Value.Content.Iter() {
 			if c.Schema != nil {
 				flattenSchemaRef(c.Schema, mode, seen)
 			}
 		}
 	}
 	if op.Responses != nil {
-		for _, r := range op.Responses.Map() {
+		for _, r := range op.Responses.Iter() {
 			if r == nil || r.Value == nil {
 				continue
 			}
-			for _, c := range r.Value.Content {
+			for _, c := range r.Value.Content.Iter() {
 				if c.Schema != nil {
 					flattenSchemaRef(c.Schema, mode, seen)
 				}

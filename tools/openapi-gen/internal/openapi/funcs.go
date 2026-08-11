@@ -54,8 +54,8 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["getProperty"] = tf.getProperty
 	funcs["getPropertyRequired"] = tf.getPropertyRequired
 
-	// Ordering helpers :cry:
-	funcs["propertyNamesOrdered"] = tf.propertyNamesOrdered
+	// Properties, flattening allOf/oneOf/anyOf composition, in spec order.
+	funcs["properties"] = tf.properties
 
 	// Custom extensions
 	funcs["getTypePackage"] = tf.getTypePackage
@@ -86,8 +86,6 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	// Misc
 	funcs["enumValue"] = tf.enumValue
 	funcs["inlineEnums"] = tf.inlineEnums
-	funcs["sortedResponseCodes"] = sortedResponseCodes
-	funcs["sortedContentTypes"] = sortedContentTypes
 	funcs["uniqueTags"] = uniqueTags
 
 	return funcs
@@ -105,21 +103,20 @@ type inlineEnum struct {
 	Schema *openapi3.Schema
 }
 
-func (tf *templateFuncs) inlineEnums(schemaName string, schema *openapi3.Schema) []inlineEnum {
+func (tf *templateFuncs) inlineEnums(schema *openapi3.Schema) []inlineEnum {
 	if schema == nil {
 		return nil
 	}
 	var result []inlineEnum
-	for _, propName := range tf.propertyNamesOrdered(schemaName, schema) {
-		prop := tf.getProperty(schema, propName)
-		if prop == nil {
+	for _, prop := range tf.properties(schema) {
+		if prop.Schema == nil {
 			continue
 		}
-		if len(prop.Enum) > 0 && prop.Title != "" {
-			result = append(result, inlineEnum{Name: prop.Title, Schema: prop})
+		if len(prop.Schema.Enum) > 0 && prop.Schema.Title != "" {
+			result = append(result, inlineEnum{Name: prop.Schema.Title, Schema: prop.Schema})
 		}
-		if prop.Type != nil && prop.Type.Is("array") && prop.Items != nil && prop.Items.Ref == "" && prop.Items.Value != nil {
-			item := prop.Items.Value
+		if prop.Schema.Type != nil && prop.Schema.Type.Is("array") && prop.Schema.Items != nil && prop.Schema.Items.Ref == "" && prop.Schema.Items.Value != nil {
+			item := prop.Schema.Items.Value
 			if len(item.Enum) > 0 && item.Title != "" {
 				result = append(result, inlineEnum{Name: item.Title, Schema: item})
 			}
@@ -136,14 +133,26 @@ func (tf *templateFuncs) getType(schema *openapi3.Schema) string {
 	return schema.Type.Slice()[0]
 }
 
-// propertyNamesOrdered returns property names in the order they appear in YAML,
-// falling back to a deterministic flattening of the schema's composition when
-// the source order is unavailable.
-func (tf *templateFuncs) propertyNamesOrdered(schemaName string, schema *openapi3.Schema) []string {
-	if order := tf.parser.GetPropertyOrder(schemaName); len(order) > 0 {
-		return order
+// Property pairs a property name with its resolved schema. Returned by
+// properties for templates that range over every property of a schema and
+// need both, without a separate getProperty lookup per name.
+type Property struct {
+	Name   string
+	Schema *openapi3.Schema
+}
+
+// properties returns every property contributed by schema, flattening
+// allOf/oneOf/anyOf composition, in spec order.
+func (tf *templateFuncs) properties(schema *openapi3.Schema) []Property {
+	if schema == nil {
+		return nil
 	}
-	return schemaPropertyNames(schema)
+	props := schemaProperties(schema, true)
+	result := make([]Property, len(props))
+	for i, prop := range props {
+		result[i] = Property{Name: prop.name, Schema: normalizedPropSchema(prop.ref)}
+	}
+	return result
 }
 
 // getProperty returns the schema of a named property, flattening allOf/oneOf/
@@ -154,22 +163,25 @@ func (tf *templateFuncs) getProperty(schema *openapi3.Schema, name string) *open
 	}
 
 	for _, prop := range schemaProperties(schema, true) {
-		if prop.name != name {
-			continue
+		if prop.name == name {
+			return normalizedPropSchema(prop.ref)
 		}
-
-		// Normalise a direct $ref into the allOf-wrapped form so callers treat
-		// it like other optional fields: schemaToGoType extracts the type and
-		// getType returns "", so optional $ref fields get a pointer prefix.
-		if prop.ref.Ref != "" {
-			return &openapi3.Schema{
-				AllOf: []*openapi3.SchemaRef{{Ref: prop.ref.Ref}},
-			}
-		}
-		return prop.ref.Value
 	}
 
 	return nil
+}
+
+// normalizedPropSchema returns ref's schema, normalising a direct $ref into
+// the allOf-wrapped form so callers treat it like other optional fields:
+// schemaToGoType extracts the type and getType returns "", so optional $ref
+// fields get a pointer prefix.
+func normalizedPropSchema(ref *openapi3.SchemaRef) *openapi3.Schema {
+	if ref.Ref != "" {
+		return &openapi3.Schema{
+			AllOf: []*openapi3.SchemaRef{{Ref: ref.Ref}},
+		}
+	}
+	return ref.Value
 }
 
 // getPropertyRequired checks if a property is required (checking allOf too).
@@ -214,7 +226,7 @@ func (tf *templateFuncs) isInOneOf(schema *openapi3.Schema, propName string) boo
 
 	for _, ref := range schema.OneOf {
 		if s := resolveTypeFromRef(tf.parser, ref); s != nil {
-			if _, ok := s.Properties[propName]; ok {
+			if _, ok := s.Properties.Get(propName); ok {
 				return true
 			}
 		}
@@ -228,7 +240,7 @@ func (tf *templateFuncs) isInOneOf(schema *openapi3.Schema, propName string) boo
 
 		for _, ref := range allOfSchema.OneOf {
 			if s := resolveTypeFromRef(tf.parser, ref); s != nil {
-				if _, ok := s.Properties[propName]; ok {
+				if _, ok := s.Properties.Get(propName); ok {
 					return true
 				}
 			}
@@ -270,7 +282,7 @@ func (tf *templateFuncs) getTypePackage(v any) string {
 		return ""
 	}
 
-	if schemaRef, ok := tf.parser.doc.Components.Schemas[typeName]; ok {
+	if schemaRef, ok := tf.parser.doc.Components.Schemas.Get(typeName); ok {
 		if schemaRef.Value != nil {
 			if pkg, _ := schemaRef.Value.Extensions["x-package"].(string); pkg != "" {
 				return pkg
@@ -346,7 +358,7 @@ func resolveTypeFromRef(parser *Parser, ref *openapi3.SchemaRef) *openapi3.Schem
 
 	if ref.Ref != "" {
 		name := extractTypeFromRef(ref.Ref)
-		if s, ok := parser.doc.Components.Schemas[name]; ok {
+		if s, ok := parser.doc.Components.Schemas.Get(name); ok {
 			return s.Value
 		}
 	}
@@ -360,49 +372,6 @@ func capitalize(s string) string {
 	}
 	r, size := utf8.DecodeRuneInString(s)
 	return string(unicode.ToUpper(r)) + s[size:]
-}
-
-// ResponseEntry is a code/ref pair for deterministic template iteration.
-type ResponseEntry struct {
-	Code string
-	Ref  *openapi3.ResponseRef
-}
-
-// sortedResponseCodes returns response entries sorted by status code.
-func sortedResponseCodes(responses *openapi3.Responses) []ResponseEntry {
-	if responses == nil {
-		return nil
-	}
-	m := responses.Map()
-	entries := make([]ResponseEntry, 0, len(m))
-	for code, ref := range m {
-		entries = append(entries, ResponseEntry{Code: code, Ref: ref})
-	}
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Code < entries[j].Code
-	})
-	return entries
-}
-
-// ContentEntry is a content-type/media pair for deterministic template iteration.
-type ContentEntry struct {
-	Type  string
-	Media *openapi3.MediaType
-}
-
-// sortedContentTypes returns content entries sorted by media type.
-func sortedContentTypes(content openapi3.Content) []ContentEntry {
-	if content == nil {
-		return nil
-	}
-	entries := make([]ContentEntry, 0, len(content))
-	for ct, media := range content {
-		entries = append(entries, ContentEntry{Type: ct, Media: media})
-	}
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Type < entries[j].Type
-	})
-	return entries
 }
 
 // uniqueTags returns deduplicated, sorted tags from operations.
