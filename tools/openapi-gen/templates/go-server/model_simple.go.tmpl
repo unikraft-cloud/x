@@ -2,12 +2,12 @@
 {{- $schema := .Schema -}}
 {{- $schemaName := .SchemaName -}}
 {{- $currentPkg := .Package -}}
-{{- $propNames := propertyNamesOrdered $schemaName $schema -}}
+{{- $propNames := propertyNamesOrdered $schema -}}
 {{- if $schema.Description}}
 // {{$schema.Description | replace "\n" "\n// "}}
 {{- end}}
 type {{$schemaName}} struct {
-{{- range $propName := propertyNamesOrdered $schemaName $schema}}
+{{- range $propName := propertyNamesOrdered $schema}}
 {{- $prop := getProperty $schema $propName}}
 {{- if $prop}}
 {{- if $prop.Description}}

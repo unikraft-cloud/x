@@ -8,10 +8,8 @@ require (
 	github.com/ettle/strcase v0.2.0
 	github.com/getkin/kin-openapi v0.146.0
 	github.com/go-git/go-git/v5 v5.19.2
-	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	golang.org/x/sync v0.22.0
-	gopkg.in/yaml.v3 v3.0.1
 	unikraft.com/x/kingkong v0.0.0-20260105163520-49d071286efd
 )
 
@@ -22,6 +20,8 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
+	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect
 	github.com/charmbracelet/x/ansi v0.11.7 // indirect
@@ -43,8 +43,10 @@ require (
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/oasdiff/yaml v0.1.1 // indirect
@@ -57,6 +59,7 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.2 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
+	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/crypto v0.54.0 // indirect
@@ -64,6 +67,12 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	unikraft.com/x/colors v0.0.0-20260105163520-49d071286efd // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20250930190923-15fda4a56ffe // indirect
 )
+
+// NOTE: this is a fork of kin-openapi that reworks all the maps in the schema
+// to be OrderedMap types, so that we don't need to recover the correct
+// iteration order
+replace github.com/getkin/kin-openapi => github.com/jedevc/kin-openapi v0.0.0-20260824085018-52a35d0033a8

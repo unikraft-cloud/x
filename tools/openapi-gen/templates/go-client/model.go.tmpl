@@ -35,7 +35,7 @@ const (
 // {{ wrapComment $schema.Description 76 "// " }}
 {{- end }}
 type {{ $schemaName }} struct {
-{{- range propertyNamesOrdered $schemaName $schema }}
+{{- range propertyNamesOrdered $schema }}
 {{- $prop := getProperty $schema . }}
 {{- if $prop }}
 {{- $propType := schemaToGoType $prop }}
@@ -62,7 +62,7 @@ func (m {{ $schemaName }}) MarshalJSON() ([]byte, error) {
 	type Alias {{ $schemaName }}
 	return jsonv2.Marshal((Alias)(m))
 }
-{{- range $ie := inlineEnums $schemaName $schema }}
+{{- range $ie := inlineEnums $schema }}
 
 // {{ $ie.Name }} defines the {{ $ie.Name }} enum type.
 type {{ $ie.Name }} {{ enumBaseGoType $ie.Schema }}
