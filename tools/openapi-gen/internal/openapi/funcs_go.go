@@ -78,7 +78,7 @@ func schemaToGoTypeWithParser(schema *openapi3.Schema, parser *Parser, useLegacy
 
 		// Check if the referenced schema should be skipped (e.g., GoogleProtobufValue)
 		// If so, return interface{} instead
-		if refSchemaRef, ok := parser.doc.Components.Schemas[refType]; ok {
+		if refSchemaRef, ok := parser.doc.Components.Schemas.Get(refType); ok {
 			if schemaIsEmpty(refSchemaRef.Value) {
 				return "interface{}"
 			}
@@ -140,7 +140,7 @@ func schemaToGoType(schema *openapi3.Schema, useLegacyInt bool) string {
 			return "map[string]interface{}"
 		}
 		// If it has properties, it's a struct type
-		if len(schema.Properties) > 0 {
+		if schema.Properties.Len() > 0 {
 			if schema.Title != "" {
 				return schema.Title
 			}

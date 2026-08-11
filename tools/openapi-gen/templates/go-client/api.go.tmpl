@@ -70,10 +70,10 @@ type {{ pascalcase $op.OperationID }}Opts struct {
 {{- $successResp := "" -}}
 {{- $successHasData := false -}}
 {{- if $op.Responses -}}
-{{- range $entry := sortedResponseCodes $op.Responses -}}
-{{- if or (eq $entry.Code "200") (eq $entry.Code "201") (eq $entry.Code "202") -}}
-{{- if $entry.Ref.Value -}}
-{{- with $entry.Ref.Value.Content.Get "application/json" -}}
+{{- range $code, $ref := $op.Responses.Iter -}}
+{{- if or (eq $code "200") (eq $code "201") (eq $code "202") -}}
+{{- if $ref.Value -}}
+{{- with $ref.Value.Content.Get "application/json" -}}
 {{- if .Schema -}}
 {{- if .Schema.Ref -}}
 {{- $successResp = refName .Schema.Ref -}}

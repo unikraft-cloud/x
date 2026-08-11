@@ -53,7 +53,7 @@ func TestSchemaToPyType(t *testing.T) {
 			&openapi3.Schema{
 				Type:       strType("object"),
 				Title:      "Instance",
-				Properties: openapi3.Schemas{"name": {Value: &openapi3.Schema{Type: strType("string")}}},
+				Properties: openapi3.SchemasFromMap(map[string]*openapi3.SchemaRef{"name": {Value: &openapi3.Schema{Type: strType("string")}}}),
 			},
 			"Instance",
 		},
@@ -210,10 +210,10 @@ func TestSchemaToPyTypeComposition(t *testing.T) {
 // pyTestParser builds a parser with an Empty schema that ParseModels skips.
 func pyTestParser() *Parser {
 	return &Parser{doc: &openapi3.T{Components: &openapi3.Components{
-		Schemas: openapi3.Schemas{
+		Schemas: new(openapi3.SchemasFromMap(map[string]*openapi3.SchemaRef{
 			"Empty":    {Value: &openapi3.Schema{}},
-			"Instance": {Value: &openapi3.Schema{Type: strType("object"), Properties: openapi3.Schemas{"name": {Value: &openapi3.Schema{Type: strType("string")}}}}},
-		},
+			"Instance": {Value: &openapi3.Schema{Type: strType("object"), Properties: openapi3.SchemasFromMap(map[string]*openapi3.SchemaRef{"name": {Value: &openapi3.Schema{Type: strType("string")}}})}},
+		})),
 	}}}
 }
 

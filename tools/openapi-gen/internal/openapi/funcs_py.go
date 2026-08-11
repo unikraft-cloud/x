@@ -156,7 +156,7 @@ func basePyType(schema *openapi3.Schema, parser *Parser) string {
 		if schema.AdditionalProperties.Has != nil && *schema.AdditionalProperties.Has {
 			return "dict[str, Any]"
 		}
-		if len(schema.Properties) > 0 && schema.Title != "" {
+		if schema.Properties.Len() > 0 && schema.Title != "" {
 			return schema.Title
 		}
 		return "dict[str, Any]"
@@ -231,7 +231,7 @@ func pyUnion(branches openapi3.SchemaRefs, parser *Parser) string {
 func refPyName(parser *Parser, ref string) string {
 	name := extractTypeFromRef(ref)
 	if parser != nil && parser.doc != nil && parser.doc.Components != nil {
-		if sr, ok := parser.doc.Components.Schemas[name]; ok {
+		if sr, ok := parser.doc.Components.Schemas.Get(name); ok {
 			if schemaIsEmpty(sr.Value) {
 				return "Any"
 			}
