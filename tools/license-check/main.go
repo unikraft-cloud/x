@@ -14,6 +14,8 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kong"
+
+	"unikraft.com/x/version"
 )
 
 type CLI struct {
@@ -25,6 +27,8 @@ type CLI struct {
 	NoGitignore bool `name:"no-gitignore" help:"Do not honor .gitignore files."`
 
 	Verbose bool `name:"verbose" short:"v" help:"Print every checked file."`
+
+	Version version.VersionFlag `name:"version" help:"Print version information and quit."`
 }
 
 func (c *CLI) Run(_ context.Context) error {

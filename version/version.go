@@ -61,13 +61,13 @@ func Map() map[string]string {
 func Long() string {
 	return heredoc.Docf(`
 		%s
-		  version   : %s
-		  commit    : %s
-		  platform  : %s/%s
+		  version:    %s
+		  commit:     %s
+		  platform:   %s/%s
 		  build time: %s
 		  go version: %s
-		  docs      : %s
-		  issues    : %s`,
+		  docs:       %s
+		  issues:     %s`,
 		Tool,
 		Version,
 		wrapEmpty(Commit),
