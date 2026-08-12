@@ -22,12 +22,15 @@ import (
 	"github.com/tonistiigi/units"
 	imagespec "github.com/unikraft-cloud/x/image-spec"
 	"unikraft.com/x/log"
+	"unikraft.com/x/version"
 )
 
 type CLI struct {
 	Inspect InspectCmd `cmd:"" help:"Inspect an image"`
 	Copy    CopyCmd    `cmd:"" help:"Copy an image"`
 	Delete  DeleteCmd  `cmd:"" help:"Delete an image"`
+
+	Version version.VersionCmd `cmd:"" help:"Print version information."`
 }
 
 type InspectCmd struct {

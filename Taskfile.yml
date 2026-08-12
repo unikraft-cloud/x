@@ -30,19 +30,16 @@ tasks:
   protoc-gen-go-struct:
   - task: go:build
     vars:
-      go_module: unikraft.com/x/tools/protoc-gen-go-struct
       package: ./tools/protoc-gen-go-struct
 
   imgtool:
   - task: go:build
     vars:
-      go_module: unikraft.com/x/tools/imgtool
       package: ./tools/imgtool
 
   license-check:
   - task: go:build
     vars:
-      go_module: unikraft.com/x/tools/license-check
       package: ./tools/license-check
 
   tools:
