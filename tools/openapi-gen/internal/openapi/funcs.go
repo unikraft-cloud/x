@@ -65,6 +65,7 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["paramToGoType"] = tf.paramToGoType
 	funcs["enumBaseGoType"] = tf.enumGoBaseType
 	funcs["goSafeName"] = goSafeName
+	funcs["goUnions"] = tf.goUnions
 
 	// Add TypeScript helpers
 	funcs["schemaToTsType"] = tf.schemaToTsType
