@@ -5,6 +5,11 @@
 
 package imagespec
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	WellKnownKernelPath      = "/unikraft/bin/kernel"
 	WellKnownKernelDbgPath   = "/unikraft/bin/kernel.dbg"
@@ -39,4 +44,26 @@ const (
 	MediaTypeKernel = "application/vnd.unikraft.kernel.v1"
 	MediaTypeInitrd = "application/vnd.unikraft.initrd.v1"
 	MediaTypeRom    = "application/vnd.unikraft.rom.v1"
+)
+
+const (
+	ArchitectureIntel = "x86_64"
+	ArchitectureArm   = "arm64"
+)
+
+func NormalizeArch(arch string) (string, error) {
+	switch strings.ToLower(arch) {
+	case "x86_64", "x86-64", "amd64":
+		return ArchitectureIntel, nil
+	case "arm64", "aarch64":
+		return ArchitectureArm, nil
+	default:
+		return "", fmt.Errorf("unsupported architecture %q", arch)
+	}
+}
+
+const (
+	PlatformKraftcloud  = "kraftcloud"
+	PlatformFirecracker = "fc"
+	PlatformQemu        = "qemu"
 )
