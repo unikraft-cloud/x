@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	Tool      = "unikraft"
+	Name      = "unikraft"
 	Docs      = ""
 	Issues    = ""
 	Version   = "v0.0.0"
@@ -40,13 +40,13 @@ func init() {
 
 // String returns a one-line string with the version information.
 func String() string {
-	return Tool + " " + Version + " (" + Commit + ")" + BuildTime
+	return Name + " " + Version + " (" + Commit + ")" + BuildTime
 }
 
 // Map returns a map of version information.
 func Map() map[string]string {
 	return map[string]string{
-		"tool":       Tool,
+		"name":       Name,
 		"docs":       wrapEmpty(Docs),
 		"issues":     wrapEmpty(Issues),
 		"version":    Version,
@@ -61,14 +61,14 @@ func Map() map[string]string {
 func Long() string {
 	return heredoc.Docf(`
 		%s
-		  version   : %s
-		  commit    : %s
-		  platform  : %s/%s
+		  version:    %s
+		  commit:     %s
+		  platform:   %s/%s
 		  build time: %s
 		  go version: %s
-		  docs      : %s
-		  issues    : %s`,
-		Tool,
+		  docs:       %s
+		  issues:     %s`,
+		Name,
 		Version,
 		wrapEmpty(Commit),
 		runtime.GOOS,
@@ -84,7 +84,7 @@ func Long() string {
 func UserAgent() string {
 	return heredoc.Docf(
 		"%s/%s (%s) %s/%s",
-		Tool,
+		Name,
 		Version,
 		Commit,
 		runtime.GOOS,
