@@ -3,7 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package uri_test
+package imagespec
 
 import (
 	"os"
@@ -14,29 +14,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"unikraft.com/x/image-spec/uri"
+	"unikraft.com/x/image-spec/schemes"
 )
 
-func TestParse(t *testing.T) {
+func TestParseLocation(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
 		name   string
 		src    string
-		scheme uri.Scheme
+		scheme schemes.Scheme
 		path   string
 		err    bool
 	}{
-		{name: "oci", src: "oci://unikraft.io/app:latest", scheme: uri.SchemeOCI, path: "unikraft.io/app:latest"},
-		{name: "oci-layout", src: "oci-layout://./layout", scheme: uri.SchemeOCILayout, path: "./layout"},
-		{name: "oci-archive", src: "oci-archive://app.tar", scheme: uri.SchemeOCIArchive, path: "app.tar"},
+		{name: "oci", src: "oci://unikraft.io/app:latest", scheme: schemes.OCI, path: "unikraft.io/app:latest"},
+		{name: "oci-layout", src: "oci-layout://./layout", scheme: schemes.OCILayout, path: "./layout"},
+		{name: "oci-archive", src: "oci-archive://app.tar", scheme: schemes.OCIArchive, path: "app.tar"},
 		{name: "an unknown scheme is rejected", src: "docker://app", err: true},
+		{name: "an http layout is rejected", src: "https+oci://example.org/me/app/latest", err: true},
 		{name: "a bare reference is rejected", src: "unikraft.io/app", err: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := uri.Parse(tc.src)
+			got, err := ParseLocation(tc.src)
 			if tc.err {
 				assert.Error(t, err)
 				return
@@ -49,23 +50,23 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestParseDefault(t *testing.T) {
+func TestParseLocationDefault(t *testing.T) {
 	t.Parallel()
 
-	got, err := uri.ParseDefault("unikraft.io/app:latest")
+	got, err := ParseLocationDefault("unikraft.io/app:latest")
 	require.NoError(t, err)
-	assert.Equal(t, uri.SchemeOCI, got.Scheme, "a bare reference takes the default scheme")
+	assert.Equal(t, schemes.OCI, got.Scheme, "a bare reference takes the default scheme")
 	assert.Equal(t, "unikraft.io/app:latest", got.Path)
 
-	got, err = uri.ParseDefault("oci-archive://app.tar")
+	got, err = ParseLocationDefault("oci-archive://app.tar")
 	require.NoError(t, err)
-	assert.Equal(t, uri.SchemeOCIArchive, got.Scheme, "a named scheme still wins")
+	assert.Equal(t, schemes.OCIArchive, got.Scheme, "a named scheme still wins")
 
-	_, err = uri.ParseDefault("docker://app")
+	_, err = ParseLocationDefault("docker://app")
 	assert.Error(t, err, "a named but unknown scheme is still rejected")
 }
 
-func TestGuess(t *testing.T) {
+func TestGuessLocation(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -77,25 +78,25 @@ func TestGuess(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		src    string
-		scheme uri.Scheme
+		scheme schemes.Scheme
 	}{
-		{name: "a named scheme is taken as given", src: "oci://app", scheme: uri.SchemeOCI},
-		{name: "an existing directory is a layout", src: layout, scheme: uri.SchemeOCILayout},
-		{name: "an existing file is an archive", src: archive, scheme: uri.SchemeOCIArchive},
-		{name: "a tarball name is an archive", src: "missing/app.tar.gz", scheme: uri.SchemeOCIArchive},
-		{name: "a trailing separator is a layout", src: "missing/layout/", scheme: uri.SchemeOCILayout},
-		{name: "anything else is a reference", src: "unikraft.io/app:latest", scheme: uri.SchemeOCI},
+		{name: "a named scheme is taken as given", src: "oci://app", scheme: schemes.OCI},
+		{name: "an existing directory is a layout", src: layout, scheme: schemes.OCILayout},
+		{name: "an existing file is an archive", src: archive, scheme: schemes.OCIArchive},
+		{name: "a tarball name is an archive", src: "missing/app.tar.gz", scheme: schemes.OCIArchive},
+		{name: "a trailing separator is a layout", src: "missing/layout/", scheme: schemes.OCILayout},
+		{name: "anything else is a reference", src: "unikraft.io/app:latest", scheme: schemes.OCI},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := uri.Guess(tc.src)
+			got, err := GuessLocation(tc.src)
 			require.NoError(t, err)
 			assert.Equal(t, tc.scheme, got.Scheme)
 		})
 	}
 
-	_, err := uri.Guess("./missing")
+	_, err := GuessLocation("./missing")
 	assert.Error(t, err, "a path that names nothing is ambiguous")
 }
 
@@ -125,7 +126,7 @@ func TestSplitPathTag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			path, tag := uri.SplitPathTag(tc.src)
+			path, tag := splitPathTag(tc.src)
 			assert.Equal(t, tc.path, path)
 			assert.Equal(t, tc.tag, tag)
 		})

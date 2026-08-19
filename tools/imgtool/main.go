@@ -20,6 +20,7 @@ import (
 	"github.com/distribution/reference"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/tonistiigi/units"
+
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/log"
 	"unikraft.com/x/version"
@@ -41,13 +42,13 @@ type InspectCmd struct {
 
 func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 	insecure := c.Insecure == "source" || c.Insecure == "all"
-	uri, err := imagespec.GuessURI(c.Image)
+	loc, err := imagespec.GuessLocation(c.Image)
 	if err != nil {
 		return fmt.Errorf("parsing image reference: %w", err)
 	}
 
 	accessor := newAccessor(insecure)
-	imgs, err := accessor.LoadAll(ctx, uri, platforms.All)
+	imgs, err := accessor.LoadAll(ctx, loc, platforms.All)
 	if err != nil {
 		return err
 	}
@@ -166,11 +167,11 @@ type CopyCmd struct {
 
 func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 	insecure := c.Insecure == "source" || c.Insecure == "all"
-	src, err := imagespec.GuessURI(c.Source)
+	src, err := imagespec.GuessLocation(c.Source)
 	if err != nil {
 		return fmt.Errorf("parsing image source: %w", err)
 	}
-	dest, err := imagespec.GuessURI(c.Destination)
+	dest, err := imagespec.GuessLocation(c.Destination)
 	if err != nil {
 		return fmt.Errorf("parsing image destination: %w", err)
 	}
@@ -206,13 +207,13 @@ type DeleteCmd struct {
 
 func (c *DeleteCmd) Run(ctx context.Context) error {
 	insecure := c.Insecure == "source" || c.Insecure == "all"
-	uri, err := imagespec.GuessURI(c.Image)
+	loc, err := imagespec.GuessLocation(c.Image)
 	if err != nil {
 		return fmt.Errorf("parsing image reference: %w", err)
 	}
 
 	accessor := newAccessor(insecure)
-	if err := accessor.Delete(ctx, uri); err != nil {
+	if err := accessor.Delete(ctx, loc); err != nil {
 		return err
 	}
 	return nil

@@ -3,8 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-// Package uri parses the image references the tooling accepts.
-package uri
+package imagespec
 
 import (
 	"fmt"
@@ -12,71 +11,66 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"unikraft.com/x/image-spec/schemes"
 )
 
-type URI struct {
-	Scheme Scheme
+// Location is where an [Accessor] loads an image from, saves it to or deletes it
+// at: a registry, a local OCI layout directory or a local OCI archive.
+type Location struct {
+	Scheme schemes.Scheme
 	Path   string
 }
 
-func (u *URI) String() string {
-	return fmt.Sprintf("%s://%s", u.Scheme, u.Path)
+func (l *Location) String() string {
+	return fmt.Sprintf("%s://%s", l.Scheme, l.Path)
 }
 
-type Scheme string
-
-const (
-	SchemeOCI Scheme = "oci"
-
-	SchemeOCILayout  Scheme = "oci-layout"
-	SchemeOCIArchive Scheme = "oci-archive"
-)
-
-// Parse parses a URI of the form <scheme>://<path> and returns the parsed struct.
-func Parse(src string) (*URI, error) {
+// ParseLocation parses a location of the form <scheme>://<path> and returns the parsed struct.
+func ParseLocation(src string) (*Location, error) {
 	scheme, path, ok := strings.Cut(src, "://")
 	if !ok {
-		return nil, fmt.Errorf("invalid URI: %q", src)
+		return nil, fmt.Errorf("invalid location: %q", src)
 	}
-	return parseURI(scheme, path)
+	return newLocation(scheme, path)
 }
 
-// ParseDefault attempts to parse the URI, and if it fails, returns a URI
-// with the default scheme (OCI).
-func ParseDefault(src string) (*URI, error) {
+// ParseLocationDefault attempts to parse the location, and if it fails, returns a
+// Location with the default scheme (OCI).
+func ParseLocationDefault(src string) (*Location, error) {
 	if scheme, path, ok := strings.Cut(src, "://"); ok {
-		return parseURI(scheme, path)
+		return newLocation(scheme, path)
 	}
 
-	return &URI{
-		Scheme: SchemeOCI,
+	return &Location{
+		Scheme: schemes.OCI,
 		Path:   src,
 	}, nil
 }
 
-// Guess is an opinionated parser that attempts to determine the URI scheme
+// GuessLocation is an opinionated parser that attempts to determine the URI scheme
 // based on the input string.
 //
 // This function is intended to be used for user input, simplifying the
 // experience by allowing the scheme to be inferred. However, avoid using it
 // for parsing structured output, since you should be able to rely on more
 // structured data.
-func Guess(src string) (*URI, error) {
+func GuessLocation(src string) (*Location, error) {
 	if scheme, path, ok := strings.Cut(src, "://"); ok {
-		return parseURI(scheme, path)
+		return newLocation(scheme, path)
 	}
 
 	var stat os.FileInfo
 	var statErr error
 	if stat, statErr = os.Stat(src); statErr == nil {
 		if stat.IsDir() {
-			return &URI{
-				Scheme: SchemeOCILayout,
+			return &Location{
+				Scheme: schemes.OCILayout,
 				Path:   src,
 			}, nil
 		} else {
-			return &URI{
-				Scheme: SchemeOCIArchive,
+			return &Location{
+				Scheme: schemes.OCIArchive,
 				Path:   src,
 			}, nil
 		}
@@ -84,16 +78,16 @@ func Guess(src string) (*URI, error) {
 		return nil, statErr
 	}
 
-	if path, tag := SplitPathTag(src); tag != "" {
+	if path, tag := splitPathTag(src); tag != "" {
 		if stat, statErr = os.Stat(path); statErr == nil {
 			if stat.IsDir() {
-				return &URI{
-					Scheme: SchemeOCILayout,
+				return &Location{
+					Scheme: schemes.OCILayout,
 					Path:   src,
 				}, nil
 			} else {
-				return &URI{
-					Scheme: SchemeOCIArchive,
+				return &Location{
+					Scheme: schemes.OCIArchive,
 					Path:   src,
 				}, nil
 			}
@@ -103,28 +97,28 @@ func Guess(src string) (*URI, error) {
 	}
 
 	if looksLikeTarball(src) {
-		return &URI{
-			Scheme: SchemeOCIArchive,
+		return &Location{
+			Scheme: schemes.OCIArchive,
 			Path:   src,
 		}, nil
 	}
 	if looksLikeDir(src) {
-		return &URI{
-			Scheme: SchemeOCILayout,
+		return &Location{
+			Scheme: schemes.OCILayout,
 			Path:   src,
 		}, nil
 	}
 
-	if path, tag := SplitPathTag(src); tag != "" {
+	if path, tag := splitPathTag(src); tag != "" {
 		if looksLikeTarball(path) {
-			return &URI{
-				Scheme: SchemeOCIArchive,
+			return &Location{
+				Scheme: schemes.OCIArchive,
 				Path:   src,
 			}, nil
 		}
 		if looksLikeDir(path) {
-			return &URI{
-				Scheme: SchemeOCILayout,
+			return &Location{
+				Scheme: schemes.OCILayout,
 				Path:   src,
 			}, nil
 		}
@@ -134,35 +128,40 @@ func Guess(src string) (*URI, error) {
 		return nil, fmt.Errorf("ambiguous path: %s", src)
 	}
 
-	return &URI{
-		Scheme: SchemeOCI,
+	return &Location{
+		Scheme: schemes.OCI,
 		Path:   src,
 	}, nil
 }
 
-func parseURI(scheme string, path string) (*URI, error) {
+func newLocation(scheme string, path string) (*Location, error) {
 	uriScheme, err := parseScheme(scheme)
 	if err != nil {
 		return nil, err
 	}
-	return &URI{
+	return &Location{
 		Scheme: uriScheme,
 		Path:   path,
 	}, nil
 }
 
-func parseScheme(scheme string) (Scheme, error) {
-	switch Scheme(scheme) {
-	case SchemeOCI, SchemeOCILayout, SchemeOCIArchive:
-		return Scheme(scheme), nil
-	default:
-		return "", fmt.Errorf("unsupported URI scheme: %q", scheme)
+// parseScheme returns the scheme named by scheme, if it is one an Accessor can
+// read or write.
+func parseScheme(scheme string) (schemes.Scheme, error) {
+	parsed, err := schemes.Parse(scheme)
+	if err != nil {
+		return "", err
 	}
+	if parsed.IsHTTP() {
+		return "", fmt.Errorf("%w: %q names an image the platform fetches, not a local one",
+			schemes.ErrUnsupported, scheme)
+	}
+	return parsed, nil
 }
 
-// SplitPathTag splits a path from the tag that follows its last colon.  The
-// tag is empty when the path carries none.  A volume name, as in "C:", is not a tag.
-func SplitPathTag(src string) (string, string) {
+// splitPathTag splits a path from the tag that follows its last colon. The
+// tag is empty when the path carries none. A volume name, as in "C:", is not a tag.
+func splitPathTag(src string) (string, string) {
 	vol := len(filepath.VolumeName(src))
 	if idx := strings.LastIndex(src[vol:], ":"); idx >= 0 {
 		return src[:vol+idx], src[vol+idx+1:]
