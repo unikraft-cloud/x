@@ -11,6 +11,7 @@ use (
 	./guesstermwidth
 	./iata
 	./image-spec
+	./io
 	./joinerrgroup
 	./kingkong
 	./kraftfile
