@@ -168,6 +168,68 @@ func TestCollapsedFlagPlaceholders(t *testing.T) {
 	require.Equal(t, "--foo=<value>, --bar=<key>=<value>, --baz", formatted)
 }
 
+func TestRepeatableFlagPlaceholders(t *testing.T) {
+	type repeatableCLI struct {
+		Tag []string          `help:"Tag." placeholder:"<tag>" sep:"none"`
+		Set map[string]string `help:"Set." placeholder:"<key>=<value>" mapsep:"none"`
+		CSV []string          `help:"CSV-joinable list." placeholder:"<value>"`
+		Str string            `help:"Scalar value." placeholder:"<value>"`
+	}
+
+	var cli repeatableCLI
+	app, err := kong.New(&cli)
+	require.NoError(t, err)
+
+	flagByName := func(name string) *kong.Flag {
+		for _, flag := range app.Model.Flags {
+			if flag.Name == name {
+				return flag
+			}
+		}
+		t.Fatalf("flag %q not found", name)
+		return nil
+	}
+
+	// A slice flag gets the "..." suffix whether or not it also splits on a
+	// separator: either way, repeating the flag accumulates more values.
+	formatted := ansi.Strip(formatFlag(&Flag{Flag: flagByName("tag")}))
+	require.Contains(t, formatted, "--tag=<tag> ...")
+
+	formatted = ansi.Strip(formatFlag(&Flag{Flag: flagByName("set")}))
+	require.Contains(t, formatted, "--set=<key>=<value> ...")
+
+	formatted = ansi.Strip(formatFlag(&Flag{Flag: flagByName("csv")}))
+	require.Contains(t, formatted, "--csv=<value> ...")
+
+	// A scalar flag never gets the suffix.
+	formatted = ansi.Strip(formatFlag(&Flag{Flag: flagByName("str")}))
+	require.NotContains(t, formatted, "...")
+}
+
+func TestCollapsedRepeatableFlagPlaceholders(t *testing.T) {
+	type collapseCLI struct {
+		Foo []string `help:"Foo values." placeholder:"<value>" collapse:"pair" sep:"none"`
+		Bar string   `help:"Bar filter." placeholder:"<key>=<value>" collapse:"pair"`
+	}
+
+	var cli collapseCLI
+	app, err := kong.New(&cli)
+	require.NoError(t, err)
+
+	flags := collapseFlags(app.Model.Flags)
+	var collapsed *Flag
+	for _, flag := range flags {
+		if flag.Name == "foo" {
+			collapsed = flag
+			break
+		}
+	}
+	require.NotNil(t, collapsed)
+
+	formatted := strings.TrimSpace(ansi.Strip(formatFlag(collapsed)))
+	require.Equal(t, "--foo=<value> ..., --bar=<key>=<value>", formatted)
+}
+
 func captureHelpOutput(t *testing.T, app *kong.Kong, buf *bytes.Buffer) (output string) {
 	t.Helper()
 

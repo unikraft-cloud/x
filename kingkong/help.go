@@ -545,7 +545,7 @@ func formatFlag(flag *Flag) string {
 	}
 
 	formattedNames := make([]string, 0, 1+len(flag.Aliases)+len(flag.Collapsed))
-	appendNames := func(names []string, placeholder string) {
+	appendNames := func(names []string, placeholder string, repeatable bool) {
 		for i, name := range names {
 			formatted := "--" + name
 			if isBool {
@@ -559,18 +559,21 @@ func formatFlag(flag *Flag) string {
 			// Add placeholder if available.
 			if !isBool && i == 0 && placeholder != "" {
 				formatted += DimmedColor("=") + renderPlaceholder(placeholder)
+				if repeatable {
+					formatted += DimmedColor(" ...")
+				}
 			}
 
 			formattedNames = append(formattedNames, formatted)
 		}
 	}
 
-	appendNames(append([]string{flag.Name}, flag.Aliases...), flag.PlaceHolder)
+	appendNames(append([]string{flag.Name}, flag.Aliases...), flag.PlaceHolder, flag.IsCumulative())
 	for _, collapsed := range flag.Collapsed {
 		if collapsed == nil {
 			continue
 		}
-		appendNames(append([]string{collapsed.Name}, collapsed.Aliases...), collapsed.PlaceHolder)
+		appendNames(append([]string{collapsed.Name}, collapsed.Aliases...), collapsed.PlaceHolder, collapsed.IsCumulative())
 	}
 
 	buf.WriteString(short)
