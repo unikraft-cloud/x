@@ -8,7 +8,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/stretchr/testify v1.11.1
-	unikraft.com/x/version v0.0.0-20260811021335-23b51b9e5a8a
+	unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8
 )
 
 require (

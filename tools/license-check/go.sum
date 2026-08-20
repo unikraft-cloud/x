@@ -61,5 +61,5 @@ gopkg.in/warnings.v0 v0.1.2 h1:wFXVbFY8DY5/xOe1ECiWdKCzZlxgshcYVNkBHstARME=
 gopkg.in/warnings.v0 v0.1.2/go.mod h1:jksf8JmL6Qr/oQM2OXTHunEvvTAsrWBLb6OOjuVWRNI=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-unikraft.com/x/version v0.0.0-20260811021335-23b51b9e5a8a h1:+gz1NErGeAIUF69ImIO9SPLwBhIhAxNhNXhYQZvD2jQ=
-unikraft.com/x/version v0.0.0-20260811021335-23b51b9e5a8a/go.mod h1:JFPFNcsa3935zxXNdL7Xm4Tfku/I4shRB1MMiNOU4p4=
+unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8 h1:Q5U/RH2J3UO29W2fYYhL8DTONl2p6PHQq+r/n6Lx7i8=
+unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8/go.mod h1:JFPFNcsa3935zxXNdL7Xm4Tfku/I4shRB1MMiNOU4p4=
