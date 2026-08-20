@@ -73,6 +73,10 @@ vars:
           - "-ST1022"
           # kong uses duplicate struct tags
           - "-SA5008" # invalid struct tag
+        modernize:
+          disable:
+          # reads worse than the type assertion it replaces
+          - reflecttypeassert
         godox:
           keywords:
             - XXX
