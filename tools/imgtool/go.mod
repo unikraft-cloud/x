@@ -14,7 +14,7 @@ require (
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
 	github.com/unikraft-cloud/x/image-spec v0.0.0-00010101000000-000000000000
 	unikraft.com/x/log v0.0.0-20260120165849-5b2c62ce8457
-	unikraft.com/x/version v0.0.0-20260118191410-69d4b6306769
+	unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8
 )
 
 require (

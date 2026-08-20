@@ -188,5 +188,5 @@ gotest.tools/v3 v3.5.2 h1:7koQfIKdy+I8UTetycgUqXWSDwpgv193Ka+qRsmBY8Q=
 gotest.tools/v3 v3.5.2/go.mod h1:LtdLGcnqToBH83WByAAi/wiwSFCArdFIUV/xxN4pcjA=
 unikraft.com/x/log v0.0.0-20260120165849-5b2c62ce8457 h1:20lgVv+2dxpCB0dne/YCEaBxNkQYczwHPuNNxGp1HPo=
 unikraft.com/x/log v0.0.0-20260120165849-5b2c62ce8457/go.mod h1:2b6KIvLqRslvmLjx6lpwQsTpq2E+tT/5ge6k47g6ee8=
-unikraft.com/x/version v0.0.0-20260118191410-69d4b6306769 h1:ibRSWUDvAdJhUsxQjlqAA4Cz+xu7JZWkxxwxoe9b6ZU=
-unikraft.com/x/version v0.0.0-20260118191410-69d4b6306769/go.mod h1:MrrO8zAlt3kKWglDexPH3K5nu+hlYzKyERCAYb2SOFk=
+unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8 h1:Q5U/RH2J3UO29W2fYYhL8DTONl2p6PHQq+r/n6Lx7i8=
+unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8/go.mod h1:JFPFNcsa3935zxXNdL7Xm4Tfku/I4shRB1MMiNOU4p4=
