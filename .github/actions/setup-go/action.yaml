@@ -13,6 +13,13 @@ inputs:
 runs:
   using: composite
   steps:
+    # Auto-gc prunes .git/shallow in the cached module VCS repos out from under
+    # go's `git fetch --unshallow`, breaking private module resolution.
+    - name: Disable git auto-gc
+      shell: bash
+      run: |
+        git config --global gc.auto 0
+
     - name: Login to GitHub
       if: ${{ inputs.gh_pat != '' }}
       shell: bash
