@@ -50,6 +50,7 @@ runs:
           echo "cache=$(go env GOCACHE)"
           echo "modcache=$(go env GOMODCACHE)"
           echo "mod=$(go env GOMOD)"
+          echo "version=$(go env GOVERSION)"
         } >>"$GITHUB_OUTPUT"
 
     - name: Setup GOPRIVATE
@@ -65,9 +66,9 @@ runs:
         path: |
           ${{ steps.goenv.outputs.cache }}
           ${{ steps.goenv.outputs.modcache }}
-        key: ${{ github.job }}-${{ runner.os }}-go-${{ hashFiles(steps.goenv.outputs.mod) }}
+        key: ${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-${{ hashFiles(steps.goenv.outputs.mod) }}
         restore-keys: |
-          ${{ github.job }}-${{ runner.os }}-go-
+          ${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-
 
     - name: Setup Task
       uses: go-task/setup-task@v2
