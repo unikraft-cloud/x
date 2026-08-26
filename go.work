@@ -24,6 +24,7 @@ use (
 	./router
 	./sanitize
 	./startstopper
+	./stdio
 	./telemetry
 	./text
 	./version
