@@ -256,3 +256,37 @@ func normalizeHelpOutput(output string) string {
 	output = strings.ReplaceAll(output, runtime.GOARCH, "{{GOARCH}}")
 	return output
 }
+
+// An enum whose members include an empty string is how kong spells "may be
+// left unset", and it needs an empty default to go with it. Neither is a
+// choice a user can type, so neither belongs in the rendered list.
+func TestOptionalEnumChoices(t *testing.T) {
+	type optionalEnumCLI struct {
+		Segment string `help:"Private supernet." default:"" enum:",10.0.0.0/8,172.16.0.0/12"`
+		Mode    string `help:"Mode." default:"isolates" enum:"isolates,other"`
+	}
+
+	var cli optionalEnumCLI
+	app, err := kong.New(&cli)
+	require.NoError(t, err)
+
+	flagByName := func(name string) *kong.Flag {
+		for _, flag := range app.Model.Flags {
+			if flag.Name == name {
+				return flag
+			}
+		}
+		t.Fatalf("flag %q not found", name)
+		return nil
+	}
+
+	formatted := ansi.Strip(helpValueFormatter(flagByName("segment").Value))
+	require.Contains(t, formatted, "[choices: 10.0.0.0/8, 172.16.0.0/12]")
+
+	// The bracket used to open only for a non-empty default, so an optional
+	// enum rendered a dangling "]" with no "[".
+	require.NotContains(t, formatted, "[default:")
+
+	formatted = ansi.Strip(helpValueFormatter(flagByName("mode").Value))
+	require.Contains(t, formatted, "[default: isolates, choices: isolates, other]")
+}
