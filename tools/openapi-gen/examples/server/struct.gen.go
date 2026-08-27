@@ -15,7 +15,7 @@ var (
 )
 
 type CreateWidgetRequest struct {
-	Name string `json:"name,omitzero" yaml:"name,omitempty"`
+	Name string `json:"name" yaml:"name"`
 	Size *int   `json:"size,omitzero" yaml:"size,omitempty"`
 
 	// AdditionalProperties captures any JSON object members that do not map to
