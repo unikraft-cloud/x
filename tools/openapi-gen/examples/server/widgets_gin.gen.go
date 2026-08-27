@@ -25,6 +25,7 @@ var (
 	_ http.Client
 	_ context.Context
 	_ = log.New
+	_ = time.Now
 )
 
 // Widgets provides the API handlers.
