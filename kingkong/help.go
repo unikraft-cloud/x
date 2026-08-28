@@ -430,13 +430,12 @@ func helpValueFormatter(value *kong.Value) string {
 		hasMetadata = true
 	}
 
-	if len(value.Tag.Enum) > 0 {
+	if choices := enumChoices(value.Tag.Enum); len(choices) > 0 {
 		if hasMetadata {
 			buf.WriteString(DimmedColor(", "))
 		} else {
 			buf.WriteString(DimmedColor("["))
 		}
-		choices := strings.Split(value.Tag.Enum, ",")
 		buf.WriteString(DimmedColor("choices: ") + strings.Join(choices, DimmedColor(", ")))
 		hasMetadata = true
 	}
@@ -460,6 +459,16 @@ func helpValueFormatter(value *kong.Value) string {
 	}
 
 	return buf.String()
+}
+
+// enumChoices splits an enum tag into the choices to display. An empty
+// member means the flag may be left unset, which kong can only express by
+// pairing it with an empty default -- there is nothing to name in the list.
+func enumChoices(enum string) []string {
+	choices := strings.Split(enum, ",")
+	return slices.DeleteFunc(choices, func(choice string) bool {
+		return strings.TrimSpace(choice) == ""
+	})
 }
 
 // parseExamples parses a comma-separated list of examples, supporting escaped commas.
