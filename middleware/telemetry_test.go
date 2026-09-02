@@ -155,13 +155,20 @@ func TestTelemetryMetrics(t *testing.T) {
 	for _, m := range rm.ScopeMetrics[0].Metrics {
 		metrics[m.Name] = m.Data
 	}
-	assert.Equal(t, []string{"http.server.requests"}, slices.Sorted(maps.Keys(metrics)))
+	assert.Equal(t, []string{"http.server.request.duration", "http.server.requests"},
+		slices.Sorted(maps.Keys(metrics)))
 
 	counter, ok := metrics["http.server.requests"].(metricdata.Sum[int64])
 	require.True(t, ok)
 	require.Len(t, counter.DataPoints, 1)
 	assert.Equal(t, want, counter.DataPoints[0].Attributes)
 	assert.Equal(t, int64(1), counter.DataPoints[0].Value)
+
+	duration, ok := metrics["http.server.request.duration"].(metricdata.Histogram[float64])
+	require.True(t, ok)
+	require.Len(t, duration.DataPoints, 1)
+	assert.Equal(t, want, duration.DataPoints[0].Attributes)
+	assert.Equal(t, uint64(1), duration.DataPoints[0].Count)
 }
 
 // newRouter instruments a router with Telemetry, skipping "/healthz".

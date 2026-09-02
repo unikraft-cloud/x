@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -45,7 +46,7 @@ var requestMethods = map[string]httpconv.RequestMethodAttr{
 var (
 	requestMetricsOnce sync.Once
 	requestCounter     metric.Int64Counter
-	requestCounterErr  error
+	requestDuration    httpconv.ServerRequestDuration
 )
 
 // Telemetry creates a span per request, injects a correlated logger,
@@ -69,6 +70,8 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 				return
 			}
 		}
+
+		start := time.Now()
 
 		ctx := c.Request.Context()
 		ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(c.Request.Header))
@@ -99,9 +102,13 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 		resAttrs := respAttrs(c)
 		span.SetAttributes(resAttrs...)
 
-		if counter := requestCounterInstrument(); counter != nil {
-			counter.Add(ctx, 1, metric.WithAttributes(append(reqAttrs, resAttrs...)...))
+		counter, duration := requestInstruments()
+
+		metricAttrs := metric.WithAttributes(append(reqAttrs, resAttrs...)...)
+		if counter != nil {
+			counter.Add(ctx, 1, metricAttrs)
 		}
+		duration.Inst().Record(ctx, time.Since(start).Seconds(), metricAttrs)
 
 		if len(c.Errors) > 0 {
 			for _, err := range c.Errors {
@@ -178,20 +185,30 @@ func spanName(c *gin.Context) string {
 	return name
 }
 
-func requestCounterInstrument() metric.Int64Counter {
+func requestInstruments() (metric.Int64Counter, httpconv.ServerRequestDuration) {
 	requestMetricsOnce.Do(func() {
 		meter := otel.Meter("unikraft.com/x/middleware")
-		requestCounter, requestCounterErr = meter.Int64Counter(
+
+		var err error
+		requestDuration, err = httpconv.NewServerRequestDuration(meter)
+		if err != nil {
+			log.G(context.Background()).Error().Err(err).
+				Msg("failed to create request duration histogram")
+		}
+
+		// NOTE: non-standard property, kept for our own backwards compat
+		// we can migrate our consumers to the http.server.request.duration histogram
+		requestCounter, err = meter.Int64Counter(
 			"http.server.requests",
 			metric.WithDescription("Number of HTTP requests"),
 			metric.WithUnit("1"),
 		)
-		if requestCounterErr != nil {
-			log.G(context.Background()).Error().Err(requestCounterErr).
+		if err != nil {
+			log.G(context.Background()).Error().Err(err).
 				Msg("failed to create request counter")
 			requestCounter = nil
 		}
 	})
 
-	return requestCounter
+	return requestCounter, requestDuration
 }
