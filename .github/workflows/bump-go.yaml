@@ -1,0 +1,79 @@
+name: bump-go
+
+on:
+  schedule:
+    # Go patch releases ship roughly monthly with no fixed date, so poll
+    # weekly to pick up a new stable release without much delay.
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Base branch to open the PR against
+        type: string
+        default: prod-staging
+  workflow_call:
+    inputs:
+      base:
+        description: Base branch to open the PR against
+        type: string
+        default: prod-staging
+    secrets:
+      gh_pat:
+        description: GitHub PAT used to push the branch and open the PR
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  bump-go:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Get latest Go version
+        id: latest
+        run: |
+          VERSION="$(curl -sL 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable)][0].version' | sed 's/^go//')"
+          if [ -z "$VERSION" ]; then
+            echo "Failed to determine the latest Go version" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ steps.latest.outputs.version }}
+
+      - name: Bump go.mod and go.work files
+        run: |
+          LATEST="${{ steps.latest.outputs.version }}"
+          while IFS= read -r modfile; do
+            go mod edit -go="$LATEST" "$modfile"
+          done < <(find . -name go.mod -not -path './.git/*')
+
+          while IFS= read -r workfile; do
+            go work edit -go="$LATEST" "$workfile"
+          done < <(find . -name go.work -not -path './.git/*')
+
+      - name: Bump Dockerfile base images
+        run: |
+          LATEST="${{ steps.latest.outputs.version }}"
+          while IFS= read -r dockerfile; do
+            sed -i -E "s#(FROM golang:)[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9]+)?#\1${LATEST}\3#g" "$dockerfile"
+          done < <(grep -rlE '^FROM golang:' --include=Dockerfile* .)
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.gh_pat }}
+          signoff: true
+          base: ${{ inputs.base || 'prod-staging' }}
+          branch: chore/bump-go-version
+          commit-message: "chore(deps): Bump Go to ${{ steps.latest.outputs.version }}"
+          title: "chore(deps): Bump Go to ${{ steps.latest.outputs.version }}"
+          body: |
+            Bumps the Go toolchain to the latest stable release, `${{ steps.latest.outputs.version }}`, per the [official Go release feed](https://go.dev/dl/?mode=json).
+
+            Opened automatically by the `bump-go` workflow.

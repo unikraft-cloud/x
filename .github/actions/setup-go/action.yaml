@@ -13,6 +13,13 @@ inputs:
 runs:
   using: composite
   steps:
+    # Auto-gc prunes .git/shallow in the cached module VCS repos out from under
+    # go's `git fetch --unshallow`, breaking private module resolution.
+    - name: Disable git auto-gc
+      shell: bash
+      run: |
+        git config --global gc.auto 0
+
     - name: Login to GitHub
       if: ${{ inputs.gh_pat != '' }}
       shell: bash
@@ -43,6 +50,7 @@ runs:
           echo "cache=$(go env GOCACHE)"
           echo "modcache=$(go env GOMODCACHE)"
           echo "mod=$(go env GOMOD)"
+          echo "version=$(go env GOVERSION)"
         } >>"$GITHUB_OUTPUT"
 
     - name: Setup GOPRIVATE
@@ -58,9 +66,9 @@ runs:
         path: |
           ${{ steps.goenv.outputs.cache }}
           ${{ steps.goenv.outputs.modcache }}
-        key: ${{ github.job }}-${{ runner.os }}-go-${{ hashFiles(steps.goenv.outputs.mod) }}
+        key: ${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-${{ hashFiles(steps.goenv.outputs.mod) }}
         restore-keys: |
-          ${{ github.job }}-${{ runner.os }}-go-
+          ${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-
 
     - name: Setup Task
       uses: go-task/setup-task@v2

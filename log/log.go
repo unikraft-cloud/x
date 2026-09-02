@@ -5,7 +5,11 @@
 
 package log
 
-import "github.com/rs/zerolog"
+import (
+	"fmt"
+
+	"github.com/rs/zerolog"
+)
 
 // Type aliases.
 type (
@@ -44,3 +48,19 @@ const (
 	// Human-readable output.
 	TextType Type = "text"
 )
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (t *Type) UnmarshalText(text []byte) error {
+	switch v := Type(text); v {
+	case JSONType, TextType:
+		*t = v
+		return nil
+	default:
+		return fmt.Errorf("unknown log type: %q", text)
+	}
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (t Type) MarshalText() ([]byte, error) {
+	return []byte(t), nil
+}

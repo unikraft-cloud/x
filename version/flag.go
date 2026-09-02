@@ -11,6 +11,7 @@ import (
 	"github.com/alecthomas/kong"
 )
 
+// VersionFlag is a kong flag that prints version information and exits.
 type VersionFlag string
 
 func (v VersionFlag) Decode(ctx *kong.DecodeContext) error {

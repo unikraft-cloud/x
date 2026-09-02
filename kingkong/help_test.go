@@ -168,6 +168,68 @@ func TestCollapsedFlagPlaceholders(t *testing.T) {
 	require.Equal(t, "--foo=<value>, --bar=<key>=<value>, --baz", formatted)
 }
 
+func TestRepeatableFlagPlaceholders(t *testing.T) {
+	type repeatableCLI struct {
+		Tag []string          `help:"Tag." placeholder:"<tag>" sep:"none"`
+		Set map[string]string `help:"Set." placeholder:"<key>=<value>" mapsep:"none"`
+		CSV []string          `help:"CSV-joinable list." placeholder:"<value>"`
+		Str string            `help:"Scalar value." placeholder:"<value>"`
+	}
+
+	var cli repeatableCLI
+	app, err := kong.New(&cli)
+	require.NoError(t, err)
+
+	flagByName := func(name string) *kong.Flag {
+		for _, flag := range app.Model.Flags {
+			if flag.Name == name {
+				return flag
+			}
+		}
+		t.Fatalf("flag %q not found", name)
+		return nil
+	}
+
+	// A slice flag gets the "..." suffix whether or not it also splits on a
+	// separator: either way, repeating the flag accumulates more values.
+	formatted := ansi.Strip(formatFlag(&Flag{Flag: flagByName("tag")}))
+	require.Contains(t, formatted, "--tag=<tag> ...")
+
+	formatted = ansi.Strip(formatFlag(&Flag{Flag: flagByName("set")}))
+	require.Contains(t, formatted, "--set=<key>=<value> ...")
+
+	formatted = ansi.Strip(formatFlag(&Flag{Flag: flagByName("csv")}))
+	require.Contains(t, formatted, "--csv=<value> ...")
+
+	// A scalar flag never gets the suffix.
+	formatted = ansi.Strip(formatFlag(&Flag{Flag: flagByName("str")}))
+	require.NotContains(t, formatted, "...")
+}
+
+func TestCollapsedRepeatableFlagPlaceholders(t *testing.T) {
+	type collapseCLI struct {
+		Foo []string `help:"Foo values." placeholder:"<value>" collapse:"pair" sep:"none"`
+		Bar string   `help:"Bar filter." placeholder:"<key>=<value>" collapse:"pair"`
+	}
+
+	var cli collapseCLI
+	app, err := kong.New(&cli)
+	require.NoError(t, err)
+
+	flags := collapseFlags(app.Model.Flags)
+	var collapsed *Flag
+	for _, flag := range flags {
+		if flag.Name == "foo" {
+			collapsed = flag
+			break
+		}
+	}
+	require.NotNil(t, collapsed)
+
+	formatted := strings.TrimSpace(ansi.Strip(formatFlag(collapsed)))
+	require.Equal(t, "--foo=<value> ..., --bar=<key>=<value>", formatted)
+}
+
 func captureHelpOutput(t *testing.T, app *kong.Kong, buf *bytes.Buffer) (output string) {
 	t.Helper()
 
@@ -193,4 +255,38 @@ func normalizeHelpOutput(output string) string {
 	output = strings.ReplaceAll(output, runtime.GOOS, "{{GOOS}}")
 	output = strings.ReplaceAll(output, runtime.GOARCH, "{{GOARCH}}")
 	return output
+}
+
+// An enum whose members include an empty string is how kong spells "may be
+// left unset", and it needs an empty default to go with it. Neither is a
+// choice a user can type, so neither belongs in the rendered list.
+func TestOptionalEnumChoices(t *testing.T) {
+	type optionalEnumCLI struct {
+		Segment string `help:"Private supernet." default:"" enum:",10.0.0.0/8,172.16.0.0/12"`
+		Mode    string `help:"Mode." default:"isolates" enum:"isolates,other"`
+	}
+
+	var cli optionalEnumCLI
+	app, err := kong.New(&cli)
+	require.NoError(t, err)
+
+	flagByName := func(name string) *kong.Flag {
+		for _, flag := range app.Model.Flags {
+			if flag.Name == name {
+				return flag
+			}
+		}
+		t.Fatalf("flag %q not found", name)
+		return nil
+	}
+
+	formatted := ansi.Strip(helpValueFormatter(flagByName("segment").Value))
+	require.Contains(t, formatted, "[choices: 10.0.0.0/8, 172.16.0.0/12]")
+
+	// The bracket used to open only for a non-empty default, so an optional
+	// enum rendered a dangling "]" with no "[".
+	require.NotContains(t, formatted, "[default:")
+
+	formatted = ansi.Strip(helpValueFormatter(flagByName("mode").Value))
+	require.Contains(t, formatted, "[default: isolates, choices: isolates, other]")
 }

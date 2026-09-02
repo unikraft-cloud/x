@@ -38,7 +38,7 @@ func main() {
 		Output:    cli.Output,
 		Var:       cli.Var,
 		Templates: cli.Templates,
-		Package:   cli.Package,
+		Package:   cli.Package, //nolint:staticcheck // deprecated, but we still expose it in the cmdline
 		Tag:       cli.Tag,
 		Namespace: cli.Namespace,
 		Flatten:   cli.Flatten,

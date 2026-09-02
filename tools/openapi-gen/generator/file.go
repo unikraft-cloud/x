@@ -118,6 +118,29 @@ func safeRelName(filename string) (string, error) {
 	return filepath.ToSlash(clean), nil
 }
 
+// cleanGenerated removes previously generated files (any name containing
+// ".gen", the marker outputFilename gives every file this tool writes) from
+// outputDir, so switching templates or vars doesn't leave stale output
+// behind. It's a no-op if outputDir doesn't exist yet.
+func cleanGenerated(outputDir string) error {
+	entries, err := os.ReadDir(outputDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("reading output directory: %w", err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.Contains(entry.Name(), ".gen") {
+			continue
+		}
+		if err := os.Remove(filepath.Join(outputDir, entry.Name())); err != nil {
+			return fmt.Errorf("removing stale generated file: %w", err)
+		}
+	}
+	return nil
+}
+
 func (f File) WriteTo(outputDir string) error {
 	name, err := safeRelName(f.Name)
 	if err != nil {
