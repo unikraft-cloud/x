@@ -7,8 +7,10 @@ package middleware
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"regexp"
+	"strconv"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -18,10 +20,27 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
+	"go.opentelemetry.io/otel/semconv/v1.43.0/httpconv"
 	"go.opentelemetry.io/otel/trace"
 
 	"unikraft.com/x/log"
 )
+
+// Methods absent here must report as _OTHER, so that an arbitrary method cannot
+// become an unbounded metric dimension.
+var requestMethods = map[string]httpconv.RequestMethodAttr{
+	http.MethodConnect: httpconv.RequestMethodConnect,
+	http.MethodDelete:  httpconv.RequestMethodDelete,
+	http.MethodGet:     httpconv.RequestMethodGet,
+	http.MethodHead:    httpconv.RequestMethodHead,
+	http.MethodOptions: httpconv.RequestMethodOptions,
+	http.MethodPatch:   httpconv.RequestMethodPatch,
+	http.MethodPost:    httpconv.RequestMethodPost,
+	http.MethodPut:     httpconv.RequestMethodPut,
+	http.MethodTrace:   httpconv.RequestMethodTrace,
+	"QUERY":            httpconv.RequestMethodQuery, // FIXME: use http.MethodQuery when it becomes available
+}
 
 var (
 	requestMetricsOnce sync.Once
@@ -54,12 +73,14 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 		ctx := c.Request.Context()
 		ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(c.Request.Header))
 
+		reqAttrs := requestAttrs(c.Request)
+
 		tracer := otel.Tracer("unikraft.com/x/middleware")
-		ctx, span := tracer.Start(ctx, "http.request", trace.WithSpanKind(trace.SpanKindServer))
-		span.SetAttributes(
-			attribute.String("http.method", c.Request.Method),
-			attribute.String("http.host", c.Request.Host),
-		)
+		ctx, span := tracer.Start(ctx, spanName(c), trace.WithSpanKind(trace.SpanKindServer))
+		span.SetAttributes(reqAttrs...)
+		if _, known := requestMethods[c.Request.Method]; !known {
+			span.SetAttributes(semconv.HTTPRequestMethodOriginal(c.Request.Method))
+		}
 
 		// Inject logger with trace correlation fields
 		// These fields are extracted by the OTLP log writer to link logs to traces
@@ -75,40 +96,86 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 
 		c.Next()
 
-		status := c.Writer.Status()
-		route := c.FullPath()
-		if route == "" {
-			route = "unknown"
-		}
-
-		attrs := []attribute.KeyValue{
-			attribute.String("http.method", c.Request.Method),
-			attribute.String("http.host", c.Request.Host),
-			attribute.String("http.route", route),
-			attribute.Int("http.status_code", status),
-		}
+		resAttrs := respAttrs(c)
+		span.SetAttributes(resAttrs...)
 
 		if counter := requestCounterInstrument(); counter != nil {
-			counter.Add(ctx, 1, metric.WithAttributes(attrs...))
+			counter.Add(ctx, 1, metric.WithAttributes(append(reqAttrs, resAttrs...)...))
 		}
-
-		span.SetAttributes(
-			attribute.String("http.route", route),
-			attribute.Int("http.status_code", status),
-		)
-		span.SetName(c.Request.Method + " " + route)
 
 		if len(c.Errors) > 0 {
 			for _, err := range c.Errors {
 				span.RecordError(err.Err)
 			}
 			span.SetStatus(codes.Error, c.Errors.String())
-		} else if status >= http.StatusInternalServerError {
-			span.SetStatus(codes.Error, http.StatusText(status))
+		} else if c.Writer.Status() >= http.StatusInternalServerError {
+			span.SetStatus(codes.Error, http.StatusText(c.Writer.Status()))
 		}
 
 		span.End()
 	}
+}
+
+// requestAttrs omits http.request.method_original, which is unbounded and so
+// belongs only on spans.
+func requestAttrs(r *http.Request) []attribute.KeyValue {
+	method, known := requestMethods[r.Method]
+	if !known {
+		method = httpconv.RequestMethodOther
+	}
+
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+
+	return append([]attribute.KeyValue{
+		semconv.HTTPRequestMethodKey.String(string(method)),
+		semconv.URLScheme(scheme),
+	}, serverAttrs(r)...)
+}
+
+func serverAttrs(r *http.Request) []attribute.KeyValue {
+	// server.address must exclude the port, unlike the Host header.
+	addr, rawPort, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		addr = r.Host
+	}
+
+	var attrs []attribute.KeyValue
+	if addr != "" {
+		attrs = append(attrs, semconv.ServerAddress(addr))
+	}
+	if port, err := strconv.Atoi(rawPort); err == nil && port > 0 {
+		attrs = append(attrs, semconv.ServerPort(port))
+	}
+
+	return attrs
+}
+
+func respAttrs(c *gin.Context) []attribute.KeyValue {
+	route := c.FullPath()
+	if route == "" {
+		route = "unknown"
+	}
+
+	return []attribute.KeyValue{
+		semconv.HTTPRoute(route),
+		semconv.HTTPResponseStatusCode(c.Writer.Status()),
+	}
+}
+
+func spanName(c *gin.Context) string {
+	name := "HTTP"
+	if method, known := requestMethods[c.Request.Method]; known {
+		name = string(method)
+	}
+
+	if route := c.FullPath(); route != "" {
+		name += " " + route
+	}
+
+	return name
 }
 
 func requestCounterInstrument() metric.Int64Counter {
