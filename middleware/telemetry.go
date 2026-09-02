@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +27,8 @@ import (
 	"unikraft.com/x/log"
 )
 
+const scopeName = "unikraft.com/x/middleware"
+
 // Methods absent here must report as _OTHER, so that an arbitrary method cannot
 // become an unbounded metric dimension.
 var requestMethods = map[string]httpconv.RequestMethodAttr{
@@ -43,18 +44,33 @@ var requestMethods = map[string]httpconv.RequestMethodAttr{
 	"QUERY":            httpconv.RequestMethodQuery, // FIXME: use http.MethodQuery when it becomes available
 }
 
-var (
-	requestMetricsOnce sync.Once
-	requestCounter     metric.Int64Counter
-	requestDuration    httpconv.ServerRequestDuration
-)
-
 // Telemetry creates a span per request, injects a correlated logger,
 // and emits request metrics.
 func Telemetry(skipPaths ...string) gin.HandlerFunc {
 	var regs []*regexp.Regexp
 	for _, p := range skipPaths {
 		regs = append(regs, regexp.MustCompile(p))
+	}
+
+	tracer := otel.Tracer(scopeName)
+	meter := otel.Meter(scopeName)
+
+	duration, err := httpconv.NewServerRequestDuration(meter)
+	if err != nil {
+		log.G(context.Background()).Error().Err(err).
+			Msg("failed to create request duration histogram")
+	}
+
+	// NOTE: non-standard property, kept for our own backwards compat
+	// we can migrate our consumers to the http.server.request.duration histogram
+	counter, err := meter.Int64Counter(
+		"http.server.requests",
+		metric.WithDescription("Number of HTTP requests"),
+		metric.WithUnit("1"),
+	)
+	if err != nil {
+		log.G(context.Background()).Error().Err(err).
+			Msg("failed to create request counter")
 	}
 
 	return func(c *gin.Context) {
@@ -78,7 +94,6 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 
 		reqAttrs := requestAttrs(c.Request)
 
-		tracer := otel.Tracer("unikraft.com/x/middleware")
 		ctx, span := tracer.Start(ctx, spanName(c), trace.WithSpanKind(trace.SpanKindServer))
 		span.SetAttributes(reqAttrs...)
 		if _, known := requestMethods[c.Request.Method]; !known {
@@ -102,12 +117,8 @@ func Telemetry(skipPaths ...string) gin.HandlerFunc {
 		resAttrs := respAttrs(c)
 		span.SetAttributes(resAttrs...)
 
-		counter, duration := requestInstruments()
-
 		metricAttrs := metric.WithAttributes(append(reqAttrs, resAttrs...)...)
-		if counter != nil {
-			counter.Add(ctx, 1, metricAttrs)
-		}
+		counter.Add(ctx, 1, metricAttrs)
 		duration.Inst().Record(ctx, time.Since(start).Seconds(), metricAttrs)
 
 		if len(c.Errors) > 0 {
@@ -183,32 +194,4 @@ func spanName(c *gin.Context) string {
 	}
 
 	return name
-}
-
-func requestInstruments() (metric.Int64Counter, httpconv.ServerRequestDuration) {
-	requestMetricsOnce.Do(func() {
-		meter := otel.Meter("unikraft.com/x/middleware")
-
-		var err error
-		requestDuration, err = httpconv.NewServerRequestDuration(meter)
-		if err != nil {
-			log.G(context.Background()).Error().Err(err).
-				Msg("failed to create request duration histogram")
-		}
-
-		// NOTE: non-standard property, kept for our own backwards compat
-		// we can migrate our consumers to the http.server.request.duration histogram
-		requestCounter, err = meter.Int64Counter(
-			"http.server.requests",
-			metric.WithDescription("Number of HTTP requests"),
-			metric.WithUnit("1"),
-		)
-		if err != nil {
-			log.G(context.Background()).Error().Err(err).
-				Msg("failed to create request counter")
-			requestCounter = nil
-		}
-	})
-
-	return requestCounter, requestDuration
 }

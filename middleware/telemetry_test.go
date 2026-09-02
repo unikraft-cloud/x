@@ -132,10 +132,14 @@ func TestTelemetrySpans(t *testing.T) {
 }
 
 func TestTelemetryMetrics(t *testing.T) {
+	// Built before the meter provider is installed, as a service that routes
+	// before calling telemetry.Init would.
+	router := newRouter(t)
+
 	reader := sdkmetric.NewManualReader()
 	otel.SetMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)))
 
-	serve(newRouter(t), "/users/42", "/healthz")
+	serve(router, "/users/42", "/healthz")
 
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(context.Background(), &rm))
