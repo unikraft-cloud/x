@@ -19,6 +19,7 @@ use (
 	./log
 	./middleware
 	./oidext
+	./processmetrics
 	./ptr
 	./ringbuffer
 	./router
