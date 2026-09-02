@@ -23,9 +23,34 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
+// Option configures Init.
+type Option func(*options)
+
+type options struct {
+	metricProducers []sdkmetric.Producer
+}
+
+// WithMetricProducer registers external producers of metric data with the
+// metric reader, so that metrics gathered outside the OTEL SDK are exported
+// on the same pipeline as the SDK's own.
+//
+// A producer is what a bridge from another instrumentation library provides,
+// such as go.opentelemetry.io/contrib/bridges/prometheus for a Prometheus
+// registry.  It has no effect when metrics are disabled.
+func WithMetricProducer(producers ...sdkmetric.Producer) Option {
+	return func(o *options) {
+		o.metricProducers = append(o.metricProducers, producers...)
+	}
+}
+
 // Init configures OTEL tracing, metrics, and logging exporters.
 // Respects OTEL_SDK_DISABLED, OTEL_TRACES_EXPORTER, OTEL_METRICS_EXPORTER, and OTEL_LOGS_EXPORTER.
-func Init(ctx context.Context) (func(context.Context) error, error) {
+func Init(ctx context.Context, opts ...Option) (func(context.Context) error, error) {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	noop := func(context.Context) error { return nil }
 	disabled, _ := strconv.ParseBool(os.Getenv("OTEL_SDK_DISABLED"))
 	if disabled {
@@ -79,8 +104,13 @@ func Init(ctx context.Context) (func(context.Context) error, error) {
 			}
 			return noop, err
 		}
+		readerOpts := make([]sdkmetric.PeriodicReaderOption, 0, len(o.metricProducers))
+		for _, producer := range o.metricProducers {
+			readerOpts = append(readerOpts, sdkmetric.WithProducer(producer))
+		}
+
 		meterProvider := sdkmetric.NewMeterProvider(
-			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter)),
+			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter, readerOpts...)),
 			sdkmetric.WithResource(res),
 		)
 		otel.SetMeterProvider(meterProvider)
