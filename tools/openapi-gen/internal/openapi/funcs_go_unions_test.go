@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/stretchr/testify/require"
 )
 
 // unionFuncs returns template funcs over a document holding just the given
@@ -105,7 +106,7 @@ func unionByName(t *testing.T, unions *GoUnions, name string) GoUnion {
 			return union
 		}
 	}
-	t.Fatalf("union %q not generated, got %v", name, unionNames(unions))
+	require.Failf(t, "union not generated", "no union named %q, got %v", name, unionNames(unions))
 	return GoUnion{}
 }
 
@@ -130,32 +131,21 @@ func TestGoUnionsNaming(t *testing.T) {
 
 	// Named after the first named branch, with the trailing "Spec" dropped.
 	union := unionByName(t, unions, "ImageUnion")
-	if got, want := unions.Fields["Thing.image"], "ImageUnion"; got != want {
-		t.Fatalf("Thing.image: got %q, want %q", got, want)
-	}
-	if got, want := len(union.Variants), 2; got != want {
-		t.Fatalf("variants: got %d, want %d", got, want)
-	}
+	require.Equal(t, "ImageUnion", unions.Fields["Thing.image"])
+	require.Len(t, union.Variants, 2)
 
 	// The string branch is declared for us; ImageSpec is generated already.
 	declared := union.Variants[0]
-	if declared.Type != "ImageReference" || declared.Underlying != "string" || !declared.Declare {
-		t.Fatalf("declared variant: got %+v", declared)
-	}
-	if declared.Doc != "A plain reference." {
-		t.Fatalf("declared variant doc: got %q", declared.Doc)
-	}
-	if got, want := declared.Kinds, []string{`'"'`}; !equal(got, want) {
-		t.Fatalf("declared variant kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, "ImageReference", declared.Type)
+	require.Equal(t, "string", declared.Underlying)
+	require.True(t, declared.Declare)
+	require.Equal(t, "A plain reference.", declared.Doc)
+	require.Equal(t, []string{`'"'`}, declared.Kinds)
 
 	named := union.Variants[1]
-	if named.Type != "ImageSpec" || named.Declare {
-		t.Fatalf("named variant: got %+v", named)
-	}
-	if got, want := named.Kinds, []string{`'{'`}; !equal(got, want) {
-		t.Fatalf("named variant kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, "ImageSpec", named.Type)
+	require.False(t, named.Declare)
+	require.Equal(t, []string{`'{'`}, named.Kinds)
 }
 
 func TestGoUnionsNameOverride(t *testing.T) {
@@ -170,9 +160,7 @@ func TestGoUnionsNameOverride(t *testing.T) {
 	unions := tf.goUnions(map[string]any{"Image": "ImageSource"})
 
 	unionByName(t, unions, "ImageSource")
-	if got, want := unions.Fields["Thing.image"], "ImageSource"; got != want {
-		t.Fatalf("Thing.image: got %q, want %q", got, want)
-	}
+	require.Equal(t, "ImageSource", unions.Fields["Thing.image"])
 }
 
 // A union takes its name from the FIRST named branch, not the last.
@@ -186,9 +174,7 @@ func TestGoUnionsNamedAfterFirstNamedBranch(t *testing.T) {
 	unions := tf.goUnions()
 
 	unionByName(t, unions, "FooUnion")
-	if got, want := len(unions.Unions), 1; got != want {
-		t.Fatalf("unions: got %v, want %d", unionNames(unions), want)
-	}
+	require.Len(t, unionNames(unions), 1)
 }
 
 // Two object branches encode to the same JSON kind, and generated structs accept
@@ -203,12 +189,8 @@ func TestGoUnionsRejectsSharedObjectKind(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
-	if name, ok := unions.Fields["Thing.target"]; ok {
-		t.Fatalf("Thing.target: got %q, want no union", name)
-	}
+	require.Empty(t, unionNames(unions))
+	require.NotContains(t, unions.Fields, "Thing.target")
 }
 
 // Scalars of a shared kind are no more distinguishable: `integer` and `number`
@@ -223,12 +205,8 @@ func TestGoUnionsRejectsSharedScalarKind(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
-	if name, ok := unions.Fields["Thing.amount"]; ok {
-		t.Fatalf("Thing.amount: got %q, want no union", name)
-	}
+	require.Empty(t, unionNames(unions))
+	require.NotContains(t, unions.Fields, "Thing.amount")
 }
 
 // Two properties that share a base name but list different branches get a union
@@ -245,23 +223,15 @@ func TestGoUnionsDistinctBranchesShareNoUnion(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if got, want := unions.Fields["Thing.labels"], "FooUnion"; got != want {
-		t.Fatalf("Thing.labels: got %q, want %q", got, want)
-	}
+	require.Equal(t, "FooUnion", unions.Fields["Thing.labels"])
 	// "FooUnion" is taken by a different set of branches, so the name falls
 	// back to the declaring property.
-	if got, want := unions.Fields["Thing.flags"], "ThingFlagsUnion"; got != want {
-		t.Fatalf("Thing.flags: got %q, want %q", got, want)
-	}
+	require.Equal(t, "ThingFlagsUnion", unions.Fields["Thing.flags"])
 
 	labels := unionByName(t, unions, "FooUnion")
-	if got, want := labels.TypeNames, []string{"FooSpec", "FooReference"}; !equal(got, want) {
-		t.Fatalf("FooUnion variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"FooSpec", "FooReference"}, labels.TypeNames)
 	flags := unionByName(t, unions, "ThingFlagsUnion")
-	if got, want := flags.TypeNames, []string{"FooSpec", "ThingFlagsFlag"}; !equal(got, want) {
-		t.Fatalf("ThingFlagsUnion variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"FooSpec", "ThingFlagsFlag"}, flags.TypeNames)
 }
 
 // An identical set of branches is one union, however many properties declare it.
@@ -280,12 +250,8 @@ func TestGoUnionsIdenticalBranchesReuseUnion(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if got, want := len(unions.Unions), 1; got != want {
-		t.Fatalf("unions: got %v, want %d", unionNames(unions), want)
-	}
-	if got, want := unions.Fields["OtherThing.rom"], "ImageUnion"; got != want {
-		t.Fatalf("OtherThing.rom: got %q, want %q", got, want)
-	}
+	require.Len(t, unionNames(unions), 1)
+	require.Equal(t, "ImageUnion", unions.Fields["OtherThing.rom"])
 }
 
 // A declared variant is defined in terms of the Go type its shape encodes to, and
@@ -300,15 +266,9 @@ func TestGoUnionsDeclaredVariantUnderlyingTypes(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "ThingAmountUnion")
 
-	if got, want := union.TypeNames, []string{"ThingAmountNumber", "ThingAmountReference"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
-	if got, want := union.Variants[0].Underlying, "int64"; got != want {
-		t.Fatalf("first underlying: got %q, want %q", got, want)
-	}
-	if got, want := union.Variants[1].Underlying, "string"; got != want {
-		t.Fatalf("second underlying: got %q, want %q", got, want)
-	}
+	require.Equal(t, []string{"ThingAmountNumber", "ThingAmountReference"}, union.TypeNames)
+	require.Equal(t, "int64", union.Variants[0].Underlying)
+	require.Equal(t, "string", union.Variants[1].Underlying)
 }
 
 // An inline enum is backed by the type of its values, not by string: dispatching
@@ -324,12 +284,8 @@ func TestGoUnionsInlineTypedEnumKeepsBaseType(t *testing.T) {
 	union := unionByName(t, tf.goUnions(), "ThingLevelUnion")
 
 	numeric := union.Variants[0]
-	if got, want := numeric.Underlying, "int"; got != want {
-		t.Fatalf("enum underlying: got %q, want %q", got, want)
-	}
-	if got, want := numeric.Kinds, []string{`'0'`}; !equal(got, want) {
-		t.Fatalf("enum kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, "int", numeric.Underlying)
+	require.Equal(t, []string{`'0'`}, numeric.Kinds)
 }
 
 // An enum with no type of its own is string-backed, string being all it can be.
@@ -344,12 +300,8 @@ func TestGoUnionsInlineTypelessEnumIsString(t *testing.T) {
 	union := unionByName(t, tf.goUnions(), "ThingLevelUnion")
 
 	enum := union.Variants[0]
-	if got, want := enum.Underlying, "string"; got != want {
-		t.Fatalf("enum underlying: got %q, want %q", got, want)
-	}
-	if got, want := enum.Kinds, []string{`'"'`}; !equal(got, want) {
-		t.Fatalf("enum kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, "string", enum.Underlying)
+	require.Equal(t, []string{`'"'`}, enum.Kinds)
 }
 
 // An array of a typed enum is backed by that type too, the enum being nested in
@@ -367,9 +319,7 @@ func TestGoUnionsInlineEnumItemsKeepBaseType(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "ThingLevelsUnion")
 
-	if got, want := union.Variants[0].Underlying, "[]int"; got != want {
-		t.Fatalf("array underlying: got %q, want %q", got, want)
-	}
+	require.Equal(t, "[]int", union.Variants[0].Underlying)
 }
 
 // Two branches naming the same schema are the same variant.
@@ -381,9 +331,7 @@ func TestGoUnionsRepeatedNamedBranchCollapses(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "FooUnion")
 
-	if got, want := union.TypeNames, []string{"FooSpec"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"FooSpec"}, union.TypeNames)
 }
 
 // A branch of unknown shape can neither be named nor dispatched on, so the
@@ -399,12 +347,8 @@ func TestGoUnionsSkipsUnusableBranches(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
-	if name, ok := unions.Fields["Thing.image"]; ok {
-		t.Fatalf("Thing.image: got %q, want no union", name)
-	}
+	require.Empty(t, unionNames(unions))
+	require.NotContains(t, unions.Fields, "Thing.image")
 }
 
 // A single-branch `anyOf` is not a union.
@@ -414,9 +358,7 @@ func TestGoUnionsIgnoresSingleBranch(t *testing.T) {
 		objectModel("Thing", prop{"image", anyOf(ref("ImageSpec"))}),
 	)
 
-	if unions := tf.goUnions(); len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
+	require.Empty(t, unionNames(tf.goUnions()))
 }
 
 // Generation order does not depend on map iteration order.
@@ -437,9 +379,7 @@ func TestGoUnionsSortedByName(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if got, want := unionNames(unions), []string{"ThingAlphaUnion", "ThingZetaUnion"}; !equal(got, want) {
-		t.Fatalf("unions: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"ThingAlphaUnion", "ThingZetaUnion"}, unionNames(unions))
 }
 
 // Package and namespace filtering narrows the models before templates run, but
@@ -460,22 +400,15 @@ func TestGoUnionsWrapsBranchOfAnotherPackage(t *testing.T) {
 	unions := tf.goUnions()
 
 	union := unionByName(t, unions, "ImageUnion")
-	if got, want := unions.Fields["Thing.image"], "ImageUnion"; got != want {
-		t.Fatalf("Thing.image: got %q, want %q", got, want)
-	}
-	if got, want := union.TypeNames, []string{"ImageReference", "ImageSpecVariant"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, "ImageUnion", unions.Fields["Thing.image"])
+	require.Equal(t, []string{"ImageReference", "ImageSpecVariant"}, union.TypeNames)
 
 	// The wrapper is declared in terms of the foreign schema, and keeps the
 	// metadata a template needs to qualify it.
 	wrapper := union.Variants[1]
-	if !wrapper.Declare || wrapper.Underlying != "ImageSpec" {
-		t.Fatalf("wrapper variant: got %+v", wrapper)
-	}
-	if got, want := wrapper.Package, "images"; got != want {
-		t.Fatalf("wrapper variant package: got %q, want %q", got, want)
-	}
+	require.True(t, wrapper.Declare)
+	require.Equal(t, "ImageSpec", wrapper.Underlying)
+	require.Equal(t, "images", wrapper.Package)
 }
 
 // A branch of the package being generated is generated already: the marker method
@@ -494,12 +427,10 @@ func TestGoUnionsBranchOfSamePackageNeedsNoWrapper(t *testing.T) {
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
 	named := union.Variants[1]
-	if named.Type != "ImageSpec" || named.Declare {
-		t.Fatalf("named variant: got %+v", named)
-	}
-	if named.Package != "" || named.Namespace != "" {
-		t.Fatalf("named variant: got %+v, want no package metadata", named)
-	}
+	require.Equal(t, "ImageSpec", named.Type)
+	require.False(t, named.Declare)
+	require.Empty(t, named.Package)
+	require.Empty(t, named.Namespace)
 }
 
 // A branch of another namespace is foreign for the same reason a branch of
@@ -517,12 +448,8 @@ func TestGoUnionsWrapsBranchOfAnotherNamespace(t *testing.T) {
 
 	union := unionByName(t, unions, unions.Fields["Thing.image"])
 	wrapper := union.Variants[1]
-	if !wrapper.Declare {
-		t.Fatalf("wrapper variant: got %+v, want a declaration", wrapper)
-	}
-	if got, want := wrapper.Namespace, "Images"; got != want {
-		t.Fatalf("wrapper variant namespace: got %q, want %q", got, want)
-	}
+	require.True(t, wrapper.Declare)
+	require.Equal(t, "Images", wrapper.Namespace)
 }
 
 // A branch of the namespace being generated is local, however the caller cased
@@ -542,9 +469,8 @@ func TestGoUnionsBranchOfSameNamespaceNeedsNoWrapper(t *testing.T) {
 
 	union := unionByName(t, unions, unions.Fields["Images.Thing.image"])
 	named := union.Variants[1]
-	if named.Declare || named.Namespace != "" {
-		t.Fatalf("named variant: got %+v, want no declaration", named)
-	}
+	require.False(t, named.Declare)
+	require.Empty(t, named.Namespace)
 }
 
 // A branch naming a schema that filtering left out, with no package or namespace
@@ -561,12 +487,8 @@ func TestGoUnionsSkipsUnqualifiableFilteredBranch(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
-	if name, ok := unions.Fields["Thing.image"]; ok {
-		t.Fatalf("Thing.image: got %q, want no union", name)
-	}
+	require.Empty(t, unionNames(unions))
+	require.NotContains(t, unions.Fields, "Thing.image")
 }
 
 // Flattening rewrites the namespace out of a schema's name, but a variant still
@@ -588,19 +510,12 @@ func TestGoUnionsVariantKeepsNamespaceAfterFlatten(t *testing.T) {
 	unions := tf.goUnions()
 
 	union := unionByName(t, unions, "ImageUnion")
-	if got, want := unions.Fields["Thing.image"], "ImageUnion"; got != want {
-		t.Fatalf("Thing.image: got %q, want %q", got, want)
-	}
-	if got, want := union.TypeNames, []string{"ImageReference", "ImageSpecVariant"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, "ImageUnion", unions.Fields["Thing.image"])
+	require.Equal(t, []string{"ImageReference", "ImageSpecVariant"}, union.TypeNames)
 	wrapper := union.Variants[1]
-	if !wrapper.Declare || wrapper.Underlying != "ImageSpec" {
-		t.Fatalf("wrapper variant: got %+v", wrapper)
-	}
-	if got, want := wrapper.Namespace, "Images"; got != want {
-		t.Fatalf("wrapper variant namespace: got %q, want %q", got, want)
-	}
+	require.True(t, wrapper.Declare)
+	require.Equal(t, "ImageSpec", wrapper.Underlying)
+	require.Equal(t, "Images", wrapper.Namespace)
 }
 
 // Flattening is idempotent, so a second pass reads names it already stripped the
@@ -622,18 +537,12 @@ func TestGoUnionsVariantKeepsNamespaceAfterRepeatedFlatten(t *testing.T) {
 	tf.parser.Flatten(*tf.models, "strip")
 	tf.parser.Flatten(*tf.models, "strip")
 
-	if got, want := tf.parser.schemaNamespaceOf("ImageSpec"), "Images"; got != want {
-		t.Fatalf("ImageSpec namespace: got %q, want %q", got, want)
-	}
+	require.Equal(t, "Images", tf.parser.schemaNamespaceOf("ImageSpec"))
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
-	if got, want := union.TypeNames, []string{"ImageReference", "ImageSpecVariant"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
-	if got, want := union.Variants[1].Namespace, "Images"; got != want {
-		t.Fatalf("wrapper variant namespace: got %q, want %q", got, want)
-	}
+	require.Equal(t, []string{"ImageReference", "ImageSpecVariant"}, union.TypeNames)
+	require.Equal(t, "Images", union.Variants[1].Namespace)
 }
 
 // A `title` on an inline branch names no generated type — hoisting reaches the
@@ -651,9 +560,9 @@ func TestGoUnionsTitledInlineBranchDeclared(t *testing.T) {
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
 	declared := union.Variants[0]
-	if declared.Type != "ImageReference" || declared.Underlying != "string" || !declared.Declare {
-		t.Fatalf("declared variant: got %+v", declared)
-	}
+	require.Equal(t, "ImageReference", declared.Type)
+	require.Equal(t, "string", declared.Underlying)
+	require.True(t, declared.Declare)
 }
 
 // A title that happens to match a component names that component no more than
@@ -670,13 +579,10 @@ func TestGoUnionsInlineTitleDoesNotAdoptComponent(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
-	if got, want := union.TypeNames, []string{"ImageReference", "ImageSpec"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"ImageReference", "ImageSpec"}, union.TypeNames)
 	declared := union.Variants[0]
-	if !declared.Declare || declared.Underlying != "string" {
-		t.Fatalf("declared variant: got %+v", declared)
-	}
+	require.True(t, declared.Declare)
+	require.Equal(t, "string", declared.Underlying)
 }
 
 // The allOf-wrapped "$ref plus description" form names a schema just as a bare
@@ -696,15 +602,10 @@ func TestGoUnionsAllOfWrappedRefIsNamed(t *testing.T) {
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
 	named := union.Variants[1]
-	if named.Type != "ImageSpec" || named.Declare {
-		t.Fatalf("named variant: got %+v", named)
-	}
-	if got, want := named.Doc, "The image to run."; got != want {
-		t.Fatalf("named variant doc: got %q, want %q", got, want)
-	}
-	if got, want := named.Kinds, []string{`'{'`}; !equal(got, want) {
-		t.Fatalf("named variant kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, "ImageSpec", named.Type)
+	require.False(t, named.Declare)
+	require.Equal(t, "The image to run.", named.Doc)
+	require.Equal(t, []string{`'{'`}, named.Kinds)
 }
 
 // A branch referencing a schema too empty to generate a type of its own is an
@@ -720,12 +621,8 @@ func TestGoUnionsSkipsBranchesReferencingEmptySchemas(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
-	if name, ok := unions.Fields["Thing.value"]; ok {
-		t.Fatalf("Thing.value: got %q, want no union", name)
-	}
+	require.Empty(t, unionNames(unions))
+	require.NotContains(t, unions.Fields, "Thing.value")
 }
 
 // The name a declared variant wants may already belong to a schema of the
@@ -742,9 +639,7 @@ func TestGoUnionsDeclaredVariantAvoidsExistingSchema(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
-	if got, want := union.TypeNames, []string{"ImageReference2", "ImageSpec"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"ImageReference2", "ImageSpec"}, union.TypeNames)
 }
 
 // A union name that collides with a schema of the document falls back to the
@@ -762,9 +657,7 @@ func TestGoUnionsNameAvoidsExistingSchema(t *testing.T) {
 	unions := tf.goUnions()
 
 	unionByName(t, unions, "ThingImageUnion")
-	if got, want := unions.Fields["Thing.image"], "ThingImageUnion"; got != want {
-		t.Fatalf("Thing.image: got %q, want %q", got, want)
-	}
+	require.Equal(t, "ThingImageUnion", unions.Fields["Thing.image"])
 }
 
 // The fallback name is not unique either: two property spellings pascal-case to
@@ -786,21 +679,13 @@ func TestGoUnionsFallbackCollisionProbed(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if got, want := unions.Fields["Thing.foo-bar"], "ThingFooBarUnion"; got != want {
-		t.Fatalf("Thing.foo-bar: got %q, want %q", got, want)
-	}
-	if got, want := unions.Fields["Thing.foo_bar"], "ThingFooBar2Union"; got != want {
-		t.Fatalf("Thing.foo_bar: got %q, want %q", got, want)
-	}
+	require.Equal(t, "ThingFooBarUnion", unions.Fields["Thing.foo-bar"])
+	require.Equal(t, "ThingFooBar2Union", unions.Fields["Thing.foo_bar"])
 
 	first := unionByName(t, unions, "ThingFooBarUnion")
-	if got, want := first.TypeNames, []string{"ThingFooBarReference", "ThingFooBarFlag"}; !equal(got, want) {
-		t.Fatalf("ThingFooBarUnion variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"ThingFooBarReference", "ThingFooBarFlag"}, first.TypeNames)
 	second := unionByName(t, unions, "ThingFooBar2Union")
-	if got, want := second.TypeNames, []string{"ThingFooBar2Reference", "ThingFooBar2Number"}; !equal(got, want) {
-		t.Fatalf("ThingFooBar2Union variants: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"ThingFooBar2Reference", "ThingFooBar2Number"}, second.TypeNames)
 }
 
 // `anyOf` gives its branches no order, so the same set of shapes is one union
@@ -820,15 +705,9 @@ func TestGoUnionsReorderedBranchesReuseUnion(t *testing.T) {
 
 	unions := tf.goUnions()
 
-	if got, want := len(unions.Unions), 1; got != want {
-		t.Fatalf("unions: got %v, want %d", unionNames(unions), want)
-	}
-	if got, want := unions.Fields["Thing.image"], "ImageUnion"; got != want {
-		t.Fatalf("Thing.image: got %q, want %q", got, want)
-	}
-	if got, want := unions.Fields["OtherThing.rom"], "ImageUnion"; got != want {
-		t.Fatalf("OtherThing.rom: got %q, want %q", got, want)
-	}
+	require.Len(t, unionNames(unions), 1)
+	require.Equal(t, "ImageUnion", unions.Fields["Thing.image"])
+	require.Equal(t, "ImageUnion", unions.Fields["OtherThing.rom"])
 }
 
 // A 3.0 branch spells the null half of its type `nullable`. Null is decoded by
@@ -845,12 +724,8 @@ func TestGoUnionsNullableBranchKeepsValueKind(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
-	if got, want := union.Variants[0].Underlying, "string"; got != want {
-		t.Fatalf("nullable variant underlying: got %q, want %q", got, want)
-	}
-	if got, want := union.Variants[0].Kinds, []string{`'"'`}; !equal(got, want) {
-		t.Fatalf("nullable variant kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, "string", union.Variants[0].Underlying)
+	require.Equal(t, []string{`'"'`}, union.Variants[0].Kinds)
 }
 
 // A 3.1 branch lists null among its types instead. It is dropped for the same
@@ -866,15 +741,9 @@ func TestGoUnionsNullInTypeListDropped(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
-	if got, want := union.TypeNames, []string{"ImageReference", "ImageSpec"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
-	if got, want := union.Variants[0].Underlying, "string"; got != want {
-		t.Fatalf("first underlying: got %q, want %q", got, want)
-	}
-	if got, want := union.Variants[0].Kinds, []string{`'"'`}; !equal(got, want) {
-		t.Fatalf("first kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"ImageReference", "ImageSpec"}, union.TypeNames)
+	require.Equal(t, "string", union.Variants[0].Underlying)
+	require.Equal(t, []string{`'"'`}, union.Variants[0].Kinds)
 }
 
 // A branch of more than one value type still encodes to a single Go type, which
@@ -889,9 +758,7 @@ func TestGoUnionsRejectsMultiTypedBranch(t *testing.T) {
 		namedModel("Ref", &openapi3.Schema{Type: &openapi3.Types{"string", "object"}}),
 	)
 
-	if unions := tf.goUnions(); len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
+	require.Empty(t, unionNames(tf.goUnions()))
 }
 
 // An inline branch of more than one type is rejected for the same reason, rather
@@ -905,9 +772,7 @@ func TestGoUnionsRejectsMultiTypedInlineBranch(t *testing.T) {
 		)}),
 	)
 
-	if unions := tf.goUnions(); len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
+	require.Empty(t, unionNames(tf.goUnions()))
 }
 
 // An inline branch whose Go type names a schema of this package is fine: the
@@ -924,9 +789,7 @@ func TestGoUnionsInlineListOfLocalRef(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
-	if got, want := union.Variants[0].Underlying, "[]FooSpec"; got != want {
-		t.Fatalf("list underlying: got %q, want %q", got, want)
-	}
+	require.Equal(t, "[]FooSpec", union.Variants[0].Underlying)
 }
 
 // A variant qualifies the branch as a whole, not a type nested inside it, so an
@@ -944,9 +807,7 @@ func TestGoUnionsSkipsInlineListOfForeignRef(t *testing.T) {
 		)}),
 	), map[string]string{"x-package": "mine"})
 
-	if unions := tf.goUnions(); len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
+	require.Empty(t, unionNames(tf.goUnions()))
 }
 
 // The same holds for a map value referencing a schema that filtering left out of
@@ -971,9 +832,7 @@ func TestGoUnionsSkipsInlineMapOfFilteredRef(t *testing.T) {
 		}},
 	}
 
-	if unions := tf.goUnions(); len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
+	require.Empty(t, unionNames(tf.goUnions()))
 }
 
 // A branch overlapping another on only one of its kinds is still ambiguous.
@@ -986,9 +845,7 @@ func TestGoUnionsRejectsPartiallyOverlappingKinds(t *testing.T) {
 		namedModel("Ref", &openapi3.Schema{Type: &openapi3.Types{"string", "object"}}),
 	)
 
-	if unions := tf.goUnions(); len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
+	require.Empty(t, unionNames(tf.goUnions()))
 }
 
 // An enum written without a type is typed by its values. Calling it a string
@@ -1004,15 +861,9 @@ func TestGoUnionsTypelessNumericEnumIsNumeric(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
-	if got, want := union.TypeNames, []string{"ImageNumber", "ImageSpec"}; !equal(got, want) {
-		t.Fatalf("variants: got %v, want %v", got, want)
-	}
-	if got, want := union.Variants[0].Underlying, "int"; got != want {
-		t.Fatalf("enum underlying: got %q, want %q", got, want)
-	}
-	if got, want := union.Variants[0].Kinds, []string{`'0'`}; !equal(got, want) {
-		t.Fatalf("enum kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{"ImageNumber", "ImageSpec"}, union.TypeNames)
+	require.Equal(t, "int", union.Variants[0].Underlying)
+	require.Equal(t, []string{`'0'`}, union.Variants[0].Kinds)
 }
 
 // A named branch that composes a scalar is of that scalar's kind. Assuming an
@@ -1032,9 +883,7 @@ func TestGoUnionsNamedScalarCompositionKeepsScalarKind(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "NameUnion")
 
-	if got, want := union.Variants[0].Kinds, []string{`'"'`}; !equal(got, want) {
-		t.Fatalf("composed scalar kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{`'"'`}, union.Variants[0].Kinds)
 }
 
 // `type: object` is routinely left off a schema that describes one, which is
@@ -1052,9 +901,7 @@ func TestGoUnionsTypelessObjectIsObject(t *testing.T) {
 
 	union := unionByName(t, tf.goUnions(), "RefUnion")
 
-	if got, want := union.Variants[1].Kinds, []string{`'{'`}; !equal(got, want) {
-		t.Fatalf("typeless object kinds: got %v, want %v", got, want)
-	}
+	require.Equal(t, []string{`'{'`}, union.Variants[1].Kinds)
 }
 
 // A named branch whose type cannot be derived is not assumed to be an object:
@@ -1072,21 +919,7 @@ func TestGoUnionsSkipsNamedBranchOfUnknownType(t *testing.T) {
 		}),
 	)
 
-	if unions := tf.goUnions(); len(unions.Unions) != 0 {
-		t.Fatalf("unions: got %v, want none", unionNames(unions))
-	}
-}
-
-func equal(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	require.Empty(t, unionNames(tf.goUnions()))
 }
 
 func TestGoUnionBaseSharedByEveryBranch(t *testing.T) {
