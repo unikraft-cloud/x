@@ -1088,3 +1088,57 @@ func equal(a, b []string) bool {
 	}
 	return true
 }
+
+func TestGoUnionBaseSharedByEveryBranch(t *testing.T) {
+	t.Parallel()
+
+	named := func(names ...string) []goUnionBranch {
+		branches := make([]goUnionBranch, 0, len(names))
+		for _, name := range names {
+			branches = append(branches, goUnionBranch{GoType: name, Named: true})
+		}
+		return branches
+	}
+
+	for _, tc := range []struct {
+		name     string
+		branches []goUnionBranch
+		want     string
+	}{
+		{
+			name:     "every branch named shares its leading words",
+			branches: named("CommandLineShell", "CommandLineArgs"),
+			want:     "CommandLine",
+		},
+		{
+			name:     "the prefix is taken in whole words",
+			branches: named("ImageSpec", "ImageStore"),
+			want:     "Image",
+		},
+		{
+			name:     "unrelated branches fall back to the first",
+			branches: named("ImageSpec", "Widget"),
+			want:     "Image",
+		},
+		{
+			name:     "a prefix equal to a branch falls back",
+			branches: named("Image", "ImageDetails"),
+			want:     "Image",
+		},
+		{
+			name: "an anonymous branch cannot contribute a name",
+			branches: append(
+				[]goUnionBranch{{GoType: "string"}}, named("ImageSpec")...,
+			),
+			want: "Image",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := goUnionBase(tc.branches); got != tc.want {
+				t.Errorf("goUnionBase() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
