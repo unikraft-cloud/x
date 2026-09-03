@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"golang.org/x/tools/go/packages"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestBufGenerate(t *testing.T) {
@@ -54,9 +56,7 @@ func TestBufGenerate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := os.RemoveAll(tt.generationDir); err != nil {
-				t.Fatalf("unable to remove directory: %v", err)
-			}
+			require.NoError(t, os.RemoveAll(tt.generationDir))
 
 			args := []string{
 				"buf",
@@ -68,9 +68,8 @@ func TestBufGenerate(t *testing.T) {
 			cmd := exec.Command(
 				args[0], args[1:]...,
 			)
-			if b, err := cmd.CombinedOutput(); err != nil {
-				t.Fatalf("buf generate(%s) failed. error(%v). \nout(%s)", args, err, string(b))
-			}
+			out, err := cmd.CombinedOutput()
+			require.NoErrorf(t, err, "buf generate %v failed:\n%s", args, out)
 
 			typeCheck(t, tt.bufDir, tt.generationDir)
 		})
@@ -82,9 +81,7 @@ func typeCheck(t *testing.T, bufDir, generationDir string) {
 	t.Helper()
 
 	absDir, err := filepath.Abs(generationDir)
-	if err != nil {
-		t.Fatalf("failed to get absolute path for %q: %v", generationDir, err)
-	}
+	require.NoErrorf(t, err, "absolute path for %q", generationDir)
 
 	cfg := &packages.Config{
 		Context: t.Context(),
@@ -93,9 +90,7 @@ func typeCheck(t *testing.T, bufDir, generationDir string) {
 	}
 
 	pkgs, err := packages.Load(cfg, "./...")
-	if err != nil {
-		t.Fatalf("Failed to load package: %v", err)
-	}
+	require.NoError(t, err)
 
 	errs := []packages.Error{}
 	for _, pkg := range pkgs {
@@ -110,13 +105,7 @@ func typeCheck(t *testing.T, bufDir, generationDir string) {
 		}
 	}
 
-	if len(errs) > 0 {
-		t.Logf("directory(%s) has errors: ", bufDir)
-		for _, e := range errs {
-			t.Log(e)
-		}
-		t.Fatalf("typeCheck failed for: %v", generationDir)
-	}
+	require.Emptyf(t, errs, "typeCheck failed for %s (generated from %s)", generationDir, bufDir)
 }
 
 func containsAny(t *testing.T, s string, subs []string) bool {
