@@ -118,7 +118,7 @@ func TestBuildImage(t *testing.T) {
 					require.Equal(t, []byte("rom data"), blob)
 					sawRom = true
 				default:
-					t.Fatalf("unexpected layer media type %q", layer.MediaType)
+					require.Failf(t, "unexpected layer", "media type %q", layer.MediaType)
 				}
 			}
 
