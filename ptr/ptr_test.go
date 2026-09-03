@@ -5,7 +5,12 @@
 
 package ptr
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestZeroIfNil(t *testing.T) {
 	tests := []struct {
@@ -26,19 +31,13 @@ func TestZeroIfNil(t *testing.T) {
 			switch ptr := tt.ptr.(type) {
 			case *int:
 				result := ZeroIfNil(ptr)
-				if result != tt.expected.(int) {
-					t.Errorf("ZeroIfNil() = %v, expected %v", result, tt.expected)
-				}
+				assert.Equal(t, tt.expected.(int), result)
 			case *string:
 				result := ZeroIfNil(ptr)
-				if result != tt.expected.(string) {
-					t.Errorf("ZeroIfNil() = %v, expected %v", result, tt.expected)
-				}
+				assert.Equal(t, tt.expected.(string), result)
 			case *bool:
 				result := ZeroIfNil(ptr)
-				if result != tt.expected.(bool) {
-					t.Errorf("ZeroIfNil() = %v, expected %v", result, tt.expected)
-				}
+				assert.Equal(t, tt.expected.(bool), result)
 			}
 		})
 	}
@@ -64,37 +63,28 @@ func TestErrorIfNil(t *testing.T) {
 			switch ptr := tt.ptr.(type) {
 			case *int:
 				result, err := ErrorIfNil(ptr)
-				if (err != nil) != tt.expectError {
-					t.Errorf("ErrorIfNil() error = %v, expectError %v", err, tt.expectError)
+				if tt.expectError {
+					require.EqualError(t, err, "value is nil")
+				} else {
+					require.NoError(t, err)
 				}
-				if result != tt.expected.(int) {
-					t.Errorf("ErrorIfNil() = %v, expected %v", result, tt.expected)
-				}
-				if tt.expectError && err.Error() != "value is nil" {
-					t.Errorf("ErrorIfNil() error message = %q, expected %q", err.Error(), "value is nil")
-				}
+				assert.Equal(t, tt.expected.(int), result)
 			case *string:
 				result, err := ErrorIfNil(ptr)
-				if (err != nil) != tt.expectError {
-					t.Errorf("ErrorIfNil() error = %v, expectError %v", err, tt.expectError)
+				if tt.expectError {
+					require.EqualError(t, err, "value is nil")
+				} else {
+					require.NoError(t, err)
 				}
-				if result != tt.expected.(string) {
-					t.Errorf("ErrorIfNil() = %v, expected %v", result, tt.expected)
-				}
-				if tt.expectError && err.Error() != "value is nil" {
-					t.Errorf("ErrorIfNil() error message = %q, expected %q", err.Error(), "value is nil")
-				}
+				assert.Equal(t, tt.expected.(string), result)
 			case *bool:
 				result, err := ErrorIfNil(ptr)
-				if (err != nil) != tt.expectError {
-					t.Errorf("ErrorIfNil() error = %v, expectError %v", err, tt.expectError)
+				if tt.expectError {
+					require.EqualError(t, err, "value is nil")
+				} else {
+					require.NoError(t, err)
 				}
-				if result != tt.expected.(bool) {
-					t.Errorf("ErrorIfNil() = %v, expected %v", result, tt.expected)
-				}
-				if tt.expectError && err.Error() != "value is nil" {
-					t.Errorf("ErrorIfNil() error message = %q, expected %q", err.Error(), "value is nil")
-				}
+				assert.Equal(t, tt.expected.(bool), result)
 			}
 		})
 	}
@@ -172,17 +162,9 @@ func TestCheckNotNil(t *testing.T) {
 			err := CheckNotNil(tt.params)
 
 			if tt.expectError {
-				if err == nil {
-					t.Errorf("CheckNotNil() expected error but got nil")
-					return
-				}
-				if err.Error() != tt.errorMsg {
-					t.Errorf("CheckNotNil() error = %q, expected %q", err.Error(), tt.errorMsg)
-				}
+				require.EqualError(t, err, tt.errorMsg)
 			} else {
-				if err != nil {
-					t.Errorf("CheckNotNil() expected no error but got: %v", err)
-				}
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -225,9 +207,7 @@ func TestIsNil(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsNil(tt.value)
-			if result != tt.expected {
-				t.Errorf("isNil(%v) = %v, expected %v", tt.value, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -252,19 +232,13 @@ func TestValueOrDefault(t *testing.T) {
 			switch ptr := tt.ptr.(type) {
 			case *int:
 				result := ValueOrDefault(ptr, tt.defaultValue.(int))
-				if result != tt.expected.(int) {
-					t.Errorf("ValueOrDefault() = %v, expected %v", result, tt.expected)
-				}
+				assert.Equal(t, tt.expected.(int), result)
 			case *string:
 				result := ValueOrDefault(ptr, tt.defaultValue.(string))
-				if result != tt.expected.(string) {
-					t.Errorf("ValueOrDefault() = %v, expected %v", result, tt.expected)
-				}
+				assert.Equal(t, tt.expected.(string), result)
 			case *bool:
 				result := ValueOrDefault(ptr, tt.defaultValue.(bool))
-				if result != tt.expected.(bool) {
-					t.Errorf("ValueOrDefault() = %v, expected %v", result, tt.expected)
-				}
+				assert.Equal(t, tt.expected.(bool), result)
 			}
 		})
 	}
@@ -290,19 +264,16 @@ func TestSafeDeref(t *testing.T) {
 			switch ptr := tt.ptr.(type) {
 			case *int:
 				result, ok := SafeDeref(ptr)
-				if ok != tt.expectOk || result != tt.expected.(int) {
-					t.Errorf("SafeDeref() = (%v, %v), expected (%v, %v)", result, ok, tt.expected, tt.expectOk)
-				}
+				assert.Equal(t, tt.expectOk, ok)
+				assert.Equal(t, tt.expected.(int), result)
 			case *string:
 				result, ok := SafeDeref(ptr)
-				if ok != tt.expectOk || result != tt.expected.(string) {
-					t.Errorf("SafeDeref() = (%v, %v), expected (%v, %v)", result, ok, tt.expected, tt.expectOk)
-				}
+				assert.Equal(t, tt.expectOk, ok)
+				assert.Equal(t, tt.expected.(string), result)
 			case *bool:
 				result, ok := SafeDeref(ptr)
-				if ok != tt.expectOk || result != tt.expected.(bool) {
-					t.Errorf("SafeDeref() = (%v, %v), expected (%v, %v)", result, ok, tt.expected, tt.expectOk)
-				}
+				assert.Equal(t, tt.expectOk, ok)
+				assert.Equal(t, tt.expected.(bool), result)
 			}
 		})
 	}
@@ -322,11 +293,8 @@ func TestToPtr(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ToPtr(tt.value)
 
-			if result == nil {
-				t.Errorf("ToPtr() returned nil")
-			} else if *result != tt.value {
-				t.Errorf("ToPtr() = %v, expected %v", *result, tt.value)
-			}
+			require.NotNil(t, result)
+			assert.Equal(t, tt.value, *result)
 		})
 	}
 }
@@ -347,9 +315,8 @@ func TestFromPtr(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, ok := FromPtr(tt.ptr)
 
-			if ok != tt.expectOk || result != tt.expected {
-				t.Errorf("FromPtr() = (%v, %v), expected (%v, %v)", result, ok, tt.expected, tt.expectOk)
-			}
+			assert.Equal(t, tt.expectOk, ok)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -370,13 +337,10 @@ func TestNilIfZeroIntegers(t *testing.T) {
 			result := NilIfZero(tt.value)
 
 			if tt.expected == nil {
-				if result != nil {
-					t.Errorf("NilIfZero() = %v, expected nil", *result)
-				}
+				assert.Nil(t, result)
 			} else {
-				if result == nil || *result != *tt.expected {
-					t.Errorf("NilIfZero() = %v, expected %v", result, *tt.expected)
-				}
+				require.NotNil(t, result)
+				assert.Equal(t, *tt.expected, *result)
 			}
 		})
 	}
@@ -397,13 +361,10 @@ func TestNilIfZeroEmptyString(t *testing.T) {
 			result := NilIfZero(tt.value)
 
 			if tt.expected == nil {
-				if result != nil {
-					t.Errorf("NilIfZero() = %v, expected nil", *result)
-				}
+				assert.Nil(t, result)
 			} else {
-				if result == nil || *result != *tt.expected {
-					t.Errorf("NilIfZero() = %v, expected %v", result, *tt.expected)
-				}
+				require.NotNil(t, result)
+				assert.Equal(t, *tt.expected, *result)
 			}
 		})
 	}
@@ -425,13 +386,10 @@ func TestNilIfEqual(t *testing.T) {
 			result := NilIfEqual(tt.value, tt.compare)
 
 			if tt.expected == nil {
-				if result != nil {
-					t.Errorf("NilIfEqual() = %v, expected nil", *result)
-				}
+				assert.Nil(t, result)
 			} else {
-				if result == nil || *result != *tt.expected {
-					t.Errorf("NilIfEqual() = %v, expected %v", result, *tt.expected)
-				}
+				require.NotNil(t, result)
+				assert.Equal(t, *tt.expected, *result)
 			}
 		})
 	}
