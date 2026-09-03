@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	charm.land/lipgloss/v2 v2.0.5
-	github.com/alecthomas/kong v1.16.0
+	github.com/alecthomas/kong v1.16.1
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/stretchr/testify v1.12.1
 	gotest.tools/v3 v3.5.2
