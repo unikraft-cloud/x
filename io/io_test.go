@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNopWriteCloserWritesThrough(t *testing.T) {
@@ -16,32 +18,20 @@ func TestNopWriteCloserWritesThrough(t *testing.T) {
 	wc := NopWriteCloser(&buf)
 
 	n, err := wc.Write([]byte("hello"))
-	if err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	if n != 5 {
-		t.Fatalf("Write returned %d, want 5", n)
-	}
-	if got := buf.String(); got != "hello" {
-		t.Fatalf("wrote %q, want %q", got, "hello")
-	}
+	require.NoError(t, err)
+	require.Equal(t, len("hello"), n)
+	require.Equal(t, "hello", buf.String())
 }
 
 func TestNopWriteCloserCloseDoesNotClose(t *testing.T) {
 	w := &closeCounter{}
 	wc := NopWriteCloser(w)
 
-	if err := wc.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
+	require.NoError(t, wc.Close())
 	// Closing again must stay a no-op, and must never reach the wrapped
 	// writer.
-	if err := wc.Close(); err != nil {
-		t.Fatalf("second Close: %v", err)
-	}
-	if w.closes != 0 {
-		t.Fatalf("wrapped writer was closed %d times, want 0", w.closes)
-	}
+	require.NoError(t, wc.Close())
+	require.Zero(t, w.closes, "wrapped writer must never be closed")
 }
 
 // closeCounter records Close calls so a leaked close is visible.
