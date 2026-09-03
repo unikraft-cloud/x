@@ -44,14 +44,14 @@ type {{$schemaName}} struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed" yaml:"-"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *{{$schemaName}}) UnmarshalJSON(data []byte) error {
 	type Alias {{$schemaName}}
 	return json.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m {{$schemaName}}) MarshalJSON() ([]byte, error) {
 	type Alias {{$schemaName}}

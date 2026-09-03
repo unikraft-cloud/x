@@ -4,10 +4,9 @@ package client
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"time"
-
-	jsonv2 "github.com/go-json-experiment/json"
-	"github.com/go-json-experiment/json/jsontext"
 )
 
 // Prevent unused import errors.
@@ -27,14 +26,14 @@ type CreateWidgetRequest struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *CreateWidgetRequest) UnmarshalJSON(data []byte) error {
 	type Alias CreateWidgetRequest
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m CreateWidgetRequest) MarshalJSON() ([]byte, error) {
 	type Alias CreateWidgetRequest
@@ -50,14 +49,14 @@ type CreateWidgetResponse struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *CreateWidgetResponse) UnmarshalJSON(data []byte) error {
 	type Alias CreateWidgetResponse
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m CreateWidgetResponse) MarshalJSON() ([]byte, error) {
 	type Alias CreateWidgetResponse
@@ -73,14 +72,14 @@ type CreateWidgetResponseData struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *CreateWidgetResponseData) UnmarshalJSON(data []byte) error {
 	type Alias CreateWidgetResponseData
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m CreateWidgetResponseData) MarshalJSON() ([]byte, error) {
 	type Alias CreateWidgetResponseData
@@ -95,14 +94,14 @@ type DeleteWidgetResponse struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *DeleteWidgetResponse) UnmarshalJSON(data []byte) error {
 	type Alias DeleteWidgetResponse
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m DeleteWidgetResponse) MarshalJSON() ([]byte, error) {
 	type Alias DeleteWidgetResponse
@@ -118,14 +117,14 @@ type GetWidgetResponse struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *GetWidgetResponse) UnmarshalJSON(data []byte) error {
 	type Alias GetWidgetResponse
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m GetWidgetResponse) MarshalJSON() ([]byte, error) {
 	type Alias GetWidgetResponse
@@ -141,14 +140,14 @@ type GetWidgetResponseData struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *GetWidgetResponseData) UnmarshalJSON(data []byte) error {
 	type Alias GetWidgetResponseData
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m GetWidgetResponseData) MarshalJSON() ([]byte, error) {
 	type Alias GetWidgetResponseData
@@ -164,14 +163,14 @@ type ListWidgetsResponse struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *ListWidgetsResponse) UnmarshalJSON(data []byte) error {
 	type Alias ListWidgetsResponse
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m ListWidgetsResponse) MarshalJSON() ([]byte, error) {
 	type Alias ListWidgetsResponse
@@ -187,14 +186,14 @@ type ListWidgetsResponseData struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *ListWidgetsResponseData) UnmarshalJSON(data []byte) error {
 	type Alias ListWidgetsResponseData
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m ListWidgetsResponseData) MarshalJSON() ([]byte, error) {
 	type Alias ListWidgetsResponseData
@@ -213,14 +212,14 @@ type Widget struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *Widget) UnmarshalJSON(data []byte) error {
 	type Alias Widget
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m Widget) MarshalJSON() ([]byte, error) {
 	type Alias Widget
