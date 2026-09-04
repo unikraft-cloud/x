@@ -11,25 +11,18 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"unikraft.com/x/image-spec/imageref"
 )
 
 type URI struct {
-	Scheme URIScheme
+	Scheme imageref.Scheme
 	Path   string
 }
 
 func (u *URI) String() string {
 	return fmt.Sprintf("%s://%s", u.Scheme, u.Path)
 }
-
-type URIScheme string
-
-const (
-	URISchemeOCI URIScheme = "oci"
-
-	URISchemeOCILayout  URIScheme = "oci-layout"
-	URISchemeOCIArchive URIScheme = "oci-archive"
-)
 
 // ParseURI parses a URI of the form <scheme>://<path> and returns the parsed struct.
 func ParseURI(src string) (*URI, error) {
@@ -48,7 +41,7 @@ func ParseURIDefault(src string) (*URI, error) {
 	}
 
 	return &URI{
-		Scheme: URISchemeOCI,
+		Scheme: imageref.SchemeOCI,
 		Path:   src,
 	}, nil
 }
@@ -70,12 +63,12 @@ func GuessURI(src string) (*URI, error) {
 	if stat, statErr = os.Stat(src); statErr == nil {
 		if stat.IsDir() {
 			return &URI{
-				Scheme: URISchemeOCILayout,
+				Scheme: imageref.SchemeOCILayout,
 				Path:   src,
 			}, nil
 		} else {
 			return &URI{
-				Scheme: URISchemeOCIArchive,
+				Scheme: imageref.SchemeOCIArchive,
 				Path:   src,
 			}, nil
 		}
@@ -87,12 +80,12 @@ func GuessURI(src string) (*URI, error) {
 		if stat, statErr = os.Stat(path); statErr == nil {
 			if stat.IsDir() {
 				return &URI{
-					Scheme: URISchemeOCILayout,
+					Scheme: imageref.SchemeOCILayout,
 					Path:   src,
 				}, nil
 			} else {
 				return &URI{
-					Scheme: URISchemeOCIArchive,
+					Scheme: imageref.SchemeOCIArchive,
 					Path:   src,
 				}, nil
 			}
@@ -103,13 +96,13 @@ func GuessURI(src string) (*URI, error) {
 
 	if looksLikeTarball(src) {
 		return &URI{
-			Scheme: URISchemeOCIArchive,
+			Scheme: imageref.SchemeOCIArchive,
 			Path:   src,
 		}, nil
 	}
 	if looksLikeDir(src) {
 		return &URI{
-			Scheme: URISchemeOCILayout,
+			Scheme: imageref.SchemeOCILayout,
 			Path:   src,
 		}, nil
 	}
@@ -117,13 +110,13 @@ func GuessURI(src string) (*URI, error) {
 	if path, tag := parsePathTag(src); tag != "" {
 		if looksLikeTarball(path) {
 			return &URI{
-				Scheme: URISchemeOCIArchive,
+				Scheme: imageref.SchemeOCIArchive,
 				Path:   src,
 			}, nil
 		}
 		if looksLikeDir(path) {
 			return &URI{
-				Scheme: URISchemeOCILayout,
+				Scheme: imageref.SchemeOCILayout,
 				Path:   src,
 			}, nil
 		}
@@ -134,7 +127,7 @@ func GuessURI(src string) (*URI, error) {
 	}
 
 	return &URI{
-		Scheme: URISchemeOCI,
+		Scheme: imageref.SchemeOCI,
 		Path:   src,
 	}, nil
 }
@@ -150,13 +143,18 @@ func parseURI(scheme string, path string) (*URI, error) {
 	}, nil
 }
 
-func parseScheme(scheme string) (URIScheme, error) {
-	switch URIScheme(scheme) {
-	case URISchemeOCI, URISchemeOCILayout, URISchemeOCIArchive:
-		return URIScheme(scheme), nil
-	default:
-		return "", fmt.Errorf("unsupported URI scheme: %q", scheme)
+// parseScheme returns the scheme named by scheme, if it is one an Accessor can
+// read or write.
+func parseScheme(scheme string) (imageref.Scheme, error) {
+	parsed, err := imageref.ParseScheme(scheme)
+	if err != nil {
+		return "", err
 	}
+	if parsed.IsHTTP() {
+		return "", fmt.Errorf("%w: %q names an image the platform fetches, not a local one",
+			imageref.ErrUnsupportedScheme, scheme)
+	}
+	return parsed, nil
 }
 
 func parsePathTag(src string) (string, string) {
