@@ -1,13 +1,13 @@
 module unikraft.com/x/fingerprint
 
-go 1.26.3
+go 1.26.6
 
 require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/sys v0.47.0
-	tailscale.com v1.98.8
+	tailscale.com v1.102.3
 	unikraft.com/x/ptr v0.0.0-20260108134909-16540cbbe59c
 )
 
