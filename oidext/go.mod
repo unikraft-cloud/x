@@ -1,6 +1,6 @@
 module unikraft.com/x/oidext
 
-go 1.25.5
+go 1.25.9
 
 require github.com/stretchr/testify v1.12.1
 
