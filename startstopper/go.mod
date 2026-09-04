@@ -1,3 +1,3 @@
 module unikraft.com/x/startstopper
 
-go 1.25.5
+go 1.25.9

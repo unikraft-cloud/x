@@ -1,6 +1,6 @@
 module unikraft.com/x/tools/license-check
 
-go 1.25.5
+go 1.25.9
 
 require (
 	github.com/alecthomas/kong v1.16.0
@@ -20,6 +20,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/exp v0.0.0-20260603202125-055de637280b // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
