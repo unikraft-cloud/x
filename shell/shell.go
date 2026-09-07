@@ -38,6 +38,9 @@ import (
 )
 
 const (
+	instanceRestartTimeout = 90 * time.Second
+	instanceRestartPoll    = time.Second
+
 	instanceProbeTimeout  = 3 * time.Second
 	instanceProbeAttempts = 2
 )
@@ -58,8 +61,9 @@ var (
 	errNotATerminal       = errors.New("the shell needs a terminal; use -c '<command line>' to run commands without one")
 	errNotProcessTerminal = errors.New("the shell prompts only on the process's own terminal; use -c '<command line>' on any other")
 
-	// A statement, not a file: running a whole file is an exit to the
-	// interpreter, and would fire the EXIT trap on every ^C.
+	// Statements, not files: running a whole file is an exit to the
+	// interpreter, and would fire the EXIT trap on every ^C or restart.
+	dirReset       = mustParse("cd /").Stmts[0]
 	interruptReset = mustParse(fmt.Sprintf("(exit %d)", StatusInterrupted)).Stmts[0]
 
 	// sessionEnd is the exit ^D asks for: an empty file, which to the
@@ -93,6 +97,8 @@ type session struct {
 	profile colorprofile.Profile
 
 	editor *prompt
+
+	restarted atomic.Bool
 }
 
 func (s *session) dir() string {
@@ -248,6 +254,9 @@ func (s *session) runInteractive(ctx context.Context) (int, error) {
 			if err != nil {
 				fmt.Fprintln(s.console.Err, errorStyle.Render(err.Error()))
 			}
+			if s.restarted.Swap(false) {
+				s.relocate(ctx)
+			}
 			if interrupted {
 				// The terminal echoed the ^C where the command's output stopped;
 				// the prompt goes on a line of its own.
@@ -320,6 +329,53 @@ func (s *session) runStmt(ctx context.Context, sigint <-chan os.Signal, stmt *sy
 	}
 	s.clearInterrupt(ctx)
 	return StatusInterrupted, true, nil
+}
+
+func (s *session) settle(ctx context.Context) bool {
+	s.commands = nil
+
+	fmt.Fprintln(s.console.Err, hintStyle.Render("the instance is restarting; waiting for it"))
+
+	waitCtx, cancel := context.WithTimeout(ctx, instanceRestartTimeout)
+	defer cancel()
+
+	for !s.answers(waitCtx) {
+		switch {
+		case ctx.Err() != nil:
+			fmt.Fprintln(s.console.Err, hintStyle.Render("stopped waiting for the instance"))
+			return false
+		case waitCtx.Err() != nil:
+			fmt.Fprintln(s.console.Err, errorStyle.Render(
+				`the instance has not come back; try ":get" or reconnect`))
+			return true
+		}
+		select {
+		case <-time.After(instanceRestartPoll):
+		case <-waitCtx.Done():
+		}
+	}
+	return true
+}
+
+func (s *session) relocate(ctx context.Context) {
+	if s.dir() == probeDir {
+		return
+	}
+	if _, err := s.stat(ctx, probeDir, s.dir(), true); err == nil {
+		return
+	}
+
+	fmt.Fprintln(s.console.Err, hintStyle.Render(
+		"the working directory did not survive the restart; moved to "+probeDir))
+	_ = s.runner.Run(ctx, dirReset)
+}
+
+func (s *session) answers(ctx context.Context) bool {
+	probeCtx, cancel := context.WithTimeout(ctx, instanceProbeTimeout)
+	defer cancel()
+
+	_, err := s.script(probeCtx, `:`)
+	return err == nil
 }
 
 func mustParse(src string) *syntax.File {
