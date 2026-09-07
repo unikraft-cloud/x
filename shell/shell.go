@@ -84,6 +84,8 @@ type session struct {
 	// run by argv, but nothing that needs a shell over there can.
 	noShell bool
 
+	commands []string
+
 	tty *os.File
 
 	// profile is the colours the caller's terminal takes, for what readline
@@ -211,7 +213,7 @@ func (s *session) runInteractive(ctx context.Context) (int, error) {
 		fmt.Fprintln(s.console.Err, bannerStyle.Render(strings.Join(s.cfg.Banner, "\n")))
 	}
 
-	s.editor = s.newPrompt()
+	s.editor = s.newPrompt(ctx)
 
 	parser := syntax.NewParser()
 
