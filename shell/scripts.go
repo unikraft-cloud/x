@@ -31,4 +31,7 @@ var (
 
 	//go:embed scripts/environ.sh
 	environProbe string
+
+	//go:embed scripts/commands.sh
+	commandsScript string
 )

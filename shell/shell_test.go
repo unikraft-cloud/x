@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/reeflective/readline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"mvdan.cc/sh/v3/interp"
@@ -509,6 +511,73 @@ func TestFailedCommandIsNotAShellFailure(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCompletion(t *testing.T) {
+	root := newFixture(t)
+	s := &session{
+		runner: &interp.Runner{Dir: root},
+		cfg:    Config{Transport: localTransport{}, Builtins: namedBuiltins{"start", "stop"}},
+	}
+	complete := s.completer(t.Context())
+
+	for _, tt := range []struct {
+		name string
+		line string
+		want []string
+		word string
+	}{
+		{"unique-path", "ls $R/host", []string{"$R/hostname"}, "$R/host"},
+		{"directory-gets-a-slash", "ls $R/va", []string{"$R/var/"}, "$R/va"},
+		{"builtin-unique", ":sta", []string{":start"}, ":sta"},
+		{"nothing-to-offer", "ls $R/nope", nil, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			line := strings.ReplaceAll(tt.line, "$R", root)
+
+			comps := complete([]rune(line), len(line))
+
+			var got []string
+			comps.EachValue(func(c readline.Completion) readline.Completion {
+				got = append(got, c.Value)
+				return c
+			})
+
+			var want []string
+			for _, w := range tt.want {
+				want = append(want, strings.ReplaceAll(w, "$R", root))
+			}
+			assert.Equal(t, want, got)
+			assert.Equal(t, strings.ReplaceAll(tt.word, "$R", root), comps.PREFIX,
+				"the word the candidates replace")
+		})
+	}
+}
+
+func TestRemoteCommands(t *testing.T) {
+	probe := &recordingTransport{out: "ls\nsh\nls\n\n"}
+	s := &session{runner: &interp.Runner{Dir: "/bin"}, cfg: Config{Transport: probe}}
+
+	assert.Equal(t, []string{"ls", "sh"}, s.remoteCommands(t.Context()))
+
+	require.Len(t, probe.args, 4)
+	assert.Equal(t, []string{"sh", "-c"}, probe.args[:2])
+	assert.Contains(t, probe.args[2], "$PATH")
+	assert.Equal(t, probeDir, probe.dir, "a probe does not need the session's directory")
+}
+
+// recordingTransport keeps the last command it was asked to run, so that a
+// snippet reaching the instance as the wrong argument is caught.
+type recordingTransport struct {
+	out  string
+	dir  string
+	args []string
+}
+
+func (t *recordingTransport) Exec(_ context.Context, streams Streams, dir string, _ map[string]string, args []string) (int, error) {
+	t.dir, t.args = dir, args
+	fmt.Fprint(streams.Out, t.out)
+	return 0, nil
+}
+
 // exitTransport reports a fixed outcome for every command.
 type exitTransport struct {
 	code int
@@ -691,6 +760,31 @@ func TestAMissingFileCannotBeRedirectedFrom(t *testing.T) {
 		t.Context(), filepath.Join(root, "nope"))
 
 	require.Error(t, err, "the open reports it, rather than the reader failing later")
+}
+
+// flakyTransport is an instance that is out of reach until it is brought up.
+type flakyTransport struct{ up bool }
+
+func (t *flakyTransport) Exec(_ context.Context, streams Streams, _ string, _ map[string]string, args []string) (int, error) {
+	if !t.up {
+		return 0, errors.New("connection refused")
+	}
+	if slices.ContainsFunc(args, func(a string) bool { return strings.Contains(a, "for d in $PATH") }) {
+		fmt.Fprint(streams.Out, "cat\nls\nsh\n")
+	}
+	return 0, nil
+}
+
+func TestCompletionRecoversWhenTheInstanceDoes(t *testing.T) {
+	probe := &flakyTransport{}
+	s := &session{runner: &interp.Runner{Dir: "/"}, cfg: Config{Transport: probe}}
+
+	assert.Empty(t, s.remoteCommands(t.Context()), "nothing to offer while it is down")
+
+	probe.up = true
+
+	assert.Equal(t, []string{"cat", "ls", "sh"}, s.remoteCommands(t.Context()),
+		"a probe that failed must not be cached as the answer")
 }
 
 func TestFileTestsAskTheInstance(t *testing.T) {

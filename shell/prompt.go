@@ -6,6 +6,7 @@
 package shell
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"sync"
@@ -20,7 +21,7 @@ type prompt struct {
 	history *sessionHistory
 }
 
-func (s *session) newPrompt() *prompt {
+func (s *session) newPrompt(ctx context.Context) *prompt {
 	rl := readline.NewShell()
 	history := &sessionHistory{}
 
@@ -32,6 +33,7 @@ func (s *session) newPrompt() *prompt {
 	rl.SyntaxHighlighter = func(line []rune) string {
 		return highlight(string(line), s.isBuiltinName)
 	}
+	rl.Completer = s.completer(ctx)
 
 	return &prompt{rl: rl, history: history}
 }

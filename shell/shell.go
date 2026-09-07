@@ -100,6 +100,8 @@ type session struct {
 
 	interactive bool
 
+	commands []string
+
 	tty *os.File
 
 	editor *prompt
@@ -184,7 +186,7 @@ func (s *session) runInteractive(ctx context.Context) error {
 		fmt.Fprintln(s.console.Err, bannerStyle.Render(strings.Join(s.cfg.Banner, "\n")))
 	}
 
-	s.editor = s.newPrompt()
+	s.editor = s.newPrompt(ctx)
 
 	parser := syntax.NewParser()
 
