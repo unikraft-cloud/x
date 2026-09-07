@@ -24,6 +24,7 @@ use (
 	./ringbuffer
 	./router
 	./sanitize
+	./shell
 	./signal
 	./startstopper
 	./telemetry

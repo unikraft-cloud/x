@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/colorprofile"
 
@@ -174,6 +175,26 @@ func TestIsTTYReader_MatchesWriterOnSameFd(t *testing.T) {
 
 	if got, want := xio.IsTTYReader(os.Stdin), xio.IsTTY(os.Stdin); got != want {
 		t.Errorf("IsTTYReader(os.Stdin) = %v, IsTTY(os.Stdin) = %v; want equal", got, want)
+	}
+}
+
+// TestIsTTYReader_KeepsTheDeadline pins that asking does not cost the file its
+// read deadline, which Fd would: a blocked read on it must stay cancellable.
+func TestIsTTYReader_KeepsTheDeadline(t *testing.T) {
+	t.Parallel()
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pr.Close()
+	defer pw.Close()
+
+	if xio.IsTTYReader(pr) {
+		t.Error("IsTTYReader(pipe) = true, want false")
+	}
+	if err := pr.SetReadDeadline(time.Now()); err != nil {
+		t.Errorf("SetReadDeadline after IsTTYReader: %v, want nil", err)
 	}
 }
 

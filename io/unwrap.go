@@ -7,6 +7,7 @@ package io
 
 import (
 	"io"
+	"syscall"
 
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/term"
@@ -26,11 +27,21 @@ func Unwrap(w io.Writer) io.Writer {
 }
 
 func isTerminal(v any) bool {
-	fd, ok := v.(interface{ Fd() uintptr })
-	if !ok {
-		return false
+	if c, ok := v.(interface {
+		SyscallConn() (syscall.RawConn, error)
+	}); ok {
+		raw, err := c.SyscallConn()
+		if err != nil {
+			return false
+		}
+		var tty bool
+		if err := raw.Control(func(fd uintptr) { tty = term.IsTerminal(fd) }); err != nil {
+			return false
+		}
+		return tty
 	}
-	return term.IsTerminal(fd.Fd())
+	fd, ok := v.(interface{ Fd() uintptr })
+	return ok && term.IsTerminal(fd.Fd())
 }
 
 // IsTTY reports whether the writer ultimately targets a terminal, transparently
