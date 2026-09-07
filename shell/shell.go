@@ -16,15 +16,22 @@ import (
 	"io"
 	"maps"
 	"os"
+	"os/signal"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode"
 
+	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/ansi"
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"
+
+	"github.com/reeflective/readline"
 
 	xio "unikraft.com/x/io"
 	"unikraft.com/x/log"
@@ -48,8 +55,16 @@ var environFallbacks = map[string]string{
 }
 
 var (
-	errNotATerminal = errors.New("the shell needs a terminal; use -c '<command line>' to run commands without one")
-	errNoPrompt     = errors.New("the interactive prompt is not in this build; use -c '<command line>'")
+	errNotATerminal       = errors.New("the shell needs a terminal; use -c '<command line>' to run commands without one")
+	errNotProcessTerminal = errors.New("the shell prompts only on the process's own terminal; use -c '<command line>' on any other")
+
+	// A statement, not a file: running a whole file is an exit to the
+	// interpreter, and would fire the EXIT trap on every ^C.
+	interruptReset = mustParse(fmt.Sprintf("(exit %d)", StatusInterrupted)).Stmts[0]
+
+	// sessionEnd is the exit ^D asks for: an empty file, which to the
+	// interpreter is an exit, so the EXIT trap runs once, now.
+	sessionEnd = mustParse("")
 )
 
 // console is where the session writes, serialised so two commands cannot interleave a write.
@@ -70,11 +85,26 @@ type session struct {
 	noShell bool
 
 	tty *os.File
+
+	// profile is the colours the caller's terminal takes, for what readline
+	// paints past the console: the prompt and the line being typed.
+	profile colorprofile.Profile
+
+	editor *prompt
+}
+
+func (s *session) dir() string {
+	return s.runner.Dir
 }
 
 func Run(ctx context.Context, cfg Config, streams Streams) (int, error) {
 	if cfg.Transport == nil {
 		return 0, fmt.Errorf("no transport to the instance")
+	}
+	for _, name := range sessionBuiltinNames {
+		if _, taken := cfg.Builtins[name]; taken {
+			return 0, fmt.Errorf("builtin %q is the session's to provide", name)
+		}
 	}
 	if cfg.Dir == "" {
 		cfg.Dir = "/"
@@ -84,7 +114,9 @@ func Run(ctx context.Context, cfg Config, streams Streams) (int, error) {
 	if f, ok := streams.In.(*os.File); ok && xio.IsTTYReader(f) {
 		s.tty = f
 	}
-	s.interactive = cfg.Command == "" && s.tty != nil && xio.IsTTY(streams.Out)
+	onTerminal := cfg.Command == "" && s.tty != nil && xio.IsTTY(streams.Out)
+	s.interactive = onTerminal && isProcessStdio(s.tty, streams.Out)
+	s.profile = profileOf(streams.Out)
 
 	var terminal sync.Mutex
 	s.console = console{
@@ -120,7 +152,9 @@ func Run(ctx context.Context, cfg Config, streams Streams) (int, error) {
 	case cfg.Command != "":
 		return s.runSource(ctx, strings.NewReader(cfg.Command))
 	case s.interactive:
-		return 0, errNoPrompt
+		return s.runInteractive(ctx)
+	case onTerminal:
+		return 0, errNotProcessTerminal
 	default:
 		return 0, errNotATerminal
 	}
@@ -166,6 +200,204 @@ func unsupported(prog *syntax.File) error {
 		return err == nil
 	})
 	return err
+}
+
+func (s *session) runInteractive(ctx context.Context) (int, error) {
+	sigint, stop := captureInterrupts(s.cfg.SuspendSignals)
+	defer stop()
+	defer s.plainKeys()()
+
+	if len(s.cfg.Banner) > 0 {
+		fmt.Fprintln(s.console.Err, bannerStyle.Render(strings.Join(s.cfg.Banner, "\n")))
+	}
+
+	s.editor = s.newPrompt()
+
+	parser := syntax.NewParser()
+
+	for {
+		line, err := s.editor.readLine(ctx)
+		switch {
+		case errors.Is(err, readline.ErrInterrupt):
+			fmt.Fprintln(s.console.Out, hintStyle.Render("^C"))
+			continue
+		case errors.Is(err, io.EOF):
+			fmt.Fprintln(s.console.Out)
+			_ = s.runner.Run(ctx, sessionEnd)
+			return 0, nil
+		case err != nil:
+			return 0, err
+		}
+
+		prog, err := parser.Parse(strings.NewReader(line+"\n"), "")
+		if err == nil {
+			err = cmp.Or(unsupported(prog), noJobControl(prog))
+		}
+		if err != nil {
+			fmt.Fprintln(s.console.Err, errorStyle.Render(err.Error()))
+			continue
+		}
+
+		for _, stmt := range prog.Stmts {
+			status, interrupted, err := s.runStmt(ctx, sigint, stmt)
+			if ctx.Err() != nil {
+				return 0, ctx.Err()
+			}
+			if err != nil {
+				fmt.Fprintln(s.console.Err, errorStyle.Render(err.Error()))
+			}
+			if interrupted {
+				// The terminal echoed the ^C where the command's output stopped;
+				// the prompt goes on a line of its own.
+				fmt.Fprintln(s.console.Out)
+				break
+			}
+			if s.runner.Exited() {
+				return status, nil
+			}
+		}
+	}
+}
+
+// noJobControl refuses what the prompt cannot run: a statement sent to the
+// background lives on the interpreter's context for that line, which the prompt
+// cancels as soon as the line is done.
+func noJobControl(prog *syntax.File) error {
+	var err error
+	syntax.Walk(prog, func(node syntax.Node) bool {
+		if stmt, ok := node.(*syntax.Stmt); ok && (stmt.Background || stmt.Coprocess) {
+			err = fmt.Errorf("%s: no job control, & is not supported at the prompt", stmt.Pos())
+		}
+		return err == nil
+	})
+	return err
+}
+
+// runStmt runs one statement, watching for the interrupt that ends it early.
+func (s *session) runStmt(ctx context.Context, sigint <-chan os.Signal, stmt *syntax.Stmt) (status int, interrupted bool, err error) {
+	for drained := false; !drained; {
+		select {
+		case <-sigint:
+		default:
+			drained = true
+		}
+	}
+
+	stmtCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var (
+		hit  atomic.Bool
+		wg   sync.WaitGroup
+		done = make(chan struct{})
+	)
+
+	stop := sync.OnceFunc(func() {
+		close(done)
+		wg.Wait()
+	})
+	defer stop()
+
+	wg.Go(func() {
+		for {
+			select {
+			case <-sigint:
+				hit.Store(true)
+				cancel()
+			case <-done:
+				return
+			}
+		}
+	})
+
+	status, err = exitStatus(s.runner.Run(stmtCtx, stmt))
+	stop()
+
+	if !hit.Load() {
+		return status, false, err
+	}
+	s.clearInterrupt(ctx)
+	return StatusInterrupted, true, nil
+}
+
+func mustParse(src string) *syntax.File {
+	prog, err := syntax.NewParser().Parse(strings.NewReader(src), "")
+	if err != nil {
+		panic(err)
+	}
+	return prog
+}
+
+func (s *session) clearInterrupt(ctx context.Context) {
+	_ = s.runner.Run(ctx, interruptReset)
+}
+
+func (s *session) prompt(continuation bool) string {
+	if continuation {
+		return s.paint(continuationStyle.Render("> "))
+	}
+	return s.paint(promptStyle.Render(s.cfg.Instance) +
+		promptDirStyle.Render(":"+s.dir()) +
+		promptStyle.Render("$ "))
+}
+
+// paint brings styled text down to the caller's colour profile: what goes
+// through the console is converted by the caller's writer, what readline paints
+// itself is not.
+func (s *session) paint(styled string) string {
+	if s.profile == colorprofile.TrueColor {
+		return styled
+	}
+	var buf strings.Builder
+	_, _ = (&colorprofile.Writer{Forward: &buf, Profile: s.profile}).Write([]byte(styled))
+	return buf.String()
+}
+
+// profileOf is the colour profile of the caller's stdout: the one its writer
+// already converts to, or the terminal's own.
+func profileOf(w io.Writer) colorprofile.Profile {
+	if cw, ok := w.(*colorprofile.Writer); ok {
+		return cw.Profile
+	}
+	return colorprofile.Detect(w, os.Environ())
+}
+
+func (s *session) plainKeys() func() {
+	fmt.Fprint(s.console.Out, ansi.DisableKittyKeyboard, ansi.ResetModifyOtherKeys)
+	return func() {
+		fmt.Fprint(s.console.Out, ansi.PopKittyKeyboard(1), ansi.ResetModifyOtherKeys)
+	}
+}
+
+func captureInterrupts(suspend SuspendFunc) (<-chan os.Signal, func()) {
+	restore := func() {}
+	if suspend != nil {
+		restore = suspend(syscall.SIGINT)
+	}
+
+	ch := make(chan os.Signal, 4)
+	signal.Notify(ch, syscall.SIGINT)
+
+	return ch, func() {
+		signal.Stop(ch)
+		restore()
+	}
+}
+
+// isProcessStdio reports whether in and out are the process' own stdin and
+// stdout, the only streams readline can edit on.
+func isProcessStdio(in *os.File, out io.Writer) bool {
+	f, ok := xio.Unwrap(out).(*os.File)
+	return ok && sameFile(in, os.Stdin) && sameFile(f, os.Stdout)
+}
+
+func sameFile(a, b *os.File) bool {
+	ai, err := a.Stat()
+	if err != nil {
+		return false
+	}
+	bi, err := b.Stat()
+	return err == nil && os.SameFile(ai, bi)
 }
 
 // keepLookupsRemote stops type, command -v and pwd -P from running locally
@@ -255,6 +487,12 @@ func isEnvName(s string) bool {
 		}
 	}
 	return true
+}
+
+func (s *session) builtinNames() []string {
+	names := slices.AppendSeq(slices.Clone(sessionBuiltinNames), maps.Keys(s.cfg.Builtins))
+	slices.Sort(names)
+	return names
 }
 
 // lockedWriter serialises writes from commands running at the same time.

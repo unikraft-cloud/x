@@ -4,9 +4,11 @@ go 1.26.1
 
 require (
 	charm.land/lipgloss/v2 v2.0.6
+	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/creack/pty v1.1.24
 	github.com/muesli/cancelreader v0.2.2
+	github.com/reeflective/readline v1.3.0
 	github.com/stretchr/testify v1.12.1
 	mvdan.cc/sh/v3 v3.14.1
 	unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1
@@ -16,7 +18,6 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect

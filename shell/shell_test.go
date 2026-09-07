@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -294,6 +295,29 @@ func TestSession(t *testing.T) {
 	}
 }
 
+func TestSessionHistory(t *testing.T) {
+	s := &session{
+		cfg:    Config{Builtins: builtinsNamed("start")},
+		editor: &prompt{history: &sessionHistory{}},
+	}
+	for _, line := range []string{"echo one", "echo two", "echo two", "  "} {
+		_, err := s.editor.history.Write(line)
+		require.NoError(t, err)
+	}
+
+	var out captured
+	require.NoError(t, s.runSessionBuiltin(Streams{Out: &out, Err: &out}, []string{"history"}))
+	assert.Equal(t, "    1  echo one\n    2  echo two\n", out.String())
+
+	assert.Equal(t, []string{"history", "start"}, s.builtinNames())
+
+	bare := &session{}
+	out.Reset()
+	err := bare.runSessionBuiltin(Streams{Out: &out, Err: &out}, []string{"history"})
+	assert.Equal(t, interp.ExitStatus(1), err, "no prompt, no history to show")
+	assert.Contains(t, out.String(), "only at the prompt")
+}
+
 // chattyTransport writes straight to the streams, as the remote log poller
 // does once a command starts producing output.
 type chattyTransport struct{}
@@ -512,6 +536,46 @@ func TestAnUnknownBuiltinIsNamed(t *testing.T) {
 	}
 }
 
+func TestSessionBuiltinNamesAreReserved(t *testing.T) {
+	var out captured
+	_, err := Run(t.Context(), Config{
+		Instance:  "fake",
+		Dir:       newFixture(t),
+		Transport: localTransport{},
+		Builtins:  builtinsNamed("start", "history"),
+	}, Streams{In: strings.NewReader(""), Out: &out, Err: &out})
+	require.ErrorContains(t, err, `"history"`)
+
+	assert.Empty(t, out.String())
+}
+
+func TestSessionBuiltinsOutsideThePrompt(t *testing.T) {
+	root := newFixture(t)
+
+	for _, tt := range []struct {
+		name, line string
+		code       int
+		want       string
+	}{
+		{"history-needs-the-prompt", ":history", 1, "history: only at the prompt\n"},
+		{"help-lists-the-session-s-own", ":help", 0, "  :history"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var out captured
+			code, err := Run(t.Context(), Config{
+				Instance:  "fake",
+				Dir:       root,
+				Command:   tt.line,
+				Transport: localTransport{},
+			}, Streams{In: strings.NewReader(""), Out: &out, Err: &out})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.code, code)
+			assert.Contains(t, ansi.Strip(out.String()), tt.want)
+		})
+	}
+}
+
 func TestFailedCommandIsNotAShellFailure(t *testing.T) {
 	root := newFixture(t)
 
@@ -638,6 +702,13 @@ func TestASignalledHelperIsAFailureUnlessInterrupted(t *testing.T) {
 		"a helper killed because the statement was interrupted is not the redirection failing")
 }
 
+func TestASingleCommandLineSaysNothingExtra(t *testing.T) {
+	root := newFixture(t)
+
+	assert.Equal(t, "hello\n", runLine(t, root, "echo hello"),
+		"the banner is for a person at a prompt, not for a script")
+}
+
 func TestATruncationHappensBeforeTheCommandRuns(t *testing.T) {
 	root := newFixture(t)
 	boot := filepath.Join(root, "var", "log", "boot.log")
@@ -717,6 +788,46 @@ func TestFileTestsAskTheInstance(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "no-r\nno-w\nno-x\n", out.String())
+}
+
+func TestCaptureInterruptsHandsSIGINTBack(t *testing.T) {
+	var (
+		suspended []os.Signal
+		restored  bool
+	)
+	suspend := func(sig ...os.Signal) func() {
+		suspended = sig
+		return func() { restored = true }
+	}
+
+	sigint, release := captureInterrupts(suspend)
+
+	// Registered after captureInterrupts so that a regression to signal.Reset
+	// cannot leave SIGINT unhandled and kill this binary.
+	guard := make(chan os.Signal, 1)
+	signal.Notify(guard, syscall.SIGINT)
+	defer signal.Stop(guard)
+
+	assert.Equal(t, []os.Signal{syscall.SIGINT}, suspended)
+
+	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGINT))
+	select {
+	case <-sigint:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the interrupt never reached the shell")
+	}
+
+	release()
+	assert.True(t, restored, "the signal was never handed back")
+}
+
+func TestCaptureInterruptsWithoutASuspend(t *testing.T) {
+	guard := make(chan os.Signal, 1)
+	signal.Notify(guard, syscall.SIGINT)
+	defer signal.Stop(guard)
+
+	_, release := captureInterrupts(nil)
+	assert.NotPanics(t, release)
 }
 
 func TestStdinReachesTheCommand(t *testing.T) {
