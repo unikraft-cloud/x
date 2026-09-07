@@ -16,16 +16,22 @@ import (
 	"io"
 	"maps"
 	"os"
+	"os/signal"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"
+
+	"github.com/reeflective/readline"
 
 	"unikraft.com/x/log"
 )
@@ -40,7 +46,11 @@ var environFallbacks = map[string]string{
 	"UID": "0", "EUID": "0", "GID": "0",
 }
 
-var errNotATerminal = errors.New("the shell needs a terminal; use -c '<command line>' to run commands without one")
+var (
+	errNotATerminal = errors.New("the shell needs a terminal; use -c '<command line>' to run commands without one")
+
+	interruptReset = mustParse(fmt.Sprintf("(exit %d)", StatusInterrupted))
+)
 
 // Streams are the three standard streams a single command is wired to.
 type Streams struct {
@@ -52,6 +62,9 @@ type Streams struct {
 type console struct {
 	Out, Err io.Writer
 }
+
+// SuspendFunc lends the shell a signal for as long as it holds the prompt.
+type SuspendFunc func(ctx context.Context, sig ...os.Signal) (restore func())
 
 // Transport is how the shell reaches the instance.
 type Transport interface {
@@ -72,6 +85,11 @@ type Config struct {
 	Dir     string
 	Env     map[string]string
 	Command string
+
+	// Banner is what the prompt opens with, a line each.
+	Banner []string
+
+	SuspendSignals SuspendFunc
 }
 
 type session struct {
@@ -83,6 +101,12 @@ type session struct {
 	interactive bool
 
 	tty *os.File
+
+	editor *prompt
+}
+
+func (s *session) dir() string {
+	return s.runner.Dir
 }
 
 func Run(ctx context.Context, cfg Config, streams Streams) error {
@@ -136,6 +160,8 @@ func Run(ctx context.Context, cfg Config, streams Streams) error {
 	switch {
 	case cfg.Command != "":
 		return s.runSource(ctx, strings.NewReader(cfg.Command))
+	case s.interactive:
+		return s.runInteractive(ctx)
 	default:
 		return errNotATerminal
 	}
@@ -147,6 +173,142 @@ func (s *session) runSource(ctx context.Context, src io.Reader) error {
 		return err
 	}
 	return dropExitStatus(s.runner.Run(ctx, prog))
+}
+
+func (s *session) runInteractive(ctx context.Context) error {
+	sigint, stop := captureInterrupts(ctx, s.cfg.SuspendSignals)
+	defer stop()
+	defer s.plainKeys()()
+
+	if len(s.cfg.Banner) > 0 {
+		fmt.Fprintln(s.console.Err, bannerStyle.Render(strings.Join(s.cfg.Banner, "\n")))
+	}
+
+	s.editor = s.newPrompt()
+
+	parser := syntax.NewParser()
+
+	for {
+		line, err := s.editor.readLine()
+		switch {
+		case errors.Is(err, readline.ErrInterrupt):
+			fmt.Fprintln(s.console.Out, hintStyle.Render("^C"))
+			continue
+		case errors.Is(err, io.EOF):
+			fmt.Fprintln(s.console.Out)
+			return nil
+		case err != nil:
+			return err
+		}
+
+		prog, err := parser.Parse(strings.NewReader(line+"\n"), "")
+		if err != nil {
+			fmt.Fprintln(s.console.Err, errorStyle.Render(err.Error()))
+			continue
+		}
+
+		for _, stmt := range prog.Stmts {
+			interrupted, err := s.runStmt(ctx, sigint, stmt)
+			if err != nil {
+				fmt.Fprintln(s.console.Err, errorStyle.Render(err.Error()))
+			}
+			if interrupted {
+				break
+			}
+			if s.runner.Exited() {
+				return nil
+			}
+		}
+	}
+}
+
+func (s *session) runStmt(ctx context.Context, sigint <-chan os.Signal, stmt *syntax.Stmt) (bool, error) {
+	for drained := false; !drained; {
+		select {
+		case <-sigint:
+		default:
+			drained = true
+		}
+	}
+
+	stmtCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var (
+		interrupted atomic.Bool
+		wg          sync.WaitGroup
+		done        = make(chan struct{})
+	)
+
+	stop := sync.OnceFunc(func() {
+		close(done)
+		wg.Wait()
+	})
+	defer stop()
+
+	wg.Go(func() {
+		for {
+			select {
+			case <-sigint:
+				interrupted.Store(true)
+				cancel()
+			case <-done:
+				return
+			}
+		}
+	})
+
+	err := dropExitStatus(s.runner.Run(stmtCtx, stmt))
+	stop()
+
+	if !interrupted.Load() {
+		return false, err
+	}
+	s.clearInterrupt(ctx)
+	return true, nil
+}
+
+func mustParse(src string) *syntax.File {
+	prog, err := syntax.NewParser().Parse(strings.NewReader(src), "")
+	if err != nil {
+		panic(err)
+	}
+	return prog
+}
+
+func (s *session) clearInterrupt(ctx context.Context) {
+	_ = s.runner.Run(ctx, interruptReset)
+}
+
+func (s *session) prompt(continuation bool) string {
+	if continuation {
+		return continuationStyle.Render("> ")
+	}
+	return promptStyle.Render(s.cfg.Instance) +
+		promptDirStyle.Render(":"+s.dir()) +
+		promptStyle.Render("$ ")
+}
+
+func (s *session) plainKeys() func() {
+	fmt.Fprint(s.console.Out, ansi.DisableKittyKeyboard, ansi.ResetModifyOtherKeys)
+	return func() {
+		fmt.Fprint(s.console.Out, ansi.PopKittyKeyboard(1), ansi.ResetModifyOtherKeys)
+	}
+}
+
+func captureInterrupts(ctx context.Context, suspend SuspendFunc) (<-chan os.Signal, func()) {
+	ch := make(chan os.Signal, 4)
+	signal.Notify(ch, syscall.SIGINT)
+
+	restore := func() {}
+	if suspend != nil {
+		restore = suspend(ctx, syscall.SIGINT)
+	}
+
+	return ch, func() {
+		signal.Stop(ch)
+		restore()
+	}
 }
 
 func unwrap(w io.Writer) io.Writer {
@@ -239,6 +401,15 @@ func isEnvName(s string) bool {
 		}
 	}
 	return true
+}
+
+func (s *session) builtinNames() []string {
+	names := slices.Clone(sessionBuiltinNames)
+	if s.cfg.Builtins != nil {
+		names = append(names, s.cfg.Builtins.Names()...)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // lockedWriter serialises writes from commands running at the same time.

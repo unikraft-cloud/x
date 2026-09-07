@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"slices"
 	"strings"
 
 	"mvdan.cc/sh/v3/expand"
@@ -28,6 +29,8 @@ const (
 	// maxSignal is the highest signal number an exit code can encode.
 	maxSignal = 64
 )
+
+var sessionBuiltinNames = []string{"history"}
 
 // route sends a ":"-marked word to a builtin, which runs locally, and every other
 // command to the instance.
@@ -65,6 +68,11 @@ func (s *session) runBuiltin(ctx context.Context, args []string) error {
 	streams := Streams{In: hc.Stdin, Out: hc.Stdout, Err: hc.Stderr}
 
 	args = append([]string{strings.TrimPrefix(args[0], BuiltinMarker)}, args[1:]...)
+	if slices.Contains(sessionBuiltinNames, args[0]) {
+		s.runSessionBuiltin(streams, args)
+		return nil
+	}
+
 	if s.cfg.Builtins == nil {
 		fmt.Fprintln(hc.Stderr, errorStyle.Render("unknown builtin: "+args[0]))
 		return interp.ExitStatus(statusBuiltinNotFound)
@@ -77,7 +85,27 @@ func (s *session) runBuiltin(ctx context.Context, args []string) error {
 			code = 1
 		}
 	}
+	if args[0] == "help" && err == nil {
+		s.printSessionBuiltins(streams.Out)
+	}
 	return codeToExitStatus(code)
+}
+
+func (s *session) runSessionBuiltin(streams Streams, args []string) {
+	switch args[0] {
+	case "history":
+		if s.editor == nil {
+			return
+		}
+		for i, line := range s.editor.history.recalled() {
+			fmt.Fprintf(streams.Out, "%5d  %s\n", i+1, line)
+		}
+	}
+}
+
+func (s *session) printSessionBuiltins(out io.Writer) {
+	fmt.Fprintf(out, "  %-34s %s\n", BuiltinMarker+"history", "List what this session has run.")
+	fmt.Fprintln(out, "\nEverything else runs on the instance.")
 }
 
 func resolve(dir, p string) string {

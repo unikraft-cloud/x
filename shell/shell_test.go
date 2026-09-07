@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -158,6 +159,15 @@ func (echoBuiltins) Run(_ context.Context, streams Streams, args []string) (int,
 	return 0, nil
 }
 
+// namedBuiltins advertises names without implementing any of them.
+type namedBuiltins []string
+
+func (b namedBuiltins) Names() []string { return b }
+
+func (namedBuiltins) Run(_ context.Context, _ Streams, args []string) (int, error) {
+	return 0, fmt.Errorf("unknown builtin: %s", args[0])
+}
+
 func (stubBuiltins) Run(_ context.Context, _ Streams, args []string) (int, error) {
 	return 0, fmt.Errorf("unknown builtin: %s", args[0])
 }
@@ -271,6 +281,28 @@ func TestSession(t *testing.T) {
 			assert.Equal(t, want, runLine(t, root, line))
 		})
 	}
+}
+
+func TestSessionHistory(t *testing.T) {
+	s := &session{
+		cfg:    Config{Builtins: namedBuiltins{"start"}},
+		editor: &prompt{history: &sessionHistory{}},
+	}
+	for _, line := range []string{"echo one", "echo two", "echo two", "  "} {
+		_, err := s.editor.history.Write(line)
+		require.NoError(t, err)
+	}
+
+	var out captured
+	s.runSessionBuiltin(Streams{Out: &out}, []string{"history"})
+	assert.Equal(t, "    1  echo one\n    2  echo two\n", out.String())
+
+	assert.Equal(t, []string{"history", "start"}, s.builtinNames())
+
+	bare := &session{}
+	out.Reset()
+	bare.runSessionBuiltin(Streams{Out: &out}, []string{"history"})
+	assert.Empty(t, out.String())
 }
 
 // chattyTransport writes straight to the streams, as the remote log poller
@@ -586,6 +618,13 @@ func TestAnInterruptedRedirectionIsNotAFailure(t *testing.T) {
 	assert.NoError(t, s.redirect(ctx, "write", "/tmp/out", writeScript, Streams{}))
 }
 
+func TestASingleCommandLineSaysNothingExtra(t *testing.T) {
+	root := newFixture(t)
+
+	assert.Equal(t, "hello\n", runLine(t, root, "echo hello"),
+		"the banner is for a person at a prompt, not for a script")
+}
+
 func TestATruncationHappensBeforeTheCommandRuns(t *testing.T) {
 	root := newFixture(t)
 	boot := filepath.Join(root, "var", "log", "boot.log")
@@ -665,6 +704,46 @@ func TestFileTestsAskTheInstance(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "no-r\nno-w\nno-x\n", out.String())
+}
+
+func TestCaptureInterruptsHandsSIGINTBack(t *testing.T) {
+	var (
+		suspended []os.Signal
+		restored  bool
+	)
+	suspend := func(_ context.Context, sig ...os.Signal) func() {
+		suspended = sig
+		return func() { restored = true }
+	}
+
+	sigint, release := captureInterrupts(t.Context(), suspend)
+
+	// Registered after captureInterrupts so that a regression to signal.Reset
+	// cannot leave SIGINT unhandled and kill this binary.
+	guard := make(chan os.Signal, 1)
+	signal.Notify(guard, syscall.SIGINT)
+	defer signal.Stop(guard)
+
+	assert.Equal(t, []os.Signal{syscall.SIGINT}, suspended)
+
+	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGINT))
+	select {
+	case <-sigint:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the interrupt never reached the shell")
+	}
+
+	release()
+	assert.True(t, restored, "the signal was never handed back")
+}
+
+func TestCaptureInterruptsWithoutASuspend(t *testing.T) {
+	guard := make(chan os.Signal, 1)
+	signal.Notify(guard, syscall.SIGINT)
+	defer signal.Stop(guard)
+
+	_, release := captureInterrupts(t.Context(), nil)
+	assert.NotPanics(t, release)
 }
 
 func TestUnwrapReachesTheFileBehindTheColours(t *testing.T) {
