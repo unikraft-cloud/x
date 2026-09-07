@@ -429,6 +429,177 @@ func (t *unreachableTransport) Exec(context.Context, Streams, string, map[string
 	return 0, errors.New("504 Gateway Time-out")
 }
 
+// restartingTransport is an instance coming back from a restart: it refuses a
+// few commands, then answers. Whether the session's directory is still there
+// afterwards is what "gone" decides.
+type restartingTransport struct {
+	refuse int
+	gone   bool
+	calls  int
+}
+
+func (t *restartingTransport) Exec(_ context.Context, _ Streams, _ string, _ map[string]string, args []string) (int, error) {
+	t.calls++
+	if t.calls <= t.refuse {
+		return 0, errors.New("connection refused")
+	}
+	if t.gone && slices.Contains(args, statScript) {
+		return 1, nil
+	}
+	return 0, nil
+}
+
+func newSettling(t *testing.T, probe Transport) (*session, *captured) {
+	t.Helper()
+
+	runner, err := interp.New()
+	require.NoError(t, err)
+	runner.Dir = t.TempDir()
+	runner.Reset()
+
+	var out captured
+	return &session{
+		runner:  runner,
+		cfg:     Config{Transport: probe, Dir: "/"},
+		console: console{Out: &out, Err: &out},
+	}, &out
+}
+
+func TestSettle(t *testing.T) {
+	t.Run("waits-for-the-instance", func(t *testing.T) {
+		probe := &restartingTransport{refuse: 1}
+		s, out := newSettling(t, probe)
+
+		assert.True(t, s.settle(t.Context()))
+
+		assert.Greater(t, probe.calls, 1, "asked again until the instance answered")
+		assert.Contains(t, out.String(), "waiting for it")
+	})
+
+	t.Run("forgets-the-commands-it-cached", func(t *testing.T) {
+		s, _ := newSettling(t, &restartingTransport{})
+		s.commands = []string{"stale"}
+
+		assert.True(t, s.settle(t.Context()))
+
+		assert.Nil(t, s.commands, "the rootfs may not be the one those came from")
+	})
+
+	t.Run("gives-up-when-the-statement-is-interrupted", func(t *testing.T) {
+		s, out := newSettling(t, &restartingTransport{refuse: 1 << 30})
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		assert.False(t, s.settle(ctx), "the rest of the line is abandoned")
+
+		assert.Contains(t, out.String(), "stopped waiting")
+		assert.NotContains(t, out.String(), "^C", "the terminal is cooked here and echoes it already")
+		assert.NotContains(t, out.String(), "has not come back")
+	})
+
+	t.Run("gives-up-while-a-probe-hangs", func(t *testing.T) {
+		s, out := newSettling(t, blockingTransport{})
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		settled := make(chan bool, 1)
+		go func() { settled <- s.settle(ctx) }()
+
+		select {
+		case ok := <-settled:
+			assert.False(t, ok)
+		case <-time.After(instanceProbeTimeout + 10*time.Second):
+			t.Fatal("a probe that hangs must not hold the interrupt back")
+		}
+
+		assert.Contains(t, out.String(), "stopped waiting")
+	})
+}
+
+// orderedTransport records what it was asked to run, refusing the first few
+// restart probes the way an instance coming back does.
+type orderedTransport struct {
+	mu     sync.Mutex
+	ran    []string
+	refuse int
+}
+
+func (t *orderedTransport) Exec(_ context.Context, _ Streams, _ string, _ map[string]string, args []string) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if len(args) > 2 && args[2] == ":" {
+		t.ran = append(t.ran, "probe")
+		if t.refuse > 0 {
+			t.refuse--
+			return 0, errors.New("connection refused")
+		}
+		return 0, nil
+	}
+	t.ran = append(t.ran, args[0])
+	return 0, nil
+}
+
+func (t *orderedTransport) commands() []string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return slices.Clone(t.ran)
+}
+
+type lifecycleBuiltins struct{}
+
+func (lifecycleBuiltins) Names() []string { return []string{"restart"} }
+
+func (lifecycleBuiltins) Run(context.Context, Streams, []string) (int, error) { return 0, nil }
+
+func (lifecycleBuiltins) Restarts(args []string) bool { return args[0] == "restart" }
+
+func TestARestartHoldsTheRestOfTheLine(t *testing.T) {
+	probe := &orderedTransport{refuse: 2}
+
+	var out captured
+	require.NoError(t, Run(t.Context(), Config{
+		Instance:  "fake",
+		Dir:       "/",
+		Command:   ":restart && after-the-restart",
+		Transport: probe,
+		Builtins:  lifecycleBuiltins{},
+	}, Streams{In: strings.NewReader(""), Out: &out, Err: &out}))
+
+	assert.Equal(t, []string{"sh", "probe", "probe", "probe", "after-the-restart"}, probe.commands(),
+		"the rest of the line waited for the instance the restart asked for")
+}
+
+func TestRelocate(t *testing.T) {
+	t.Run("moves-out-of-a-directory-that-is-gone", func(t *testing.T) {
+		s, out := newSettling(t, &restartingTransport{gone: true})
+
+		s.relocate(t.Context())
+
+		assert.Equal(t, "/", s.dir(), "a directory the instance still has")
+		assert.Contains(t, out.String(), "did not survive")
+	})
+
+	t.Run("keeps-a-directory-that-survived", func(t *testing.T) {
+		s, out := newSettling(t, &restartingTransport{})
+		was := s.dir()
+
+		s.relocate(t.Context())
+
+		assert.Equal(t, was, s.dir(), "still there, so still ours")
+		assert.NotContains(t, out.String(), "did not survive")
+	})
+}
+
+type blockingTransport struct{}
+
+func (blockingTransport) Exec(ctx context.Context, _ Streams, _ string, _ map[string]string, _ []string) (int, error) {
+	<-ctx.Done()
+	return 0, ctx.Err()
+}
+
 func TestUnreachableInstanceIsNotAPrompt(t *testing.T) {
 	probe := &unreachableTransport{}
 
