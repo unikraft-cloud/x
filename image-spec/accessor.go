@@ -14,14 +14,16 @@ import (
 	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
-	"github.com/distribution/reference"
+	ociref "github.com/distribution/reference"
+
+	"unikraft.com/x/image-spec/imageref"
 )
 
 type Accessor struct {
 	remote          remotes.Resolver
 	registryHosts   docker.RegistryHosts
 	registryHeaders http.Header
-	refParser       func(string) (reference.Named, error)
+	refParser       func(string) (ociref.Named, error)
 }
 
 func NewAccessor(opts ...AccessOpt) *Accessor {
@@ -30,7 +32,7 @@ func NewAccessor(opts ...AccessOpt) *Accessor {
 		o(s)
 	}
 	if s.refParser == nil {
-		s.refParser = reference.ParseNormalizedNamed
+		s.refParser = ociref.ParseNormalizedNamed
 	}
 	if s.remote == nil {
 		s.remote = docker.NewResolver(docker.ResolverOptions{})
@@ -62,7 +64,7 @@ func WithRegistryHeaders(headers http.Header) AccessOpt {
 	}
 }
 
-func WithReferenceParser(rp func(string) (reference.Named, error)) AccessOpt {
+func WithReferenceParser(rp func(string) (ociref.Named, error)) AccessOpt {
 	return func(so *Accessor) {
 		so.refParser = rp
 	}
@@ -70,16 +72,16 @@ func WithReferenceParser(rp func(string) (reference.Named, error)) AccessOpt {
 
 func (accessor *Accessor) Load(ctx context.Context, src *URI, platform platforms.MatchComparer) (*Image, error) {
 	switch src.Scheme {
-	case URISchemeOCI:
+	case imageref.SchemeOCI:
 		named, err := accessor.refParser(src.Path)
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
 		return LoadRegistryImage(ctx, named, accessor.remote, platform)
-	case URISchemeOCILayout:
+	case imageref.SchemeOCILayout:
 		path, tag := parsePathTag(src.Path)
 		return LoadOCILayoutNamed(ctx, path, tag, platform)
-	case URISchemeOCIArchive:
+	case imageref.SchemeOCIArchive:
 		return LoadTarball(ctx, src.Path, platform)
 	default:
 		return nil, fmt.Errorf("unsupported URI scheme: %q", src.Scheme)
@@ -88,16 +90,16 @@ func (accessor *Accessor) Load(ctx context.Context, src *URI, platform platforms
 
 func (accessor *Accessor) LoadAll(ctx context.Context, src *URI, platform platforms.MatchComparer) ([]*Image, error) {
 	switch src.Scheme {
-	case URISchemeOCI:
+	case imageref.SchemeOCI:
 		named, err := accessor.refParser(src.Path)
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
 		return LoadAllRegistryImages(ctx, named, accessor.remote, platform)
-	case URISchemeOCILayout:
+	case imageref.SchemeOCILayout:
 		path, tag := parsePathTag(src.Path)
 		return LoadAllOCILayoutsNamed(ctx, path, tag, platform)
-	case URISchemeOCIArchive:
+	case imageref.SchemeOCIArchive:
 		return LoadAllTarballs(ctx, src.Path, platform)
 	default:
 		return nil, fmt.Errorf("unsupported URI scheme: %q", src.Scheme)
@@ -106,21 +108,21 @@ func (accessor *Accessor) LoadAll(ctx context.Context, src *URI, platform platfo
 
 func (accessor *Accessor) Save(ctx context.Context, dest *URI, img ...*Image) error {
 	switch dest.Scheme {
-	case URISchemeOCI:
+	case imageref.SchemeOCI:
 		named, err := accessor.refParser(dest.Path)
 		if err != nil {
 			return fmt.Errorf("parsing image reference %q: %w", dest, err)
 		}
 		_, _, err = SaveRegistryImage(ctx, named, accessor.remote, img...)
 		return err
-	case URISchemeOCILayout:
+	case imageref.SchemeOCILayout:
 		path, tag := parsePathTag(dest.Path)
 		if tag == "" {
 			tag = "latest"
 		}
 		_, err := SaveOCILayoutNamed(ctx, path, tag, img...)
 		return err
-	case URISchemeOCIArchive:
+	case imageref.SchemeOCIArchive:
 		return SaveTarball(ctx, dest.Path, img...)
 	default:
 		return fmt.Errorf("unsupported URI scheme: %q", dest.Scheme)
@@ -129,7 +131,7 @@ func (accessor *Accessor) Save(ctx context.Context, dest *URI, img ...*Image) er
 
 func (accessor *Accessor) Delete(ctx context.Context, target *URI) error {
 	switch target.Scheme {
-	case URISchemeOCI:
+	case imageref.SchemeOCI:
 		if accessor.registryHosts == nil {
 			return fmt.Errorf("no registry hosts configured for %q", target.Path)
 		}
@@ -138,13 +140,13 @@ func (accessor *Accessor) Delete(ctx context.Context, target *URI) error {
 			return fmt.Errorf("parsing image reference %q: %w", target, err)
 		}
 		return DeleteRegistryImage(ctx, named, accessor.remote, accessor.registryHosts, accessor.registryHeaders)
-	case URISchemeOCILayout:
+	case imageref.SchemeOCILayout:
 		path, tag := parsePathTag(target.Path)
 		if tag == "" {
 			return os.RemoveAll(path)
 		}
 		return DeleteOCILayoutNamed(path, tag)
-	case URISchemeOCIArchive:
+	case imageref.SchemeOCIArchive:
 		return os.Remove(target.Path)
 	default:
 		return fmt.Errorf("unsupported URI scheme: %q", target.Scheme)

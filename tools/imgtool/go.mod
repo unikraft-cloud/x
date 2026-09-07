@@ -2,7 +2,7 @@ module github.com/unikraft-cloud/x/tools/imgtool
 
 go 1.25.5
 
-replace github.com/unikraft-cloud/x/image-spec => ../../image-spec
+replace unikraft.com/x/image-spec => ../../image-spec
 
 require (
 	github.com/alecthomas/kong v1.16.0
@@ -12,7 +12,7 @@ require (
 	github.com/docker/cli v29.4.0+incompatible
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
-	github.com/unikraft-cloud/x/image-spec v0.0.0-00010101000000-000000000000
+	unikraft.com/x/image-spec v0.0.0-00010101000000-000000000000
 	unikraft.com/x/log v0.0.0-20260120165849-5b2c62ce8457
 	unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8
 )
