@@ -85,7 +85,18 @@ func (s *session) runBuiltin(ctx context.Context, args []string) error {
 	if args[0] == "help" && err == nil {
 		s.printSessionBuiltins(streams.Out)
 	}
+	if err == nil && s.builtinRestarts(args) {
+		s.restarted.Store(true)
+		if !s.settle(ctx) {
+			return interp.ExitStatus(StatusInterrupted)
+		}
+	}
 	return exitStatus(code)
+}
+
+func (s *session) builtinRestarts(args []string) bool {
+	lifecycle, ok := s.cfg.Builtins.(Restarts)
+	return ok && lifecycle.Restarts(args)
 }
 
 func (s *session) runSessionBuiltin(streams Streams, args []string) {
