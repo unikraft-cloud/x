@@ -10,4 +10,20 @@ import (
 	"unikraft.com/x/colors"
 )
 
-var errorStyle = lipgloss.NewStyle().Foreground(colors.Error)
+var (
+	promptStyle       = lipgloss.NewStyle().Foreground(colors.Primary).Bold(true)
+	promptDirStyle    = lipgloss.NewStyle().Foreground(colors.Slate500)
+	continuationStyle = lipgloss.NewStyle().Foreground(colors.Slate500)
+	errorStyle        = lipgloss.NewStyle().Foreground(colors.Error)
+	hintStyle         = lipgloss.NewStyle().Foreground(colors.Slate500)
+
+	bannerStyle = lipgloss.NewStyle().
+			Foreground(colors.Warning).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colors.Warning).
+			Padding(0, 1)
+
+	highlightStringStyle  = lipgloss.NewStyle().Foreground(colors.Emerald400)
+	highlightBuiltinStyle = lipgloss.NewStyle().Foreground(colors.Primary).Bold(true)
+	highlightSpecialStyle = lipgloss.NewStyle().Foreground(colors.Orange400)
+)
