@@ -53,12 +53,6 @@ var (
 
 	dirReset       = mustParse("cd /")
 	interruptReset = mustParse(fmt.Sprintf("(exit %d)", StatusInterrupted))
-
-	experimentalBanner = []string{
-		"this shell is experimental",
-		"no terminal, so vim, top and less will not run",
-		"no job control, so no ctrl-z, bg or fg",
-	}
 )
 
 // Streams are the three standard streams a single command is wired to.
@@ -99,6 +93,9 @@ type Config struct {
 	Dir     string
 	Env     map[string]string
 	Command string
+
+	// Banner is what the prompt opens with, a line each.
+	Banner []string
 
 	SuspendSignals SuspendFunc
 }
@@ -195,7 +192,9 @@ func (s *session) runInteractive(ctx context.Context) error {
 	defer stop()
 	defer s.plainKeys()()
 
-	fmt.Fprintln(s.console.Err, bannerStyle.Render(strings.Join(experimentalBanner, "\n")))
+	if len(s.cfg.Banner) > 0 {
+		fmt.Fprintln(s.console.Err, bannerStyle.Render(strings.Join(s.cfg.Banner, "\n")))
+	}
 
 	s.editor = s.newPrompt(ctx)
 

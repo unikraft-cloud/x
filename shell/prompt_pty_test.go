@@ -40,6 +40,7 @@ func runHelperSession(root string) int {
 		Dir:       root,
 		Transport: localTransport{},
 		Builtins:  namedBuiltins{"start"},
+		Banner:    []string{"this shell is experimental", "no job control, so no ctrl-z, bg or fg"},
 	}, Streams{In: os.Stdin, Out: os.Stdout, Err: os.Stderr})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
