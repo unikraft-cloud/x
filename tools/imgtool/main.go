@@ -236,7 +236,16 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	ctx = log.WithLogger(ctx, log.New(os.Stderr, log.TextType, log.DebugLevel))
+	logger, err := log.New(ctx, log.Config{
+		Sink:  os.Stderr,
+		Type:  log.TextType,
+		Level: log.DebugLevel,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "fatal:", err)
+		os.Exit(1)
+	}
+	ctx = log.WithLogger(ctx, logger)
 
 	cli := &CLI{}
 	kctx := kong.Parse(

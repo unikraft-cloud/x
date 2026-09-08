@@ -11,47 +11,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
 
 	otelLog "go.opentelemetry.io/otel/log"
-	otellog "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/trace"
 )
-
-// NewWithTelemetry constructs a Logger that fans log writes to both the
-// provided sink and an OTLP HTTP log exporter. The logger provider must be
-// configured by unikraft.com/x/telemetry. The provided context is used for
-// extracting trace context when emitting logs.
-func NewWithTelemetry(ctx context.Context, sink io.Writer, typ Type, level Level) (*Logger, error) {
-	provider := otellog.GetLoggerProvider()
-	if provider == nil {
-		return New(sink, typ, level), fmt.Errorf("telemetry not initialized")
-	}
-
-	otlpWriter := &otlpWriter{
-		ctx:    ctx,
-		logger: provider.Logger("log"),
-	}
-
-	var consoleWriter io.Writer
-	switch typ {
-	case JSONType:
-		consoleWriter = sink
-	default:
-		consoleWriter = zerolog.ConsoleWriter{Out: sink}
-	}
-
-	logger := zerolog.New(zerolog.MultiLevelWriter(consoleWriter, otlpWriter)).
-		Level(level).
-		With().
-		Timestamp().
-		Logger()
-	return &logger, nil
-}
 
 const (
 	TraceIDKey = "trace_id"
