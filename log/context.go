@@ -10,10 +10,6 @@ package log
 
 import (
 	"context"
-	"io"
-	"os"
-
-	"github.com/rs/zerolog"
 )
 
 // G is a shorthand for FromContextOrDefault.
@@ -31,28 +27,15 @@ func FromContextOrDefault(ctx context.Context) *Logger {
 		return v
 	}
 
-	return New(os.Stderr, "text", InfoLevel)
+	logger, err := New(ctx, Config{Type: TextType, Level: InfoLevel})
+	if err != nil {
+		logger.Warn().Err(err).Msg("could not fully construct the default logger")
+	}
+	return logger
 }
 
 // WithLogger returns a new Context, derived from ctx, which carries the
 // provided Logger.
 func WithLogger(ctx context.Context, v *Logger) context.Context {
 	return context.WithValue(ctx, ContextKey{}, v)
-}
-
-// New returns a Logger backed by a JSON or text handler.
-func New(sink io.Writer, typ Type, level Level) *Logger {
-	var logger zerolog.Logger
-
-	switch typ {
-	case JSONType:
-		logger = zerolog.New(sink)
-	case TextType:
-		fallthrough
-	default:
-		logger = zerolog.New(zerolog.ConsoleWriter{Out: sink})
-	}
-
-	logger = logger.Level(level).With().Timestamp().Logger()
-	return &logger
 }
