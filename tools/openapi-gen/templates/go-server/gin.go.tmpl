@@ -232,23 +232,66 @@ type {{$serviceName}}Handler struct {
 	resp    func(*gin.Context, int, any)
 }
 
-// Register{{$serviceName}} registers the HTTP handlers for the {{$serviceName}} service.
-func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp func(*gin.Context, int, any), middleware ...gin.HandlerFunc) {
+// Per-operation identifiers for {{$serviceName}}, for use with WithOperationMiddleware.
+const (
+{{- range $allOps}}
+{{- if has $tagName .Operation.Tags}}
+	Op{{.Operation.OperationID}} = "{{.Operation.OperationID}}"
+{{- end}}
+{{- end}}
+)
+
+// {{$serviceName}}Registration configures and registers the HTTP handlers for the {{$serviceName}} service.
+type {{$serviceName}}Registration struct {
+	service      {{$serviceName}}
+	resp         func(*gin.Context, int, any)
+	middleware   []gin.HandlerFunc
+	opMiddleware map[string][]gin.HandlerFunc
+}
+
+// New{{$serviceName}}Registration creates a {{$serviceName}}Registration, configure it with WithMiddleware and WithOperationMiddleware, then call Register.
+func New{{$serviceName}}Registration(service {{$serviceName}}, resp func(*gin.Context, int, any)) *{{$serviceName}}Registration {
+	return &{{$serviceName}}Registration{
+		service:      service,
+		resp:         resp,
+		opMiddleware: make(map[string][]gin.HandlerFunc),
+	}
+}
+
+// WithMiddleware adds middleware that runs for every operation in {{$serviceName}}.
+func (r *{{$serviceName}}Registration) WithMiddleware(middleware ...gin.HandlerFunc) *{{$serviceName}}Registration {
+	r.middleware = append(r.middleware, middleware...)
+	return r
+}
+
+// WithOperationMiddleware adds middleware that runs only for operationID, after the service-wide middleware.
+func (r *{{$serviceName}}Registration) WithOperationMiddleware(operationID string, middleware ...gin.HandlerFunc) *{{$serviceName}}Registration {
+	r.opMiddleware[operationID] = append(r.opMiddleware[operationID], middleware...)
+	return r
+}
+
+// Register registers the HTTP handlers for the {{$serviceName}} service on engine.
+func (r *{{$serviceName}}Registration) Register(engine gin.IRouter) {
 	handler := &{{$serviceName}}Handler{
-		service: service,
-		resp:    resp,
+		service: r.service,
+		resp:    r.resp,
 	}
 
-	group := engine.Group("", middleware...)
+	group := engine.Group("", r.middleware...)
 
 {{- range $allOps}}
 {{- if has $tagName .Operation.Tags}}
 {{- $op := .Operation}}
 {{- $path := .Path}}
 {{- $method := .Method}}
-	group.Handle("{{upper $method}}", "{{regexReplaceAll "\\{([^}]+)\\}" $path ":${1}"}}", handler.{{camelcase $op.OperationID}})
+	group.Handle("{{upper $method}}", "{{regexReplaceAll "\\{([^}]+)\\}" $path ":${1}"}}", append(r.opMiddleware[Op{{$op.OperationID}}], handler.{{camelcase $op.OperationID}})...)
 {{- end}}
 {{- end}}
+}
+
+// Register{{$serviceName}} registers the HTTP handlers for the {{$serviceName}} service.
+func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp func(*gin.Context, int, any), middleware ...gin.HandlerFunc) {
+	New{{$serviceName}}Registration(service, resp).WithMiddleware(middleware...).Register(engine)
 }
 {{range $allOps}}
 {{- if has $tagName .Operation.Tags}}
