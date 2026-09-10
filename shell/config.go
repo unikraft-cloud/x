@@ -8,6 +8,7 @@ package shell
 import (
 	"context"
 	"io"
+	"os"
 )
 
 // What a caller hands the shell: the instance to reach, the builtins to answer
@@ -24,7 +25,19 @@ type Config struct {
 	Dir     string
 	Env     map[string]string
 	Command string
+
+	// Banner is what the prompt opens with, a line each.
+	Banner []string
+
+	// SuspendSignals takes SIGINT away from the caller while the prompt holds
+	// it, typically (*signal.Signals).Suspend of unikraft.com/x/signal. Left
+	// nil, a ^C during a command cancels the caller's context and ends the
+	// session instead of the command.
+	SuspendSignals SuspendFunc
 }
+
+// SuspendFunc lends the shell a signal for as long as it holds the prompt.
+type SuspendFunc func(sig ...os.Signal) (restore func())
 
 // Streams are the three standard streams a single command is wired to.
 type Streams struct {
