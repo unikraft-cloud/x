@@ -35,7 +35,8 @@ g.JSON(code, gin.H{"message": err.Error()})
 {{- end -}}
 {{- end }}
 {{- $allOps := .Operations -}}
-{{- $currentPkg := $.Var "x-package" "" -}}
+{{- /* A --namespace-only (TypeSpec) run has no x-package, only current_package. */}}
+{{- $currentPkg := $.Var "x-package" ($.Var "current_package" "") -}}
 {{- $basePkg := $.Var "base_package" "api" -}}
 {{- range $tagName := uniqueTags .Operations}}
 --- {{snakecase $tagName}}_gin.gen.go
@@ -221,7 +222,7 @@ type {{$serviceName}} interface {
 	{{$op.OperationID}}(g *gin.Context
 {{- range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}
 {{- if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}
-{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) ({{if $wrapResponse}}*{{$respPrefix}}Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}]{{else}}{{if $qualifiedRespType}}*{{$qualifiedRespType}}{{else}}any{{end}}{{end}}, int, error)
+{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = regexReplaceAll "([A-Z]\\w+)$" $pt (printf "%sv1.${1}" $ptPkg)}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) ({{if $wrapResponse}}*{{$respPrefix}}Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}]{{else}}{{if $qualifiedRespType}}*{{$qualifiedRespType}}{{else}}any{{end}}{{end}}, int, error)
 {{- end}}
 {{- end}}
 {{- end}}
@@ -411,7 +412,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 	// Bind query parameters
 	var query struct {
 {{- range $queryParams}}
-{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}
+{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if and $ptPkg (ne $ptPkg $currentPkg)}}{{- $pt = regexReplaceAll "([A-Z]\\w+)$" $pt (printf "%sv1.${1}" $ptPkg)}}{{- end}}
 		{{pascalcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}} `form:"{{.Name}}"`
 {{- end}}
 	}
