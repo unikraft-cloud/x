@@ -1,5 +1,12 @@
 Detailed description appears at the top.
 
+Request body syntax:
+
+  Each argument is one of the forms below, and --verbose reports them.
+
+  key=value    Set a key to a literal string value.
+  key\[sub\]=value  Literal bracket in a key name.
+
 Usage:
   kingkong [flags]
 
