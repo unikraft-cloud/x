@@ -6,7 +6,7 @@ require (
 	github.com/iancoleman/strcase v0.3.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/tools v0.49.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa
+	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688
 	google.golang.org/protobuf v1.36.12
 )
 
