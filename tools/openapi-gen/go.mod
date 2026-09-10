@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/alecthomas/kong v1.16.0
+	github.com/alecthomas/kong v1.16.1
 	github.com/ettle/strcase v0.2.0
 	github.com/getkin/kin-openapi v0.146.0
 	github.com/go-git/go-git/v5 v5.19.2
