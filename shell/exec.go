@@ -97,6 +97,12 @@ func (s *session) runBuiltin(ctx context.Context, args []string) error {
 	if args[0] == "help" && err == nil {
 		s.printSessionBuiltins(streams.Out)
 	}
+	if err == nil && builtinRestarts(builtin, args) {
+		s.restarted.Store(true)
+		if !s.settle(ctx) {
+			return interp.ExitStatus(StatusInterrupted)
+		}
+	}
 	return codeToExitStatus(code)
 }
 
@@ -106,6 +112,11 @@ func (s *session) unknownBuiltin(name string) string {
 		said += "; try " + BuiltinMarker + "help"
 	}
 	return said
+}
+
+func builtinRestarts(builtin Builtin, args []string) bool {
+	lifecycle, ok := builtin.(Restarts)
+	return ok && lifecycle.Restarts(args)
 }
 
 func (s *session) runSessionBuiltin(streams Streams, args []string) error {
