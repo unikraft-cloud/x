@@ -25,7 +25,7 @@ import (
 type Parser struct {
 	doc            *openapi3.T
 	propertyOrders map[string][]string // schemaName -> ordered property names
-	namespaces     map[string]string   // flattened schema name -> original namespace
+	namespaces     map[string]string   // flattened schema name -> original innermost namespace
 }
 
 // Model represents a single model file to be generated

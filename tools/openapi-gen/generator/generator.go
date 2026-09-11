@@ -53,13 +53,15 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 	return g, nil
 }
 
-// FilterByPackage keeps only operations and models whose x-package matches
-// the given package name.
+// FilterByPackage keeps only operations and models whose package matches pkg.
+// Operations match on their x-package extension. Models match on x-package
+// when present (our proto-based generation pipeline), else on their
+// namespace lowercased (e.g. TypeSpec's "Namespace.Name" schema naming), so a
+// document with no x-package extensions at all still filters correctly.
 //
-// Deprecated: x-package is a legacy extension emitted only by our proto-based
-// generation pipeline. Prefer FilterByTag (operations) and FilterByNamespace
-// (models), which work against any OpenAPI document, including specs
-// generated from platform-api's TypeSpec definitions.
+// Deprecated: prefer FilterByTag (operations) and FilterByNamespace (models),
+// which work against any OpenAPI document without relying on a package name
+// happening to equal a lowercased namespace.
 func (g *Generator) FilterByPackage(pkg string) {
 	var filteredOps []openapi.PathOperation
 	for _, op := range g.operations {
@@ -74,7 +76,11 @@ func (g *Generator) FilterByPackage(pkg string) {
 
 	var filteredModels []openapi.Model
 	for _, m := range g.models {
-		if m.Package == pkg {
+		modelPkg := m.Package
+		if modelPkg == "" {
+			modelPkg = strings.ToLower(m.Namespace)
+		}
+		if modelPkg == pkg {
 			filteredModels = append(filteredModels, m)
 		}
 	}
@@ -103,16 +109,43 @@ func (g *Generator) FilterByTag(tags []string) {
 	g.operations = filtered
 }
 
-// FilterByNamespace keeps only models belonging to one of the given namespaces.
-// Operations are left untouched (filter them separately via FilterByTag).
-func (g *Generator) FilterByNamespace(namespaces []string) {
+// FilterByNamespace keeps only models belonging to one of the given
+// namespaces, plus any model with no namespace at all: TypeSpec's OpenAPI3
+// emitter names a service's own schemas without a namespace prefix and
+// reserves the prefix for types pulled in from another namespace, so an
+// empty namespace is a signal that a schema is always local, not a reason to
+// drop it. Set strict to drop those unnamespaced models too, which gives a
+// package that holds an imported namespace and nothing else. Operations are
+// left untouched (filter them separately via FilterByTag).
+func (g *Generator) FilterByNamespace(namespaces []string, strict bool) {
 	want := make(map[string]bool, len(namespaces))
 	for _, ns := range namespaces {
 		want[ns] = true
 	}
 	var filtered []openapi.Model
 	for _, m := range g.models {
-		if want[m.Namespace] {
+		if want[m.Namespace] || (m.Namespace == "" && !strict) {
+			filtered = append(filtered, m)
+		}
+	}
+	g.models = filtered
+}
+
+// ExcludeByNamespace drops models belonging to one of the given namespaces.
+// A dropped type is no longer generated here, so references to it resolve to
+// the Go package its namespace names (see getTypePackage) and one shared
+// package can hold a namespace that several documents import.
+func (g *Generator) ExcludeByNamespace(namespaces []string) {
+	if len(namespaces) == 0 {
+		return
+	}
+	unwanted := make(map[string]bool, len(namespaces))
+	for _, ns := range namespaces {
+		unwanted[ns] = true
+	}
+	var filtered []openapi.Model
+	for _, m := range g.models {
+		if !unwanted[m.Namespace] {
 			filtered = append(filtered, m)
 		}
 	}

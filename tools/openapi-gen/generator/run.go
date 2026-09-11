@@ -49,6 +49,15 @@ type Options struct {
 	// is exposed to templates as the "current_package" variable.
 	Namespace []string
 
+	// NamespaceStrict makes Namespace drop models with no namespace of their
+	// own, leaving a package that holds an imported namespace and nothing else.
+	NamespaceStrict bool
+
+	// ExcludeNamespace drops models in these namespaces so that references to
+	// them resolve to the Go package their namespace names, rather than being
+	// generated again in this one.
+	ExcludeNamespace []string
+
 	// Flatten rewrites namespaced schema names into valid Go identifiers:
 	// "strip" drops the namespace prefix, "join" concatenates the segments,
 	// and "" leaves them untouched.
@@ -91,8 +100,9 @@ func Run(opts Options) error {
 		generator.FilterByTag(opts.Tag)
 	}
 	if len(opts.Namespace) > 0 {
-		generator.FilterByNamespace(opts.Namespace)
+		generator.FilterByNamespace(opts.Namespace, opts.NamespaceStrict)
 	}
+	generator.ExcludeByNamespace(opts.ExcludeNamespace)
 
 	// Flatten namespaced schema names last, after filtering has matched on the
 	// original "Namespace.Name" form.

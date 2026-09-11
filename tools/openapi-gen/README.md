@@ -52,6 +52,8 @@ go run unikraft.com/x/tools/openapi-gen@latest \
 | `--tag`              |       | Filter to operations carrying one of these tags (repeatable)              |
 | `--namespace`        |       | Filter to schemas in one of these namespaces, e.g. `Instances` (repeatable) |
 | `--namespace-flatten`|       | Rewrite namespaced schema names: `strip` drops the prefix, `join` concatenates segments |
+| `--namespace-strict` |       | With `--namespace`, also drop schemas that have no namespace of their own  |
+| `--exclude-namespace`|       | Drop schemas in one of these namespaces (repeatable), so references to them qualify |
 
 `--package` is deprecated: it only works against specs produced by our
 proto-based pipeline, which stamps schemas and operations with an `x-package`
@@ -72,6 +74,14 @@ join the prefix once filtering is done. When exactly one `--namespace` is
 given, its lowercased value is also exposed to templates as the
 `current_package` variable, for distinguishing local from foreign type
 references.
+
+A namespace that several documents import can live in one shared Go package
+instead of being generated into each of them. Generate the shared package with
+`--namespace=<ns> --namespace-strict`, which keeps that namespace and drops the
+document's own schemas, then generate each consumer with
+`--exclude-namespace=<ns>`. A type the run does not generate is foreign, so
+references to it come out qualified as `<ns>v1.Type` with an import of
+`<base_package>/<ns>/v1`.
 
 ## Internals
 
