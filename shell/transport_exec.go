@@ -222,6 +222,29 @@ func isEnvName(s string) bool {
 	return true
 }
 
+// Commands is every command name on the instance's PATH, in order and without
+// repeats.
+func (e ExecTransport) Commands(ctx context.Context) ([]string, error) {
+	ctx, cancel := probing(ctx)
+	defer cancel()
+
+	out, err := e.script(ctx, commandsScript)
+	if err != nil {
+		return nil, err
+	}
+
+	commands := []string{}
+	seen := map[string]bool{}
+	for name := range strings.SplitSeq(out, "\n") {
+		if name = strings.TrimSpace(name); name != "" && !seen[name] {
+			seen[name] = true
+			commands = append(commands, name)
+		}
+	}
+	slices.Sort(commands)
+	return commands, nil
+}
+
 func (e ExecTransport) openRead(ctx context.Context, p string, stderr io.Writer) (io.ReadWriteCloser, error) {
 	pr, pw, err := os.Pipe()
 	if err != nil {
