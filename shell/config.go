@@ -13,14 +13,19 @@ import (
 
 // Config is a session's setup.
 type Config struct {
-	Instance  string
-	Transport Transport
-	Builtins  map[string]Builtin
-	Dir       string
-	Env       map[string]string
-	Command   string
-	Input     *os.File
+	Instance       string
+	Transport      Transport
+	Builtins       map[string]Builtin
+	Dir            string
+	Env            map[string]string
+	Command        string
+	Input          *os.File
+	Banner         []string
+	SuspendSignals SuspendFunc
 }
+
+// SuspendFunc lends the shell a signal for as long as it holds the prompt.
+type SuspendFunc func(sig ...os.Signal) (restore func())
 
 // Streams are the three standard streams a single command is wired to.
 type Streams struct {

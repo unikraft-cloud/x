@@ -14,15 +14,22 @@ import (
 	"io"
 	"maps"
 	"os"
+	"os/signal"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode"
 
+	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/ansi"
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"
+
+	"github.com/reeflective/readline"
 
 	xio "unikraft.com/x/io"
 	"unikraft.com/x/log"
@@ -46,8 +53,14 @@ var environFallbacks = map[string]string{
 }
 
 var (
-	errNotATerminal = errors.New("the shell needs a terminal to prompt on; give it a command line to run without one")
-	errNoPrompt     = errors.New("the interactive prompt is not in this build; give the shell a command line")
+	errNotATerminal       = errors.New("the shell needs a terminal to prompt on; give it a command line to run without one")
+	errNotProcessTerminal = errors.New("the shell prompts only on the process's own terminal; on any other, give it a command line")
+
+	// A statement, not a file: a whole file is an exit to the interpreter
+	interruptReset = mustParse(fmt.Sprintf("(exit %d)", StatusInterrupted)).Stmts[0]
+
+	// sessionEnd is the exit ^D asks for
+	sessionEnd = mustParse("")
 )
 
 // console is where the session writes, serialised so two commands cannot interleave a write.
@@ -56,17 +69,24 @@ type console struct {
 }
 
 type session struct {
-	cfg     Config
-	console console
-
-	runner *interp.Runner
-
+	cfg         Config
+	console     console
+	runner      *interp.Runner
+	parser      *syntax.Parser
 	interactive bool
+	onTerminal  bool
+	noShell     bool
+	tty         *os.File
+	stdin       *os.File
+	profile     colorprofile.Profile
+	editor      *prompt
+	history     *sessionHistory
+	interrupts  chan os.Signal
+	exiting     atomic.Bool
+}
 
-	noShell bool
-
-	tty   *os.File
-	stdin *os.File
+func (s *session) dir() string {
+	return s.runner.Dir
 }
 
 func Run(ctx context.Context, cfg Config, streams Streams) (int, error) {
@@ -79,7 +99,9 @@ func Run(ctx context.Context, cfg Config, streams Streams) (int, error) {
 	case s.cfg.Command != "":
 		return s.runSource(ctx, strings.NewReader(s.cfg.Command))
 	case s.interactive:
-		return 0, errNoPrompt
+		return s.runInteractive(ctx)
+	case s.onTerminal:
+		return 0, errNotProcessTerminal
 	default:
 		return 0, errNotATerminal
 	}
@@ -91,16 +113,23 @@ func newSession(ctx context.Context, cfg Config, streams Streams) (*session, err
 	if cfg.Transport == nil {
 		return nil, fmt.Errorf("no transport to the instance")
 	}
+	for _, name := range sessionBuiltinNames {
+		if _, taken := cfg.Builtins[name]; taken {
+			return nil, fmt.Errorf("builtin %q is the session's to provide", name)
+		}
+	}
 	if cfg.Dir == "" {
 		cfg.Dir = "/"
 	}
 
-	s := &session{cfg: cfg}
+	s := &session{cfg: cfg, parser: syntax.NewParser(), interrupts: make(chan os.Signal, 4)}
 	if f, ok := streams.In.(*os.File); ok && xio.IsTTYReader(f) {
 		s.tty = f
 	}
 	s.stdin = cmp.Or(s.tty, cfg.Input)
-	s.interactive = cfg.Command == "" && s.tty != nil && xio.IsTTY(streams.Out)
+	s.onTerminal = cfg.Command == "" && s.tty != nil && xio.IsTTY(streams.Out)
+	s.interactive = s.onTerminal && isProcessStdio(s.tty, streams.Out)
+	s.profile = profileOf(streams.Out)
 
 	var terminal sync.Mutex
 	s.console = console{
@@ -122,7 +151,7 @@ func newSession(ctx context.Context, cfg Config, streams Streams) (*session, err
 		interp.StdIO(in, s.console.Out, s.console.Err),
 		interp.Env(expand.ListEnviron(env...)),
 		interp.Interactive(s.interactive),
-		interp.CallHandler(keepLookupsRemote),
+		interp.CallHandler(s.call),
 		interp.ExecHandlers(s.route),
 		interp.StatHandler(s.statHandler),
 		interp.AccessHandler(s.accessHandler),
@@ -179,6 +208,296 @@ func unsupported(prog *syntax.File) error {
 		return err == nil
 	})
 	return err
+}
+
+func (s *session) runInteractive(ctx context.Context) (int, error) {
+	stop := s.captureInterrupts()
+	defer stop()
+	defer s.plainKeys()()
+
+	if len(s.cfg.Banner) > 0 {
+		fmt.Fprintln(s.console.Err, bannerStyle.Render(strings.Join(s.cfg.Banner, "\n")))
+	}
+
+	s.history = &sessionHistory{}
+	s.editor = s.newPrompt()
+
+	for {
+		line, err := s.editor.readLine(ctx)
+		switch {
+		case errors.Is(err, readline.ErrInterrupt):
+			fmt.Fprintln(s.console.Out, hintStyle.Render("^C"))
+			continue
+		case errors.Is(err, io.EOF):
+			fmt.Fprintln(s.console.Out)
+			_ = s.runner.Run(ctx, sessionEnd)
+			return 0, nil
+		case err != nil:
+			return 0, err
+		}
+
+		status, exited, err := s.runInput(ctx, line)
+		if ctx.Err() != nil {
+			return 0, ctx.Err()
+		}
+		if err != nil {
+			continue
+		}
+		if exited {
+			return status, nil
+		}
+	}
+}
+
+// runInput runs what the caller typed, and reports whether the session is to
+// end. A line the shell will not run is told on its own stderr and reported
+// back as well, so that a caller can tell it from a command that failed.
+func (s *session) runInput(ctx context.Context, line string) (status int, exited bool, err error) {
+	// readline records what it accepts itself, so only a driven session's lines
+	// are on the session to keep.
+	if s.history != nil && s.editor == nil {
+		_, _ = s.history.Write(line)
+	}
+
+	prog, err := s.parser.Parse(strings.NewReader(line+"\n"), "")
+	if err == nil {
+		err = cmp.Or(unsupported(prog), noJobControl(prog), noExitOptions(prog))
+	}
+	if err != nil {
+		fmt.Fprintln(s.console.Err, errorStyle.Render(err.Error()))
+		return statusNotRun, false, err
+	}
+
+	status, exited = s.runLine(ctx, prog)
+	return status, exited, nil
+}
+
+// runLine runs a line statement by statement, and reports whether the session
+// is to end, with the status the line asked for
+func (s *session) runLine(ctx context.Context, prog *syntax.File) (status int, exited bool) {
+	// Only what was typed before the line is stale; a ^C between two of its
+	// statements is this line's to answer, and the next statement answers it.
+	for drained := false; !drained; {
+		select {
+		case <-s.interrupts:
+		default:
+			drained = true
+		}
+	}
+
+	for _, stmt := range prog.Stmts {
+		s.exiting.Store(false)
+
+		var interrupted bool
+		var err error
+		status, interrupted, err = s.runStmt(ctx, stmt)
+		if ctx.Err() != nil {
+			return 0, false
+		}
+		if err != nil {
+			fmt.Fprintln(s.console.Err, errorStyle.Render(err.Error()))
+		}
+		if interrupted {
+			// The terminal echoed the ^C where the output stopped
+			fmt.Fprintln(s.console.Out)
+			return status, false
+		}
+		if s.runner.Exited() && s.exiting.Load() {
+			return status, true
+		}
+	}
+	return status, false
+}
+
+// noExitOptions refuses set -e and set -u at the prompt, where to the
+// interpreter they would end the shell at the next failure
+func noExitOptions(prog *syntax.File) error {
+	var err error
+	syntax.Walk(prog, func(node syntax.Node) bool {
+		call, ok := node.(*syntax.CallExpr)
+		if !ok || len(call.Args) == 0 || literal(call.Args[0]) != "set" {
+			return err == nil
+		}
+		for i := 1; i < len(call.Args); i++ {
+			arg := literal(call.Args[i])
+			if arg == "--" || arg == "-" || !strings.HasPrefix(arg, "-") {
+				break
+			}
+			flags := arg[1:]
+			if strings.HasSuffix(flags, "o") && i+1 < len(call.Args) {
+				i++
+				if name := literal(call.Args[i]); name == "errexit" || name == "nounset" {
+					err = fmt.Errorf("%s: set -o %s is not supported at the prompt, it would end the session at the next failure", call.Pos(), name)
+					return false
+				}
+			}
+			if strings.ContainsAny(flags, "eu") {
+				err = fmt.Errorf("%s: set %s is not supported at the prompt, it would end the session at the next failure", call.Pos(), arg)
+				return false
+			}
+		}
+		return err == nil
+	})
+	return err
+}
+
+// literal is a word's text when it is one plain literal, and "" otherwise.
+func literal(word *syntax.Word) string {
+	if len(word.Parts) != 1 {
+		return ""
+	}
+	lit, ok := word.Parts[0].(*syntax.Lit)
+	if !ok {
+		return ""
+	}
+	return lit.Value
+}
+
+// noJobControl refuses what the prompt cannot run: a statement sent to the
+// background outlives the context the line runs on
+func noJobControl(prog *syntax.File) error {
+	var err error
+	syntax.Walk(prog, func(node syntax.Node) bool {
+		if stmt, ok := node.(*syntax.Stmt); ok && (stmt.Background || stmt.Coprocess) {
+			err = fmt.Errorf("%s: no job control, & is not supported at the prompt", stmt.Pos())
+		}
+		return err == nil
+	})
+	return err
+}
+
+// runStmt runs one statement, watching for the interrupt that ends it early.
+func (s *session) runStmt(ctx context.Context, stmt *syntax.Stmt) (status int, interrupted bool, err error) {
+	stmtCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var (
+		hit  atomic.Bool
+		wg   sync.WaitGroup
+		done = make(chan struct{})
+	)
+
+	// A ^C from earlier in the line, when no statement was watching for one.
+	select {
+	case <-s.interrupts:
+		hit.Store(true)
+		cancel()
+	default:
+	}
+
+	stop := sync.OnceFunc(func() {
+		close(done)
+		wg.Wait()
+	})
+	defer stop()
+
+	wg.Go(func() {
+		for {
+			select {
+			case <-s.interrupts:
+				hit.Store(true)
+				cancel()
+			case <-done:
+				return
+			}
+		}
+	})
+
+	status, err = exitStatus(s.runner.Run(stmtCtx, stmt))
+	stop()
+
+	if !hit.Load() {
+		return status, false, err
+	}
+	s.clearInterrupt(ctx)
+	return StatusInterrupted, true, nil
+}
+
+func mustParse(src string) *syntax.File {
+	prog, err := syntax.NewParser().Parse(strings.NewReader(src), "")
+	if err != nil {
+		panic(err)
+	}
+	return prog
+}
+
+func (s *session) clearInterrupt(ctx context.Context) {
+	_ = s.runner.Run(ctx, interruptReset)
+}
+
+func (s *session) prompt(continuation bool) string {
+	if continuation {
+		return s.paint(continuationStyle.Render("> "))
+	}
+	return s.paint(promptStyle.Render(s.cfg.Instance) +
+		promptDirStyle.Render(":"+s.dir()) +
+		promptStyle.Render("$ "))
+}
+
+// paint brings styled text down to the caller's colour profile, which what
+// readline paints itself does not go through
+func (s *session) paint(styled string) string {
+	if s.profile == colorprofile.TrueColor {
+		return styled
+	}
+	var buf strings.Builder
+	_, _ = (&colorprofile.Writer{Forward: &buf, Profile: s.profile}).Write([]byte(styled))
+	return buf.String()
+}
+
+// profileOf is the colour profile of the caller's stdout
+func profileOf(w io.Writer) colorprofile.Profile {
+	if cw, ok := w.(*colorprofile.Writer); ok {
+		return cw.Profile
+	}
+	return colorprofile.Detect(w, os.Environ())
+}
+
+func (s *session) plainKeys() func() {
+	fmt.Fprint(s.console.Out, ansi.DisableKittyKeyboard, ansi.ResetModifyOtherKeys)
+	return func() {
+		fmt.Fprint(s.console.Out, ansi.PopKittyKeyboard(1), ansi.ResetModifyOtherKeys)
+	}
+}
+
+// captureInterrupts points the process' SIGINT at the session for as long as
+// it holds the prompt.
+func (s *session) captureInterrupts() (stop func()) {
+	restore := func() {}
+	if s.cfg.SuspendSignals != nil {
+		restore = s.cfg.SuspendSignals(syscall.SIGINT)
+	}
+
+	signal.Notify(s.interrupts, syscall.SIGINT)
+
+	return func() {
+		signal.Stop(s.interrupts)
+		restore()
+	}
+}
+
+// isProcessStdio reports whether in and out are the process' own stdin and
+// stdout, the only streams readline can edit on
+func isProcessStdio(in *os.File, out io.Writer) bool {
+	f, ok := xio.Unwrap(out).(*os.File)
+	return ok && sameFile(in, os.Stdin) && sameFile(f, os.Stdout)
+}
+
+func sameFile(a, b *os.File) bool {
+	ai, err := a.Stat()
+	if err != nil {
+		return false
+	}
+	bi, err := b.Stat()
+	return err == nil && os.SameFile(ai, bi)
+}
+
+// call notes an exit for the session to follow, then keeps lookups remote.
+func (s *session) call(ctx context.Context, args []string) ([]string, error) {
+	if args[0] == "exit" {
+		s.exiting.Store(true)
+	}
+	return keepLookupsRemote(ctx, args)
 }
 
 // remoteBuiltins are the builtins the interpreter knows the names of but does
@@ -281,6 +600,12 @@ func isEnvName(s string) bool {
 		}
 	}
 	return true
+}
+
+func (s *session) builtinNames() []string {
+	names := slices.AppendSeq(slices.Clone(sessionBuiltinNames), maps.Keys(s.cfg.Builtins))
+	slices.Sort(names)
+	return names
 }
 
 // lockWriter serialises writes to w from commands running at the same time
