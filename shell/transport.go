@@ -49,6 +49,9 @@ type Transport interface {
 
 	// Commands is every command name on the instance's PATH
 	Commands(ctx context.Context) ([]string, error)
+
+	// Alive is whether the instance answers at all
+	Alive(ctx context.Context) bool
 }
 
 // AccessMode is what a caller wants to do with a file.
