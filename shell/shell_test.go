@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"mvdan.cc/sh/v3/interp"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 func TestExitStatus(t *testing.T) {
@@ -464,6 +465,238 @@ type unreachableTransport struct{ calls int }
 func (t *unreachableTransport) Exec(context.Context, Streams, string, map[string]string, []string) (int, error) {
 	t.calls++
 	return 0, errors.New("504 Gateway Time-out")
+}
+
+// restartingTransport is an instance coming back from a restart: it refuses a
+// few commands, then answers
+type restartingTransport struct {
+	refuse int
+	gone   bool
+	calls  int
+}
+
+func (t *restartingTransport) Exec(_ context.Context, streams Streams, _ string, _ map[string]string, args []string) (int, error) {
+	t.calls++
+	if t.calls <= t.refuse {
+		return 0, errors.New("connection refused")
+	}
+	if slices.Contains(args, statScript) {
+		if t.gone {
+			return 1, nil
+		}
+		fmt.Fprintln(streams.Out, "d 0 0 -")
+	}
+	return 0, nil
+}
+
+func newSettling(t *testing.T, probe Transport) (*session, *captured) {
+	t.Helper()
+
+	runner, err := interp.New()
+	require.NoError(t, err)
+	runner.Dir = t.TempDir()
+	runner.Reset()
+
+	var out captured
+	return &session{
+		runner:  runner,
+		cfg:     Config{Transport: probe, Dir: "/"},
+		console: console{Out: &out, Err: &out},
+	}, &out
+}
+
+func TestSettle(t *testing.T) {
+	t.Run("waits-for-the-instance", func(t *testing.T) {
+		probe := &restartingTransport{refuse: 1}
+		s, out := newSettling(t, probe)
+
+		assert.True(t, s.settle(t.Context()))
+
+		assert.Greater(t, probe.calls, 1, "asked again until the instance answered")
+		assert.Contains(t, out.String(), "waiting for instance restart")
+	})
+
+	t.Run("forgets-the-commands-it-cached", func(t *testing.T) {
+		s, _ := newSettling(t, &restartingTransport{})
+		s.commands = []string{"stale"}
+
+		assert.True(t, s.settle(t.Context()))
+
+		assert.Nil(t, s.commands, "the rootfs may not be the one those came from")
+	})
+
+	t.Run("gives-up-when-the-statement-is-interrupted", func(t *testing.T) {
+		s, out := newSettling(t, &restartingTransport{refuse: 1 << 30})
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		assert.False(t, s.settle(ctx), "the rest of the line is abandoned")
+
+		assert.Contains(t, out.String(), "aborting instance wait")
+		assert.NotContains(t, out.String(), "has not come back")
+	})
+
+	t.Run("gives-up-while-a-probe-hangs", func(t *testing.T) {
+		probe := newBlockingTransport()
+		s, out := newSettling(t, probe)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		settled := make(chan bool, 1)
+		go func() { settled <- s.settle(ctx) }()
+
+		<-probe.entered
+		cancel()
+
+		select {
+		case ok := <-settled:
+			assert.False(t, ok)
+		case <-time.After(instanceProbeTimeout + 10*time.Second):
+			t.Fatal("a probe that hangs must not hold the interrupt back")
+		}
+
+		assert.Contains(t, out.String(), "aborting instance wait")
+	})
+
+	t.Run("has-nothing-to-wait-for-without-a-shell", func(t *testing.T) {
+		probe := newBlockingTransport()
+		s, out := newSettling(t, probe)
+		s.noShell = true
+
+		settled := make(chan bool, 1)
+		go func() { settled <- s.settle(t.Context()) }()
+
+		select {
+		case ok := <-settled:
+			assert.True(t, ok, "the next command finds out for itself")
+		case <-time.After(5 * time.Second):
+			t.Fatal("waited for a probe that can never run")
+		}
+
+		assert.Empty(t, out.String(), "no probe, no false word about the instance not coming back")
+		select {
+		case <-probe.entered:
+			t.Fatal("a probe was sent to an instance without a shell")
+		default:
+		}
+	})
+}
+
+func TestARestartRelocatesTheSession(t *testing.T) {
+	probe := &restartingTransport{gone: true}
+	out := &captured{}
+	s := &session{
+		cfg:     Config{Transport: probe, Dir: "/", Builtins: map[string]Builtin{"restart": restartBuiltin{}}},
+		console: console{Out: out, Err: out},
+	}
+	runner, err := interp.New(
+		interp.StdIO(nil, out, out),
+		interp.CallHandler(s.call),
+		interp.ExecHandlers(s.route),
+	)
+	require.NoError(t, err)
+	runner.Dir = "/var/log"
+	runner.Reset()
+	s.runner = runner
+
+	_, exited := s.runLine(t.Context(), &syntax.File{Stmts: parseShell(t, ":restart; pwd")})
+
+	assert.False(t, exited)
+	assert.Equal(t, "/", s.dir(), "the line went on from a directory the restarted instance has")
+	assert.Contains(t, out.String(), "did not survive")
+	assert.Contains(t, out.String(), "\n/\n", "pwd ran there")
+}
+
+// orderedTransport records what it was asked to run
+type orderedTransport struct {
+	mu     sync.Mutex
+	ran    []string
+	refuse int
+}
+
+func (t *orderedTransport) Exec(_ context.Context, _ Streams, _ string, _ map[string]string, args []string) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if len(args) > 2 && args[2] == ":" {
+		t.ran = append(t.ran, "probe")
+		if t.refuse > 0 {
+			t.refuse--
+			return 0, errors.New("connection refused")
+		}
+		return 0, nil
+	}
+	t.ran = append(t.ran, args[0])
+	return 0, nil
+}
+
+func (t *orderedTransport) commands() []string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return slices.Clone(t.ran)
+}
+
+// restartBuiltin is a builtin that takes the instance down and up again.
+type restartBuiltin struct{}
+
+func (restartBuiltin) Run(context.Context, Streams, []string) (int, error) { return 0, nil }
+
+func (restartBuiltin) Restarts([]string) bool { return true }
+
+func TestARestartHoldsTheRestOfTheLine(t *testing.T) {
+	probe := &orderedTransport{refuse: 2}
+
+	var out captured
+	_, err := Run(t.Context(), Config{
+		Instance:  "fake",
+		Dir:       "/",
+		Command:   ":restart && after-the-restart",
+		Transport: probe,
+		Builtins:  map[string]Builtin{"restart": restartBuiltin{}},
+	}, Streams{In: strings.NewReader(""), Out: &out, Err: &out})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"sh", "probe", "probe", "probe", "after-the-restart"}, probe.commands(),
+		"the rest of the line waited for the instance the restart asked for")
+}
+
+func TestRelocate(t *testing.T) {
+	t.Run("moves-out-of-a-directory-that-is-gone", func(t *testing.T) {
+		s, out := newSettling(t, &restartingTransport{gone: true})
+
+		s.relocate(t.Context())
+
+		assert.Equal(t, "/", s.dir(), "a directory the instance still has")
+		assert.Contains(t, out.String(), "did not survive")
+	})
+
+	t.Run("keeps-a-directory-that-survived", func(t *testing.T) {
+		s, out := newSettling(t, &restartingTransport{})
+		was := s.dir()
+
+		s.relocate(t.Context())
+
+		assert.Equal(t, was, s.dir(), "still there, so still ours")
+		assert.NotContains(t, out.String(), "did not survive")
+	})
+}
+
+// blockingTransport is an instance that never answers
+type blockingTransport struct {
+	entered chan struct{}
+	once    sync.Once
+}
+
+func newBlockingTransport() *blockingTransport {
+	return &blockingTransport{entered: make(chan struct{})}
+}
+
+func (t *blockingTransport) Exec(ctx context.Context, _ Streams, _ string, _ map[string]string, _ []string) (int, error) {
+	t.once.Do(func() { close(t.entered) })
+	<-ctx.Done()
+	return 0, ctx.Err()
 }
 
 func TestUnreachableInstanceIsNotAPrompt(t *testing.T) {
