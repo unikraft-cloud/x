@@ -79,6 +79,7 @@ type state struct {
 	interactive bool
 	onTerminal  bool
 	noShell     bool
+	commands    []string
 	tty         *os.File
 	stdin       *os.File
 	profile     colorprofile.Profile
@@ -259,6 +260,7 @@ func (s *state) runInteractive(ctx context.Context) (int, error) {
 		prompt:    s.prompt,
 		paint:     s.paint,
 		isBuiltin: s.isBuiltinName,
+		complete:  s.completer(ctx),
 	})
 
 	for {
@@ -314,6 +316,7 @@ func (s *state) runInput(ctx context.Context, input string) (status int, exited 
 // runFile runs a parsed input statement by statement, and reports whether the
 // session is to end, with the status it asked for
 func (s *state) runFile(ctx context.Context, prog *syntax.File) (status int, exited bool) {
+	defer func() { s.commands = nil }()
 	// Only what was typed before the line is stale; a ^C between two of its
 	// statements is this line's to answer, and the next statement answers it.
 	for drained := false; !drained; {
