@@ -1,7 +1,12 @@
 {{define "model_simple" -}}
-{{- $schema := .Schema -}}
-{{- $schemaName := .SchemaName -}}
-{{- $currentPkg := .Package -}}
+{{- $schema := .Model.Schema -}}
+{{- $schemaName := .Model.SchemaName -}}
+{{- /* Prefer the invocation's "x-package" var (always set, whether via the
+      legacy --package flag or a bare -v for a TypeSpec-only run with no
+      per-model tags at all); fall back to this model's own tag for a caller
+      that doesn't pass the var. */}}
+{{- $currentPkg := .CurrentPkg -}}
+{{- if not $currentPkg}}{{- $currentPkg = .Model.Package -}}{{- end}}
 {{- $propNames := propertyNamesOrdered $schemaName $schema -}}
 {{- if $schema.Description}}
 // {{$schema.Description | replace "\n" "\n// "}}
