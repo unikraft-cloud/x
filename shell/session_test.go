@@ -192,6 +192,37 @@ func TestTheKeystrokesAreLentAgainToTheNextCommand(t *testing.T) {
 	}
 }
 
+func TestSessionCompletesFromTheWordStart(t *testing.T) {
+	root := newFixture(t)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "ünicode"), nil, 0o644))
+
+	s, _, _ := newDrivenSession(t, Config{
+		Instance: "fake", Dir: root,
+		Builtins: builtinsNamed("start", "stop"),
+	})
+
+	for _, tt := range []struct {
+		name  string
+		line  string
+		start int
+		want  []string
+	}{
+		{"a-path", "ls host", 3, []string{"hostname"}},
+		{"a-builtin", ":sta", 0, []string{":start"}},
+		{"nothing-to-offer", "ls nope", 3, nil},
+		{"a-multibyte-word", "cat üni", 4, []string{"ünicode"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			line := []rune(tt.line)
+
+			start, matches := s.Complete(t.Context(), line, len(line))
+
+			assert.Equal(t, tt.want, matches)
+			assert.Equal(t, tt.start, start, "the rune the candidates replace from")
+		})
+	}
+}
+
 func TestSessionKeepsItsOwnHistory(t *testing.T) {
 	s, _, out := newDrivenSession(t, Config{Instance: "fake", Dir: "/"})
 

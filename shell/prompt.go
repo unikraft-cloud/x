@@ -29,7 +29,7 @@ type prompt struct {
 	rl *readline.Shell
 }
 
-func (s *session) newPrompt() *prompt {
+func (s *session) newPrompt(ctx context.Context) *prompt {
 	rl := readline.NewShell()
 	// Bytes above 0x7f are typed accents, not meta keys.
 	_ = rl.Config.Set("convert-meta", false)
@@ -44,6 +44,7 @@ func (s *session) newPrompt() *prompt {
 	rl.SyntaxHighlighter = func(line []rune) string {
 		return s.paint(highlight(string(line), s.isBuiltinName))
 	}
+	rl.Completer = s.completer(ctx)
 
 	return &prompt{rl: rl}
 }

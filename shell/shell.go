@@ -76,6 +76,7 @@ type session struct {
 	interactive bool
 	onTerminal  bool
 	noShell     bool
+	commands    []string
 	tty         *os.File
 	stdin       *os.File
 	profile     colorprofile.Profile
@@ -220,7 +221,7 @@ func (s *session) runInteractive(ctx context.Context) (int, error) {
 	}
 
 	s.history = &sessionHistory{}
-	s.editor = s.newPrompt()
+	s.editor = s.newPrompt(ctx)
 
 	for {
 		line, err := s.editor.readLine(ctx)
