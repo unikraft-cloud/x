@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/rs/zerolog v1.35.1
 	github.com/sirupsen/logrus v1.10.2
-	go.opentelemetry.io/otel/log v0.20.0
+	go.opentelemetry.io/otel/log v0.22.0
 	go.opentelemetry.io/otel/trace v1.46.0
 )
 
