@@ -4,7 +4,8 @@
 {{template "header" .}}
 package {{$.Var "package" ""}}
 
-{{- $currentPkg := $.Var "x-package" "" -}}
+{{- /* A --namespace-only (TypeSpec) run has no x-package, only current_package. */}}
+{{- $currentPkg := $.Var "x-package" ($.Var "current_package" "") -}}
 {{- $basePkg := $.Var "base_package" "api" -}}
 {{- $extPkgs := dict}}
 {{- range $model := .Models}}
@@ -42,7 +43,7 @@ var (
 {{- if $model.Schema.Enum}}
 {{template "model_enum" $model}}
 {{- else}}
-{{template "model_simple" $model}}
+{{template "model_simple" (dict "Model" $model "CurrentPkg" $currentPkg)}}
 {{- end}}
 {{- end}}
 {{- end}}

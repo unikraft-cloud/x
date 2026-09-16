@@ -54,19 +54,26 @@ func (p *Parser) Flatten(models []Model, mode string) {
 	}
 }
 
-// schemaNamespace returns the namespace prefix of a schema name, or "" if the
-// name is not namespaced. e.g. "Instances.Instance" -> "Instances".
+// schemaNamespace returns the immediate namespace a schema name is declared
+// under, or "" if the name is not namespaced: the segment right before the
+// final one, so nested namespaces resolve to the innermost one. e.g.
+// "Instances.Instance" -> "Instances", "A.B.Instance" -> "B".
 func schemaNamespace(name string) string {
-	prefix, _, found := strings.Cut(name, ".")
-	if !found {
+	last := strings.LastIndex(name, ".")
+	if last < 0 {
 		return ""
 	}
-	return prefix
+	rest := name[:last]
+	if prev := strings.LastIndex(rest, "."); prev >= 0 {
+		return rest[prev+1:]
+	}
+	return rest
 }
 
-// schemaNamespaceOf returns the namespace a schema was named under. Flattening
-// rewrites the names it would otherwise be read from, so consult what Flatten
-// recorded before falling back to the name itself.
+// schemaNamespaceOf returns the innermost namespace segment a schema was
+// named under. Flattening rewrites the names it would otherwise be read
+// from, so consult what Flatten recorded before falling back to the name
+// itself.
 func (p *Parser) schemaNamespaceOf(name string) string {
 	if p != nil {
 		if namespace, ok := p.namespaces[name]; ok {
@@ -113,11 +120,10 @@ func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
 
 	// Rename component schema keys, flattening namespaced names (e.g.
 	// "Instances.Instance" -> "Instance" or "InstancesInstance" per mode) into
-	// valid Go identifiers. The namespace each name carried is recorded on the
-	// parser, since the flattened name no longer shows it and consumers such as
-	// goUnions need it to qualify a type from another namespace. Package-level
-	// qualification is handled separately via the "x-package" extension and the
-	// "current_package" template var (see getTypePackage).
+	// valid Go identifiers. The innermost namespace segment each name carried
+	// is recorded on the parser, since the flattened name no longer shows it
+	// and getTypePackage needs it to resolve the Go package a
+	// foreign-namespace reference belongs to.
 	renamed := make(openapi3.Schemas, len(doc.Components.Schemas))
 	namespaces := map[string]string{}
 	for name, ref := range doc.Components.Schemas {
