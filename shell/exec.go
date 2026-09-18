@@ -114,11 +114,22 @@ func (s *state) runBuiltin(ctx context.Context, args []string) error {
 	if args[0] == helpBuiltin && err == nil {
 		s.printSessionBuiltins(streams.Stdout)
 	}
+	if err == nil && builtinRestarts(builtin, args) {
+		s.restarted.Store(true)
+		if !s.settle(ctx) {
+			return interp.ExitStatus(StatusInterrupted)
+		}
+	}
 	return codeToExitStatus(code)
 }
 
 func unknownBuiltin(name string) string {
 	return fmt.Sprintf("unknown builtin %q; try %s%s", name, BuiltinMarker, helpBuiltin)
+}
+
+func builtinRestarts(builtin Builtin, args []string) bool {
+	lifecycle, ok := builtin.(Restarts)
+	return ok && lifecycle.Restarts(args)
 }
 
 func (s *state) runSessionBuiltin(streams stdio.Stdio, args []string) error {

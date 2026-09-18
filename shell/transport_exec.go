@@ -245,6 +245,15 @@ func (e ExecTransport) Commands(ctx context.Context) ([]string, error) {
 	return commands, nil
 }
 
+// Alive asks the instance for nothing at all, to see whether it answers.
+func (e ExecTransport) Alive(ctx context.Context) bool {
+	ctx, cancel := probing(ctx)
+	defer cancel()
+
+	_, err := e.script(ctx, `:`)
+	return err == nil
+}
+
 func (e ExecTransport) openRead(ctx context.Context, p string, stderr io.Writer) (io.ReadWriteCloser, error) {
 	pr, pw, err := os.Pipe()
 	if err != nil {
