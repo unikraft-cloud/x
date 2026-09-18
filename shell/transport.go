@@ -46,6 +46,9 @@ type Transport interface {
 
 	// Environ is the instance's own environment, as NAME=value
 	Environ(ctx context.Context) ([]string, error)
+
+	// Commands is every command name on the instance's PATH
+	Commands(ctx context.Context) ([]string, error)
 }
 
 // AccessMode is what a caller wants to do with a file.
