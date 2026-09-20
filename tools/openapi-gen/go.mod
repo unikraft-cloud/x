@@ -11,7 +11,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 	gopkg.in/yaml.v3 v3.0.1
 	unikraft.com/x/kingkong v0.0.0-20260105163520-49d071286efd
 )
