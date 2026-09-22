@@ -126,6 +126,27 @@ func (p *Parser) SetPropertyOrder(schemaName string, order []string) {
 	p.propertyOrders[schemaName] = order
 }
 
+// SetSchemaPackage stamps the x-package extension on every schema declared
+// under namespace and returns the names it stamped.
+func (p *Parser) SetSchemaPackage(namespace, pkg string) []string {
+	if p.doc.Components == nil {
+		return nil
+	}
+	prefix := namespace + "."
+	var stamped []string
+	for name, ref := range p.doc.Components.Schemas {
+		if !strings.HasPrefix(name, prefix) || ref.Value == nil {
+			continue
+		}
+		if ref.Value.Extensions == nil {
+			ref.Value.Extensions = map[string]any{}
+		}
+		ref.Value.Extensions["x-package"] = pkg
+		stamped = append(stamped, name)
+	}
+	return stamped
+}
+
 // ParseModels extracts all models from the OpenAPI spec
 func (p *Parser) ParseModels() []Model {
 	var models []Model
