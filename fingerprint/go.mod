@@ -6,6 +6,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/shirou/gopsutil/v3 v3.24.5
+	github.com/stretchr/testify v1.12.1
 	golang.org/x/sys v0.48.0
 	tailscale.com v1.98.8
 	unikraft.com/x/ptr v0.0.0-20260108134909-16540cbbe59c
@@ -21,6 +22,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
