@@ -52,26 +52,93 @@ go run unikraft.com/x/tools/openapi-gen@latest \
 | `--tag`              |       | Filter to operations carrying one of these tags (repeatable)              |
 | `--namespace`        |       | Filter to schemas in one of these namespaces, e.g. `Instances` (repeatable) |
 | `--namespace-flatten`|       | Rewrite namespaced schema names: `strip` drops the prefix, `join` concatenates segments |
+| `--namespace-package`|       | Namespace whose schemas live in another Go package, as `<namespace>[=<package>]` (repeatable) |
 
-`--package` is deprecated: it only works against specs produced by our
-proto-based pipeline, which stamps schemas and operations with an `x-package`
-extension. When set, only schemas and operations whose `x-package` matches
-the given value are passed to templates, and the value is also exposed to
-templates as the `x-package` variable (i.e. `{{ .Var "x-package" "" }}`).
-Existing proto-sourced callers keep working, but new ones should use
-`--tag`/`--namespace` below; `--package` will be removed once those callers
-have migrated.
+## Selecting what to generate
 
-`--tag` and `--namespace` are the `x-package`-free equivalent, matching how
-platform-api's TypeSpec compiler shapes its output: operations are tagged per
-resource and models are named `Namespace.Type` (e.g. `Instances.Instance`).
-`--tag` filters operations by their OpenAPI `tags`; `--namespace` filters
-models by the prefix of their schema name. Since `Namespace.Type` isn't a
-valid Go identifier, pair `--namespace` with `--namespace-flatten` to strip or
-join the prefix once filtering is done. When exactly one `--namespace` is
-given, its lowercased value is also exposed to templates as the
-`current_package` variable, for distinguishing local from foreign type
-references.
+One OpenAPI document usually holds more than one Go package's worth of types.
+These flags decide which part of it a run emits, and how it refers to the rest.
+
+### `--tag`
+
+Keeps only the operations carrying one of the given tags, and is repeatable.
+Models are untouched. TypeSpec tags each operation with its resource, so a tag
+is one resource's worth of endpoints:
+
+```sh
+openapi-gen -i api.yaml -o ./gen -v package=instancesv1 -t ./templates/go-server \
+  --tag=Instances --tag=Volumes
+```
+
+### `--namespace`
+
+Keeps only the models in one of the given namespaces, and is repeatable. A
+model's namespace is the first segment of its schema name, so
+`Instances.Instance` is in `Instances` and `Org.Common.Error` is in `Org`.
+Models with no namespace at all are dropped.
+
+TypeSpec's OpenAPI3 emitter names a document's own schemas without a prefix
+and prefixes only the types imported from another namespace. `--namespace` is
+therefore for generating an imported namespace on its own, not a service's own
+models — a service run selects its operations with `--tag` and lets every
+unnamespaced model through.
+
+When exactly one namespace is given, its lowercased value is exposed to
+templates as the `current_package` variable.
+
+### `--namespace-flatten`
+
+`Namespace.Type` is not a valid Go identifier. `strip` rewrites it to `Type`,
+`join` to `NamespaceType`, and the default leaves it alone. Flattening runs
+after every filter, so the filters still match the original names.
+
+### `--namespace-package`
+
+Marks a namespace as belonging to another Go package: its schemas are not
+generated in this run, and every reference to one is qualified with that
+package. The value is `<namespace>[=<package>]`, and the package defaults to
+the namespace's last segment lowercased, so `--namespace-package=Org.Common`
+and `--namespace-package=Org.Common=common` mean the same thing. Pass the flag
+more than once for more than one namespace.
+
+The `go-server` templates render a qualified reference as `<package>v1.Type`
+and import `<base_package>/<package>/v1`, where `base_package` is the template
+variable of that name.
+
+### Generating a shared package
+
+Several documents that import the same namespace can share one Go package for
+it instead of each generating a copy. Generate the shared package first,
+selecting the namespace and nothing else:
+
+```sh
+openapi-gen -i api.yaml -o ./api/common/v1 -v package=commonv1 \
+  -v base_package=github.com/org/repo/api -t ./templates/go-server \
+  --tag=NoOperations --namespace=Org --namespace-flatten=strip
+```
+
+`--tag=NoOperations` matches no tag, which is how a models-only run asks for no
+handlers.
+
+Then generate each consumer, mapping that namespace to the shared package:
+
+```sh
+openapi-gen -i api.yaml -o ./api/instances/v1 -v package=instancesv1 \
+  -v base_package=github.com/org/repo/api -t ./templates/go-server \
+  --tag=Instances --namespace-package=Org.Common --namespace-flatten=strip
+```
+
+The consumer emits its own models plus handlers for the `Instances` tag, and
+its references to `Org.Common.*` come out as `commonv1.Error` with an import of
+`github.com/org/repo/api/common/v1`.
+
+### `--package` (deprecated)
+
+Filters schemas and operations to those whose `x-package` extension matches the
+given value, and exposes it to templates as the `x-package` variable (i.e.
+`{{ .Var "x-package" "" }}`). Only our proto-based pipeline emits that
+extension. Existing proto-sourced callers keep working; new ones should use the
+flags above. `--package` will be removed once those callers have migrated.
 
 ## Internals
 
@@ -93,6 +160,9 @@ err := generator.Run(generator.Options{
 	Package:   "package-name",
 	Tag:       []string{"tag1", "tag2"},
 	Namespace: []string{"namespace-name"},
+	NamespacePackage: map[string]string{
+		"Org.Common": "common",
+	},
 	Flatten:   "strip",
 })
 ```
@@ -101,7 +171,7 @@ err := generator.Run(generator.Options{
 
 1. **Parse** — Load the OpenAPI spec with `kin-openapi`, extract YAML property ordering from the raw document.
 2. **Preprocess** — Hoist inline object/enum schemas (found via properties, composition, or array items) to top-level `components/schemas` entries, so every type a generator needs has a name.
-3. **Filter/flatten** — Apply `--package`, `--tag`, and `--namespace` filtering, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
+3. **Filter/flatten** — Apply `--package`, `--tag`, and `--namespace` filtering, drop the models `--namespace-package` assigns elsewhere, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
 4. **Generate** — Execute each template against a `TemplateData` value, `gofmt` the output, and write files.
 
 ### Template data
