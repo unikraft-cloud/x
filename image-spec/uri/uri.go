@@ -3,7 +3,8 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-package imagespec
+// Package uri parses the image references the tooling accepts.
+package uri
 
 import (
 	"fmt"
@@ -14,7 +15,7 @@ import (
 )
 
 type URI struct {
-	Scheme URIScheme
+	Scheme Scheme
 	Path   string
 }
 
@@ -22,17 +23,17 @@ func (u *URI) String() string {
 	return fmt.Sprintf("%s://%s", u.Scheme, u.Path)
 }
 
-type URIScheme string
+type Scheme string
 
 const (
-	URISchemeOCI URIScheme = "oci"
+	SchemeOCI Scheme = "oci"
 
-	URISchemeOCILayout  URIScheme = "oci-layout"
-	URISchemeOCIArchive URIScheme = "oci-archive"
+	SchemeOCILayout  Scheme = "oci-layout"
+	SchemeOCIArchive Scheme = "oci-archive"
 )
 
-// ParseURI parses a URI of the form <scheme>://<path> and returns the parsed struct.
-func ParseURI(src string) (*URI, error) {
+// Parse parses a URI of the form <scheme>://<path> and returns the parsed struct.
+func Parse(src string) (*URI, error) {
 	scheme, path, ok := strings.Cut(src, "://")
 	if !ok {
 		return nil, fmt.Errorf("invalid URI: %q", src)
@@ -40,27 +41,27 @@ func ParseURI(src string) (*URI, error) {
 	return parseURI(scheme, path)
 }
 
-// ParseURIDefault attempts to parse the URI, and if it fails, returns a URI
+// ParseDefault attempts to parse the URI, and if it fails, returns a URI
 // with the default scheme (OCI).
-func ParseURIDefault(src string) (*URI, error) {
+func ParseDefault(src string) (*URI, error) {
 	if scheme, path, ok := strings.Cut(src, "://"); ok {
 		return parseURI(scheme, path)
 	}
 
 	return &URI{
-		Scheme: URISchemeOCI,
+		Scheme: SchemeOCI,
 		Path:   src,
 	}, nil
 }
 
-// GuessURI is an opinionated parser that attempts to determine the URI scheme
+// Guess is an opinionated parser that attempts to determine the URI scheme
 // based on the input string.
 //
 // This function is intended to be used for user input, simplifying the
-// experience by allowing the schema to be inferred. However, avoid using it
+// experience by allowing the scheme to be inferred. However, avoid using it
 // for parsing structured output, since you should be able to rely on more
 // structured data.
-func GuessURI(src string) (*URI, error) {
+func Guess(src string) (*URI, error) {
 	if scheme, path, ok := strings.Cut(src, "://"); ok {
 		return parseURI(scheme, path)
 	}
@@ -70,12 +71,12 @@ func GuessURI(src string) (*URI, error) {
 	if stat, statErr = os.Stat(src); statErr == nil {
 		if stat.IsDir() {
 			return &URI{
-				Scheme: URISchemeOCILayout,
+				Scheme: SchemeOCILayout,
 				Path:   src,
 			}, nil
 		} else {
 			return &URI{
-				Scheme: URISchemeOCIArchive,
+				Scheme: SchemeOCIArchive,
 				Path:   src,
 			}, nil
 		}
@@ -83,16 +84,16 @@ func GuessURI(src string) (*URI, error) {
 		return nil, statErr
 	}
 
-	if path, tag := parsePathTag(src); tag != "" {
+	if path, tag := SplitPathTag(src); tag != "" {
 		if stat, statErr = os.Stat(path); statErr == nil {
 			if stat.IsDir() {
 				return &URI{
-					Scheme: URISchemeOCILayout,
+					Scheme: SchemeOCILayout,
 					Path:   src,
 				}, nil
 			} else {
 				return &URI{
-					Scheme: URISchemeOCIArchive,
+					Scheme: SchemeOCIArchive,
 					Path:   src,
 				}, nil
 			}
@@ -103,27 +104,27 @@ func GuessURI(src string) (*URI, error) {
 
 	if looksLikeTarball(src) {
 		return &URI{
-			Scheme: URISchemeOCIArchive,
+			Scheme: SchemeOCIArchive,
 			Path:   src,
 		}, nil
 	}
 	if looksLikeDir(src) {
 		return &URI{
-			Scheme: URISchemeOCILayout,
+			Scheme: SchemeOCILayout,
 			Path:   src,
 		}, nil
 	}
 
-	if path, tag := parsePathTag(src); tag != "" {
+	if path, tag := SplitPathTag(src); tag != "" {
 		if looksLikeTarball(path) {
 			return &URI{
-				Scheme: URISchemeOCIArchive,
+				Scheme: SchemeOCIArchive,
 				Path:   src,
 			}, nil
 		}
 		if looksLikeDir(path) {
 			return &URI{
-				Scheme: URISchemeOCILayout,
+				Scheme: SchemeOCILayout,
 				Path:   src,
 			}, nil
 		}
@@ -134,7 +135,7 @@ func GuessURI(src string) (*URI, error) {
 	}
 
 	return &URI{
-		Scheme: URISchemeOCI,
+		Scheme: SchemeOCI,
 		Path:   src,
 	}, nil
 }
@@ -150,16 +151,18 @@ func parseURI(scheme string, path string) (*URI, error) {
 	}, nil
 }
 
-func parseScheme(scheme string) (URIScheme, error) {
-	switch URIScheme(scheme) {
-	case URISchemeOCI, URISchemeOCILayout, URISchemeOCIArchive:
-		return URIScheme(scheme), nil
+func parseScheme(scheme string) (Scheme, error) {
+	switch Scheme(scheme) {
+	case SchemeOCI, SchemeOCILayout, SchemeOCIArchive:
+		return Scheme(scheme), nil
 	default:
 		return "", fmt.Errorf("unsupported URI scheme: %q", scheme)
 	}
 }
 
-func parsePathTag(src string) (string, string) {
+// SplitPathTag splits a path from the tag that follows its last colon.  The
+// tag is empty when the path carries none.
+func SplitPathTag(src string) (string, string) {
 	if idx := strings.LastIndex(src, ":"); idx >= 0 {
 		return src[:idx], src[idx+1:]
 	}
