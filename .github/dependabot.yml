@@ -1,127 +1,33 @@
 version: 2
 
 updates:
-# TODO(nderjung): Until Dependabot supports Go workspace, place all modules
-# which have external dependencies directly into the Dependabot list.  See [0].
+# Dependabot does not support Go workspaces, so it visits each module on its
+# own.  The glob keeps the directory list in step with the tree.  See [0].
 # [0]: https://github.com/dependabot/dependabot-core/issues/6012
 - package-ecosystem: gomod
-  directory: /colors
+  directories:
+  - /
+  - '**/*'
   schedule:
     interval: weekly
     day: sunday
     time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /filters
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /fingerprint
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /guesstermwidth
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /iata
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /kingkong
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /telemetry
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /log
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /middleware
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /oidext
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /router
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /sanitize
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /text
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /version
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /tools/openapi-gen
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /tools/protoc-gen-go-gin
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
-
-- package-ecosystem: gomod
-  directory: /tools/protoc-gen-go-struct
-  schedule:
-    interval: weekly
-    day: sunday
-    time: '09:00'
+  commit-message:
+    prefix: gomod # Prefix messages with
+    include: scope # List all updated dependencies
+  ignore:
+    # Intra-repo modules resolve through the workspace, so the tree is the
+    # source of truth for their pseudo-versions.
+    - dependency-name: unikraft.com/x/*
+  groups:
+    go-deps:
+      applies-to: version-updates
+      patterns:
+      - '*'
+    go-security:
+      applies-to: security-updates
+      patterns:
+      - '*'
 
 - package-ecosystem: github-actions
   directory: /
@@ -129,3 +35,28 @@ updates:
     interval: weekly
     day: sunday
     time: '09:00'
+  groups:
+    github-deps:
+      applies-to: version-updates
+      patterns:
+      - '*'
+    github-security:
+      applies-to: security-updates
+      patterns:
+      - '*'
+
+- package-ecosystem: npm
+  directory: /.github/actions/check-pr
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+  groups:
+    npm-deps:
+      applies-to: version-updates
+      patterns:
+      - '*'
+    npm-security:
+      applies-to: security-updates
+      patterns:
+      - '*'
