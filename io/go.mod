@@ -6,7 +6,6 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/stretchr/testify v1.12.1
-	unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1
 )
 
 require (
