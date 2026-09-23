@@ -29,8 +29,6 @@ import (
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"
 
-	"github.com/reeflective/readline"
-
 	xio "unikraft.com/x/io"
 	"unikraft.com/x/log"
 	"unikraft.com/x/stdio"
@@ -264,7 +262,7 @@ func (s *state) runInteractive(ctx context.Context) (int, error) {
 	for {
 		line, err := s.editor.readLine(ctx)
 		switch {
-		case errors.Is(err, readline.ErrInterrupt):
+		case errors.Is(err, errInterrupt):
 			fmt.Fprintln(s.console.Out, hintStyle.Render("^C"))
 			continue
 		case errors.Is(err, io.EOF):
