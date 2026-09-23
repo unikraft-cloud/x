@@ -1,6 +1,6 @@
 module unikraft.com/x/signal
 
-go 1.26.1
+go 1.26.6
 
 require github.com/stretchr/testify v1.12.1
 

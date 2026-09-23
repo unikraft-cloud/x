@@ -1,6 +1,6 @@
 module unikraft.com/x/processmetrics
 
-go 1.26.1
+go 1.26.6
 
 require (
 	github.com/prometheus/procfs v0.22.0

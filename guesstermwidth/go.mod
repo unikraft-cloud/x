@@ -1,6 +1,6 @@
 module unikraft.com/x/guesstermwidth
 
-go 1.26.0
+go 1.26.6
 
 require github.com/charmbracelet/x/term v0.2.2
 
