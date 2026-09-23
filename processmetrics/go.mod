@@ -1,6 +1,6 @@
 module unikraft.com/x/processmetrics
 
-go 1.26.1
+go 1.26.6
 
 require (
 	github.com/prometheus/procfs v0.22.0
@@ -9,7 +9,7 @@ require (
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/metric v1.46.0
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.48.0
 )
 
 require (
