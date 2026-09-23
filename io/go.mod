@@ -1,6 +1,6 @@
 module unikraft.com/x/io
 
-go 1.26.0
+go 1.26.6
 
 require (
 	github.com/charmbracelet/colorprofile v0.4.3

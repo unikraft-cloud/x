@@ -16,6 +16,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"go.opentelemetry.io/otel/attribute"
 	otelLog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -89,7 +90,7 @@ func (w *otlpWriter) writeWithLevel(level zerolog.Level, p []byte) (int, error) 
 	record := otelLog.Record{}
 
 	if msg := readStringField(payload, zerolog.MessageFieldName, "message"); msg != "" {
-		record.SetBody(otelLog.StringValue(msg))
+		record.SetBody(attribute.StringValue(msg))
 	}
 
 	if ts := readTimeField(payload, zerolog.TimestampFieldName); !ts.IsZero() {
@@ -112,12 +113,12 @@ func (w *otlpWriter) writeWithLevel(level zerolog.Level, p []byte) (int, error) 
 
 	ctx := ctxFromPayload(w.ctx, payload)
 
-	attrs := make([]otelLog.KeyValue, 0, len(payload))
+	attrs := make([]attribute.KeyValue, 0, len(payload))
 	for key, value := range payload {
 		if otlpSkipKey(key) {
 			continue
 		}
-		attrs = append(attrs, otelLog.KeyValue{Key: key, Value: toOTLPValue(value)})
+		attrs = append(attrs, attribute.KeyValue{Key: attribute.Key(key), Value: toOTLPValue(value)})
 	}
 	if len(attrs) > 0 {
 		record.AddAttributes(attrs...)
@@ -133,7 +134,7 @@ func (w *otlpWriter) emitFallback(level zerolog.Level, p []byte) {
 		return
 	}
 	record := otelLog.Record{}
-	record.SetBody(otelLog.StringValue(text))
+	record.SetBody(attribute.StringValue(text))
 	record.SetTimestamp(time.Now())
 	if level != zerolog.NoLevel {
 		record.SetSeverity(otlpSeverity(level))
@@ -216,55 +217,55 @@ func readTimeField(payload map[string]any, key string) time.Time {
 	return time.Time{}
 }
 
-func toOTLPValue(value any) otelLog.Value {
+func toOTLPValue(value any) attribute.Value {
 	switch v := value.(type) {
 	case nil:
-		return otelLog.Value{}
+		return attribute.Value{}
 	case string:
-		return otelLog.StringValue(v)
+		return attribute.StringValue(v)
 	case bool:
-		return otelLog.BoolValue(v)
+		return attribute.BoolValue(v)
 	case json.Number:
 		if i64, err := v.Int64(); err == nil {
-			return otelLog.Int64Value(i64)
+			return attribute.Int64Value(i64)
 		}
 		if f64, err := v.Float64(); err == nil {
-			return otelLog.Float64Value(f64)
+			return attribute.Float64Value(f64)
 		}
-		return otelLog.StringValue(v.String())
+		return attribute.StringValue(v.String())
 	case float64:
 		if float64(int64(v)) == v {
-			return otelLog.Int64Value(int64(v))
+			return attribute.Int64Value(int64(v))
 		}
-		return otelLog.Float64Value(v)
+		return attribute.Float64Value(v)
 	case float32:
-		return otelLog.Float64Value(float64(v))
+		return attribute.Float64Value(float64(v))
 	case int:
-		return otelLog.IntValue(v)
+		return attribute.IntValue(v)
 	case int64:
-		return otelLog.Int64Value(v)
+		return attribute.Int64Value(v)
 	case int32:
-		return otelLog.Int64Value(int64(v))
+		return attribute.Int64Value(int64(v))
 	case uint:
-		return otelLog.Int64Value(int64(v))
+		return attribute.Int64Value(int64(v))
 	case uint64:
-		return otelLog.Int64Value(int64(v))
+		return attribute.Int64Value(int64(v))
 	case uint32:
-		return otelLog.Int64Value(int64(v))
+		return attribute.Int64Value(int64(v))
 	case []any:
-		values := make([]otelLog.Value, 0, len(v))
+		values := make([]attribute.Value, 0, len(v))
 		for _, item := range v {
 			values = append(values, toOTLPValue(item))
 		}
-		return otelLog.SliceValue(values...)
+		return attribute.SliceValue(values...)
 	case map[string]any:
-		kvs := make([]otelLog.KeyValue, 0, len(v))
+		kvs := make([]attribute.KeyValue, 0, len(v))
 		for key, val := range v {
-			kvs = append(kvs, otelLog.KeyValue{Key: key, Value: toOTLPValue(val)})
+			kvs = append(kvs, attribute.KeyValue{Key: attribute.Key(key), Value: toOTLPValue(val)})
 		}
-		return otelLog.MapValue(kvs...)
+		return attribute.MapValue(kvs...)
 	default:
-		return otelLog.StringValue(strings.TrimSpace(
+		return attribute.StringValue(strings.TrimSpace(
 			strings.ReplaceAll(strings.ReplaceAll(fmt.Sprint(value), "\n", " "), "\t", " "),
 		))
 	}

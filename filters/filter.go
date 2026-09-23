@@ -276,8 +276,7 @@ func (m wildcard) Match(adaptor Adaptor) (bool, error) {
 			}
 			matched, err := m.filter.Match(subAdaptor)
 			if err != nil {
-				var fieldErr *FieldNotFoundError
-				if errors.As(err, &fieldErr) {
+				if _, ok := errors.AsType[*FieldNotFoundError](err); ok {
 					return false, &FieldNotFoundError{Path: wildcardFieldpath(m.fieldpath, m.filter)}
 				}
 				return false, err
@@ -297,8 +296,7 @@ func (m wildcard) Match(adaptor Adaptor) (bool, error) {
 		}
 		matched, err := m.filter.Match(subAdaptor)
 		if err != nil {
-			var fieldErr *FieldNotFoundError
-			if errors.As(err, &fieldErr) {
+			if _, ok := errors.AsType[*FieldNotFoundError](err); ok {
 				return false, &FieldNotFoundError{Path: wildcardFieldpath(m.fieldpath, m.filter)}
 			}
 			return false, err
