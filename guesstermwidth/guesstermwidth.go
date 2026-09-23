@@ -3,20 +3,34 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-//go:build appengine || (!linux && !freebsd && !darwin && !dragonfly && !netbsd && !openbsd)
-// +build appengine !linux,!freebsd,!darwin,!dragonfly,!netbsd,!openbsd
-
 package guesstermwidth
 
-import "io"
+import (
+	"io"
+	"os"
+	"strconv"
+
+	"github.com/charmbracelet/x/term"
+)
 
 // IsTTY checks if the given writer is a terminal.
 func IsTTY(w io.Writer) bool {
-	return false
+	f, ok := w.(interface{ Fd() uintptr })
+	return ok && term.IsTerminal(f.Fd())
 }
 
-// GuessTermWidth returns a default terminal width of 80 characters since the
-// environment does not support querying terminal dimensions.
+// GuessTermWidth guesses the terminal width based on the COLUMNS environment
+// variable or by querying the terminal's window size.
 func GuessTermWidth(w io.Writer) int {
+	// check if COLUMNS env is set to comply with
+	// http://pubs.opengroup.org/onlinepubs/009604499/basedefs/xbd_chap08.html
+	if cols, err := strconv.Atoi(os.Getenv("COLUMNS")); err == nil {
+		return cols
+	}
+	if f, ok := w.(interface{ Fd() uintptr }); ok {
+		if width, _, err := term.GetSize(f.Fd()); err == nil && width > 0 {
+			return width
+		}
+	}
 	return 80
 }

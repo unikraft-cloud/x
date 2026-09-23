@@ -19,3 +19,8 @@ type nopWriteCloser struct {
 }
 
 func (nopWriteCloser) Close() error { return nil }
+
+// IsTTY is an alias for IsTTYWriter, kept for backward compatibility.
+func IsTTY(w stdio.Writer) bool {
+	return IsTTYWriter(w)
+}
