@@ -8,6 +8,7 @@ package uri_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,4 +97,37 @@ func TestGuess(t *testing.T) {
 
 	_, err := uri.Guess("./missing")
 	assert.Error(t, err, "a path that names nothing is ambiguous")
+}
+
+func TestSplitPathTag(t *testing.T) {
+	t.Parallel()
+
+	type splitCase struct {
+		name string
+		src  string
+		path string
+		tag  string
+	}
+	cases := []splitCase{
+		{name: "a path without a tag", src: "layout", path: "layout"},
+		{name: "a path with a tag", src: "layout:v1", path: "layout", tag: "v1"},
+		{name: "the last colon starts the tag", src: "./a:b:v1", path: "./a:b", tag: "v1"},
+	}
+	if runtime.GOOS == "windows" {
+		cases = append(cases, []splitCase{
+			{name: "a drive letter is not a tag", src: `C:\out\layout`, path: `C:\out\layout`},
+			{name: "a bare drive is not a tag", src: `D:`, path: `D:`},
+			{name: "a tag after a drive letter", src: `C:\out\layout:v1`, path: `C:\out\layout`, tag: "v1"},
+		}...)
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			path, tag := uri.SplitPathTag(tc.src)
+			assert.Equal(t, tc.path, path)
+			assert.Equal(t, tc.tag, tag)
+		})
+	}
 }

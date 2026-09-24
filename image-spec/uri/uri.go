@@ -161,20 +161,21 @@ func parseScheme(scheme string) (Scheme, error) {
 }
 
 // SplitPathTag splits a path from the tag that follows its last colon.  The
-// tag is empty when the path carries none.
+// tag is empty when the path carries none.  A volume name, as in "C:", is not a tag.
 func SplitPathTag(src string) (string, string) {
-	if idx := strings.LastIndex(src, ":"); idx >= 0 {
-		return src[:idx], src[idx+1:]
+	vol := len(filepath.VolumeName(src))
+	if idx := strings.LastIndex(src[vol:], ":"); idx >= 0 {
+		return src[:vol+idx], src[vol+idx+1:]
 	}
 	return src, ""
 }
 
 func looksLikePath(s string) bool {
-	return strings.HasPrefix(s, ".") || strings.HasPrefix(s, string(os.PathSeparator))
+	return strings.HasPrefix(s, ".") || (s != "" && os.IsPathSeparator(s[0])) || filepath.VolumeName(s) != ""
 }
 
 func looksLikeDir(s string) bool {
-	return strings.HasSuffix(s, string(os.PathSeparator))
+	return s != "" && os.IsPathSeparator(s[len(s)-1])
 }
 
 func looksLikeTarball(s string) bool {
