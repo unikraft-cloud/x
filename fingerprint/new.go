@@ -19,7 +19,6 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-	"golang.org/x/sys/unix"
 	"tailscale.com/hostinfo"
 	"tailscale.com/util/dnsname"
 
@@ -47,14 +46,13 @@ func New() (*Fingerprint, error) {
 		machineId = strings.ToLower(machineId)
 	}
 
-	cpuInfo, err := cpu.Info()
-	if err != nil {
-		return nil, err
-	}
-
-	cpuCores, err := cpu.Counts(false)
-	if err != nil {
-		return nil, err
+	// The CPU details are best-effort, as WMI answers them on Windows and can
+	// fail or time out.
+	cpuInfo, _ := cpu.Info()
+	cpuCores, _ := cpu.Counts(false)
+	var cpu0 cpu.InfoStat
+	if len(cpuInfo) > 0 {
+		cpu0 = cpuInfo[0]
 	}
 
 	memInfo, err := mem.VirtualMemory()
@@ -68,15 +66,15 @@ func New() (*Fingerprint, error) {
 		MachineId:      machineId,
 		Hostname:       dnsname.TrimCommonSuffixes(host.Hostname),
 		CpuCores:       ptr.NilIfZero(int32(cpuCores)),
-		CpusThreads:    new(int32(len(cpuInfo))),
-		CpuVendorId:    ptr.NilIfZero(cpuInfo[0].VendorID),
-		CpuFamily:      ptr.NilIfZero(cpuInfo[0].Family),
-		CpuModel:       ptr.NilIfZero(cpuInfo[0].Model),
-		CpuModelName:   ptr.NilIfZero(cpuInfo[0].ModelName),
-		CpuCacheSize:   ptr.NilIfZero(cpuInfo[0].CacheSize),
-		CpuMhz:         ptr.NilIfZero(cpuInfo[0].Mhz),
-		CpuFlags:       cpuInfo[0].Flags,
-		CpuMicrocode:   ptr.NilIfZero(cpuInfo[0].Microcode),
+		CpusThreads:    ptr.NilIfZero(int32(len(cpuInfo))),
+		CpuVendorId:    ptr.NilIfZero(cpu0.VendorID),
+		CpuFamily:      ptr.NilIfZero(cpu0.Family),
+		CpuModel:       ptr.NilIfZero(cpu0.Model),
+		CpuModelName:   ptr.NilIfZero(cpu0.ModelName),
+		CpuCacheSize:   ptr.NilIfZero(cpu0.CacheSize),
+		CpuMhz:         ptr.NilIfZero(cpu0.Mhz),
+		CpuFlags:       cpu0.Flags,
+		CpuMicrocode:   ptr.NilIfZero(cpu0.Microcode),
 		MemTotal:       ptr.NilIfZero(int64(memInfo.Total)),
 		Os:             host.OS,
 		Container:      container,
@@ -102,24 +100,6 @@ func getMacOSVersion() (string, error) {
 	}
 	version := strings.TrimSpace(string(output))
 	return version, nil
-}
-
-func cstrToStr(b []byte) string {
-	return string(b[:bytes.IndexByte(b, 0)])
-}
-
-// getKernelVersion retrieves the kernel version details from the Uname system.
-func getKernelReleaseVersion() (string, string) {
-	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
-		return "", ""
-	}
-
-	var u unix.Utsname
-	if err := unix.Uname(&u); err != nil {
-		return "", ""
-	}
-
-	return cstrToStr(u.Release[:]), cstrToStr(u.Version[:])
 }
 
 // kernelFeatureCache caches kernel feature detection data to avoid repeated
