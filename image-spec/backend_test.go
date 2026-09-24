@@ -296,6 +296,33 @@ func requireTarPayload(t *testing.T, blob []byte, target string, expected []byte
 	require.Equal(t, expected, data)
 }
 
+func TestOSFeaturesOnlyInConfig(t *testing.T) {
+	ctx := t.Context()
+
+	platform := ocispec.Platform{Architecture: "x86_64", OS: "fc", OSFeatures: []string{"CONFIG_EROFS_FS=y"}}
+	img := *testImage
+	img.Image = &ocispec.Image{Platform: platform}
+
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	idxDesc, err := SaveContent(ctx, store, "latest", &img)
+	require.NoError(t, err)
+
+	idxBlob, err := content.ReadBlob(ctx, store, idxDesc)
+	require.NoError(t, err)
+	var idx ocispec.Index
+	require.NoError(t, json.Unmarshal(idxBlob, &idx))
+	require.Len(t, idx.Manifests, 1)
+	require.NotNil(t, idx.Manifests[0].Platform)
+	require.Empty(t, idx.Manifests[0].Platform.OSFeatures)
+	require.Equal(t, "fc", idx.Manifests[0].Platform.OS)
+
+	loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.Any(ocispec.Platform{Architecture: "x86_64", OS: "fc"}))
+	require.NoError(t, err)
+	require.Len(t, loaded, 1)
+	require.Equal(t, platform.OSFeatures, loaded[0].Image.OSFeatures)
+}
+
 func TestLoadIgnoresDescriptorOSFeatures(t *testing.T) {
 	ctx := t.Context()
 
