@@ -295,3 +295,45 @@ func requireTarPayload(t *testing.T, blob []byte, target string, expected []byte
 	require.NoError(t, err)
 	require.Equal(t, expected, data)
 }
+
+func TestLoadIgnoresDescriptorOSFeatures(t *testing.T) {
+	ctx := t.Context()
+
+	img := *testImage
+	img.Image = &ocispec.Image{Platform: ocispec.Platform{Architecture: "x86_64", OS: "fc"}}
+
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	idxDesc, err := SaveContent(ctx, store, "latest", &img)
+	require.NoError(t, err)
+
+	idxBlob, err := content.ReadBlob(ctx, store, idxDesc)
+	require.NoError(t, err)
+	var idx ocispec.Index
+	require.NoError(t, json.Unmarshal(idxBlob, &idx))
+	idx.Manifests[0].Platform.OSFeatures = []string{"CONFIG_EROFS_FS=y"}
+	legacyBlob, err := json.Marshal(idx)
+	require.NoError(t, err)
+	legacyDesc := ocispec.Descriptor{
+		MediaType: ocispec.MediaTypeImageIndex,
+		Digest:    digest.FromBytes(legacyBlob),
+		Size:      int64(len(legacyBlob)),
+	}
+	require.NoError(t, content.WriteBlob(ctx, store, "legacy", bytes.NewReader(legacyBlob), legacyDesc))
+
+	want := ocispec.Platform{Architecture: "x86_64", OS: "fc"}
+	for name, matcher := range map[string]platforms.MatchComparer{
+		"any":         platforms.Any(want),
+		"only-strict": platforms.OnlyStrict(want),
+	} {
+		t.Run(name, func(t *testing.T) {
+			loaded, err := LoadAllContent(ctx, store, legacyDesc, matcher)
+			require.NoError(t, err)
+			require.Len(t, loaded, 1)
+
+			single, err := LoadContent(ctx, store, legacyDesc, matcher)
+			require.NoError(t, err)
+			require.NotNil(t, single)
+		})
+	}
+}
