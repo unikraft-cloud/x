@@ -151,7 +151,10 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 		}
 		mfstDesc.Annotations = image.Annotations
 		if image.Image != nil {
-			mfstDesc.Platform = &image.Image.Platform
+			// NOTE: ECR rejects index descriptors with os.features; they remain in the config.
+			platform := image.Image.Platform
+			platform.OSFeatures = nil
+			mfstDesc.Platform = &platform
 		}
 
 		mfstDescs = append(mfstDescs, mfstDesc)
