@@ -175,13 +175,36 @@ func TestTelemetryMetrics(t *testing.T) {
 	assert.Equal(t, uint64(1), duration.DataPoints[0].Count)
 }
 
+func TestTelemetryScope(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)))
+	reader := sdkmetric.NewManualReader()
+	otel.SetMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)))
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(Telemetry(TelemetryConfig{Scope: "example.com/custom"}))
+	router.GET("/", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+	serve(router, "/")
+
+	spans := recorder.Ended()
+	require.Len(t, spans, 1)
+	assert.Equal(t, "example.com/custom", spans[0].InstrumentationScope().Name)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	require.Len(t, rm.ScopeMetrics, 1)
+	assert.Equal(t, "example.com/custom", rm.ScopeMetrics[0].Scope.Name)
+}
+
 // newRouter instruments a router with Telemetry, skipping "/healthz".
 func newRouter(t *testing.T) *gin.Engine {
 	t.Helper()
 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(Telemetry("^/healthz$"))
+	router.Use(Telemetry(TelemetryConfig{SkipPaths: []string{"^/healthz$"}}))
 	router.GET("/users/:id", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	router.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 

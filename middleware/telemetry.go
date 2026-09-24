@@ -6,6 +6,7 @@
 package middleware
 
 import (
+	"cmp"
 	"context"
 	"net"
 	"net/http"
@@ -27,8 +28,6 @@ import (
 	"unikraft.com/x/log"
 )
 
-const scopeName = "unikraft.com/x/middleware"
-
 // Methods absent here must report as _OTHER, so that an arbitrary method cannot
 // become an unbounded metric dimension.
 var requestMethods = map[string]httpconv.RequestMethodAttr{
@@ -44,16 +43,28 @@ var requestMethods = map[string]httpconv.RequestMethodAttr{
 	"QUERY":            httpconv.RequestMethodQuery, // FIXME: use http.MethodQuery when it becomes available
 }
 
+// TelemetryConfig configures Telemetry.
+type TelemetryConfig struct {
+	// Scope is the instrumentation scope name of the spans and metrics.
+	// Defaults to unikraft.com/x/middleware.
+	Scope string
+	// SkipPaths are regular expressions matched against the request path and
+	// query; matching requests are not instrumented.
+	SkipPaths []string
+}
+
 // Telemetry creates a span per request, injects a correlated logger,
 // and emits request metrics.
-func Telemetry(skipPaths ...string) gin.HandlerFunc {
+func Telemetry(cfg TelemetryConfig) gin.HandlerFunc {
 	var regs []*regexp.Regexp
-	for _, p := range skipPaths {
+	for _, p := range cfg.SkipPaths {
 		regs = append(regs, regexp.MustCompile(p))
 	}
 
-	tracer := otel.Tracer(scopeName)
-	meter := otel.Meter(scopeName)
+	scope := cmp.Or(cfg.Scope, scopeName)
+
+	tracer := otel.Tracer(scope)
+	meter := otel.Meter(scope)
 
 	duration, err := httpconv.NewServerRequestDuration(meter)
 	if err != nil {
