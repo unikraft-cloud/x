@@ -183,6 +183,19 @@ tasks:
     cmd: >-
       {{.gotestsum_bin}} --format=testname {{.gotestsum_args}} -- -tags='{{.go_tags}}' {{.CLI_ARGS}} {{.package}}
 
+  wasm-check:
+    desc: "Check the module builds for js/wasm"
+    requires:
+      vars:
+      - package
+    vars:
+      package:
+        ref: .package | default "./..."
+    cmd: >-
+      GOOS=js GOARCH=wasm {{.go_bin}} build
+      -tags='{{.go_tags}}'
+      {{.package}}
+
   tidy?:
     desc: "Check go.mod"
     cmds:

@@ -11,7 +11,7 @@ tasks:
     # NOTE: this is a hack to work around the fact that go-task doesn't
     # allow passing the 'dir' setting to child tasks:
     # https://github.com/go-task/task/issues/585
-    cmd: task -d {{.module}} -t Taskfile.go.yml -s {{.gotask}}
+    cmd: task -d {{.module}} -t Taskfile.go.yml -s {{.gotask}} {{with .package}}package={{.}}{{end}}
 
   forall:
     requires: { vars: [gotask] }
@@ -70,6 +70,44 @@ tasks:
     vars: { gotask: static-check }
   - task: openapi-gen-examples-check
   - task: kraftfile-schema-check
+  - task: ci/check-wasm
+
+  ci/check-wasm:
+    desc: "Verify the modules the browser CLI needs still build for js/wasm"
+    vars:
+      # Modules that must keep building for js/wasm.  The rest reach for a
+      # daemon, a terminal or a syscall the js runtime does not have.
+      # This list is alphabetical and should not be reordered.
+      modules:
+      - ./colors
+      - ./filters
+      - ./fingerprint
+      - ./guesstermwidth
+      - ./io
+      - ./joinerrgroup
+      - ./kingkong
+      - ./kraftfile
+      - ./log
+      - ./ptr
+      - ./ringbuffer
+      - ./sanitize
+      - ./signal
+      - ./stdio
+      - ./text
+      - ./version
+    cmds:
+    - for: { var: modules }
+      task: forone
+      vars:
+        module: '{{.ITEM}}'
+        gotask: wasm-check
+    # Only the reference grammar of image-spec builds for js; its backends
+    # reach for containerd's content store.
+    - task: forone
+      vars:
+        module: ./image-spec
+        gotask: wasm-check
+        package: ./uri
 
   ci/test:
   - task: forall
