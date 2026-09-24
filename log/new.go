@@ -6,6 +6,7 @@
 package log
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -33,6 +34,9 @@ type Config struct {
 type TelemetryConfig struct {
 	// Level is the minimum level exported over OTLP.
 	Level Level
+	// Scope is the instrumentation scope name of exported records. Defaults to
+	// unikraft.com/x/log.
+	Scope string
 }
 
 // New returns a Logger that fans writes out to the sinks described by cfg.
@@ -66,13 +70,14 @@ func New(ctx context.Context, cfg Config) (*Logger, error) {
 		if provider == nil {
 			err = fmt.Errorf("telemetry not initialized")
 		} else {
+			scope := cmp.Or(cfg.Telemetry.Scope, scopeName)
 			writer = zerolog.MultiLevelWriter(
 				&zerolog.FilteredLevelWriter{
 					Writer: zerolog.LevelWriterAdapter{Writer: console},
 					Level:  cfg.Level,
 				},
 				&zerolog.FilteredLevelWriter{
-					Writer: &otlpWriter{ctx: ctx, logger: provider.Logger("log")},
+					Writer: &otlpWriter{ctx: ctx, logger: provider.Logger(scope)},
 					Level:  cfg.Telemetry.Level,
 				},
 			)
