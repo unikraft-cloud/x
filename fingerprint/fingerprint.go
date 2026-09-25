@@ -72,3 +72,12 @@ type Fingerprint struct {
 	// The kernel version of the underlying host, if available.
 	KernelVersion *string `json:"kernel_version,omitempty" oid:"22,omitempty"`
 }
+
+// Option adjusts what New gathers.
+type Option func(*options)
+
+type options struct{ hardware bool }
+
+// WithHardware is whether to gather the CPU and memory details, which cost a
+// process on macOS.
+func WithHardware(gather bool) Option { return func(o *options) { o.hardware = gather } }

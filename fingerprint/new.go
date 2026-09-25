@@ -26,7 +26,12 @@ import (
 	"unikraft.com/x/ptr"
 )
 
-func New() (*Fingerprint, error) {
+func New(opts ...Option) (*Fingerprint, error) {
+	o := options{hardware: true}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	host := hostinfo.New()
 	container, _ := host.Container.Get()
 
@@ -47,6 +52,28 @@ func New() (*Fingerprint, error) {
 		machineId = strings.ToLower(machineId)
 	}
 
+	kernelRelease, kernelVersion := getKernelReleaseVersion()
+
+	f := &Fingerprint{
+		MachineId:      machineId,
+		Hostname:       dnsname.TrimCommonSuffixes(host.Hostname),
+		Os:             host.OS,
+		Container:      container,
+		Distro:         ptr.NilIfZero(host.Distro),
+		DistroCodename: ptr.NilIfZero(host.DistroCodeName),
+		DistroVersion:  ptr.NilIfZero(host.DistroVersion),
+		Goarch:         runtime.GOARCH,
+		Goos:           runtime.GOOS,
+		GoVersion:      ptr.NilIfZero(runtime.Version()),
+		OsVersion:      ptr.NilIfZero(host.OSVersion),
+		KernelFeatures: detectKernelFeatures(),
+		KernelRelease:  ptr.NilIfZero(kernelRelease),
+		KernelVersion:  ptr.NilIfZero(kernelVersion),
+	}
+	if !o.hardware {
+		return f, nil
+	}
+
 	cpuInfo, err := cpu.Info()
 	if err != nil {
 		return nil, err
@@ -62,35 +89,18 @@ func New() (*Fingerprint, error) {
 		return nil, err
 	}
 
-	kernelRelease, kernelVersion := getKernelReleaseVersion()
-
-	return &Fingerprint{
-		MachineId:      machineId,
-		Hostname:       dnsname.TrimCommonSuffixes(host.Hostname),
-		CpuCores:       ptr.NilIfZero(int32(cpuCores)),
-		CpusThreads:    new(int32(len(cpuInfo))),
-		CpuVendorId:    ptr.NilIfZero(cpuInfo[0].VendorID),
-		CpuFamily:      ptr.NilIfZero(cpuInfo[0].Family),
-		CpuModel:       ptr.NilIfZero(cpuInfo[0].Model),
-		CpuModelName:   ptr.NilIfZero(cpuInfo[0].ModelName),
-		CpuCacheSize:   ptr.NilIfZero(cpuInfo[0].CacheSize),
-		CpuMhz:         ptr.NilIfZero(cpuInfo[0].Mhz),
-		CpuFlags:       cpuInfo[0].Flags,
-		CpuMicrocode:   ptr.NilIfZero(cpuInfo[0].Microcode),
-		MemTotal:       ptr.NilIfZero(int64(memInfo.Total)),
-		Os:             host.OS,
-		Container:      container,
-		Distro:         ptr.NilIfZero(host.Distro),
-		DistroCodename: ptr.NilIfZero(host.DistroCodeName),
-		DistroVersion:  ptr.NilIfZero(host.DistroVersion),
-		Goarch:         runtime.GOARCH,
-		Goos:           runtime.GOOS,
-		GoVersion:      ptr.NilIfZero(runtime.Version()),
-		OsVersion:      ptr.NilIfZero(host.OSVersion),
-		KernelFeatures: detectKernelFeatures(),
-		KernelRelease:  ptr.NilIfZero(kernelRelease),
-		KernelVersion:  ptr.NilIfZero(kernelVersion),
-	}, nil
+	f.CpuCores = ptr.NilIfZero(int32(cpuCores))
+	f.CpusThreads = new(int32(len(cpuInfo)))
+	f.CpuVendorId = ptr.NilIfZero(cpuInfo[0].VendorID)
+	f.CpuFamily = ptr.NilIfZero(cpuInfo[0].Family)
+	f.CpuModel = ptr.NilIfZero(cpuInfo[0].Model)
+	f.CpuModelName = ptr.NilIfZero(cpuInfo[0].ModelName)
+	f.CpuCacheSize = ptr.NilIfZero(cpuInfo[0].CacheSize)
+	f.CpuMhz = ptr.NilIfZero(cpuInfo[0].Mhz)
+	f.CpuFlags = cpuInfo[0].Flags
+	f.CpuMicrocode = ptr.NilIfZero(cpuInfo[0].Microcode)
+	f.MemTotal = ptr.NilIfZero(int64(memInfo.Total))
+	return f, nil
 }
 
 // getMacOSVersion retrieves the macOS version using the `sw_vers` command.
