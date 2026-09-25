@@ -11,7 +11,6 @@ import (
 	"context"
 	"io"
 	"os/exec"
-	"syscall"
 )
 
 // LocalTransport stands in for an instance by running commands on this
@@ -23,7 +22,7 @@ func runLocal(ctx context.Context, cmd Command) (int, error) {
 	proc := exec.CommandContext(ctx, cmd.Args[0], cmd.Args[1:]...)
 	// Its own process group, as a command on an instance is: the terminal's own
 	// ^C reaches the shell, never the command.
-	proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	proc.SysProcAttr = ownProcessGroup()
 	proc.Dir = cmd.Dir
 	proc.Env = cmd.Env
 	proc.Stdout, proc.Stderr = cmd.Streams.Stdout, cmd.Streams.Stderr

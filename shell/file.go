@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/fs"
 	"math"
-	"syscall"
 	"time"
 
 	"unikraft.com/x/log"
@@ -58,8 +57,6 @@ type remoteFileInfo struct {
 func (f remoteFileInfo) Name() string { return f.name }
 func (f remoteFileInfo) Size() int64  { return f.size }
 func (f remoteFileInfo) IsDir() bool  { return f.kind == "d" }
-
-func (f remoteFileInfo) Sys() any { return &syscall.Stat_t{Uid: unknownOwner, Gid: unknownOwner} }
 
 func (f remoteFileInfo) ModTime() time.Time { return time.Unix(f.mtime, 0) }
 

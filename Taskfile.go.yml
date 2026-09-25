@@ -196,6 +196,19 @@ tasks:
       -tags='{{.go_tags}}'
       {{.package}}
 
+  windows-check:
+    desc: "Check the module builds for windows"
+    requires:
+      vars:
+      - package
+    vars:
+      package:
+        ref: .package | default "./..."
+    cmd: >-
+      GOOS=windows GOARCH=amd64 {{.go_bin}} build
+      -tags='{{.go_tags}}'
+      {{.package}}
+
   tidy?:
     desc: "Check go.mod"
     cmds:

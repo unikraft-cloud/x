@@ -71,6 +71,7 @@ tasks:
   - task: openapi-gen-examples-check
   - task: kraftfile-schema-check
   - task: ci/check-wasm
+  - task: ci/check-windows
 
   ci/check-wasm:
     desc: "Verify the modules the browser CLI needs still build for js/wasm"
@@ -108,6 +109,34 @@ tasks:
         module: ./image-spec
         gotask: wasm-check
         package: ./uri
+
+  ci/check-windows:
+    desc: "Verify the modules the CLI needs still build for windows"
+    vars:
+      # Modules the CLI links on windows.
+      # This list is alphabetical and should not be reordered.
+      modules:
+      - ./colors
+      - ./filters
+      - ./fingerprint
+      - ./guesstermwidth
+      - ./image-spec
+      - ./io
+      - ./joinerrgroup
+      - ./kingkong
+      - ./kraftfile
+      - ./log
+      - ./ptr
+      - ./shell
+      - ./signal
+      - ./stdio
+      - ./version
+    cmds:
+    - for: { var: modules }
+      task: forone
+      vars:
+        module: '{{.ITEM}}'
+        gotask: windows-check
 
   ci/test:
   - task: forall
