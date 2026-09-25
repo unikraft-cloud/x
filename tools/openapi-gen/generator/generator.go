@@ -119,6 +119,27 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 	g.models = filtered
 }
 
+// MapNamespaceToPackage assigns the Go package pkg to every schema declared
+// under namespace and drops those models, so references to them resolve to
+// pkg instead of being generated again here.
+func (g *Generator) MapNamespaceToPackage(namespace, pkg string) {
+	stamped := g.parser.SetSchemaPackage(namespace, pkg)
+	if len(stamped) == 0 {
+		return
+	}
+	dropped := make(map[string]bool, len(stamped))
+	for _, name := range stamped {
+		dropped[name] = true
+	}
+	var filtered []openapi.Model
+	for _, m := range g.models {
+		if !dropped[m.SchemaName] {
+			filtered = append(filtered, m)
+		}
+	}
+	g.models = filtered
+}
+
 // Flatten rewrites namespaced schema names (e.g. "Instances.Instance") into
 // valid Go identifiers per mode ("strip", "join", or "" for no-op). It runs
 // after any namespace/tag filtering so those filters can match on the original
