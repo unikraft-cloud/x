@@ -9,7 +9,7 @@ require (
 	github.com/containerd/containerd/v2 v2.4.0
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v29.7.2+incompatible
+	github.com/docker/cli v29.8.1+incompatible
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
 	unikraft.com/x/image-spec v0.0.0-00010101000000-000000000000
@@ -38,7 +38,7 @@ require (
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.23 // indirect
-	github.com/moby/buildkit v0.31.1 // indirect
+	github.com/moby/buildkit v0.33.0 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

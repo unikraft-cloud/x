@@ -8,7 +8,7 @@ require (
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/distribution/reference v0.6.0
 	github.com/gofrs/flock v0.13.1
-	github.com/moby/buildkit v0.31.1
+	github.com/moby/buildkit v0.33.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/stretchr/testify v1.12.1
