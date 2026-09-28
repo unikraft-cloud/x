@@ -6,7 +6,7 @@ replace unikraft.com/x/image-spec => ../../image-spec
 
 require (
 	github.com/alecthomas/kong v1.16.1
-	github.com/containerd/containerd/v2 v2.4.0
+	github.com/containerd/containerd/v2 v2.4.1
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v29.7.2+incompatible
