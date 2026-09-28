@@ -21,6 +21,8 @@ import (
 	"github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"unikraft.com/x/image-spec/contentutil"
 )
 
 // This file provides functions for loading and saving images to/from remote
@@ -51,7 +53,7 @@ func LoadRegistryImage(ctx context.Context, named reference.Named, remote remote
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fetcher for image %q: %w", named, err)
 	}
-	provider := providerFromFetcher(fetcher)
+	provider := contentutil.FromFetcher(fetcher)
 
 	img, err := LoadContent(ctx, provider, desc, platform)
 	if err != nil {
@@ -82,7 +84,7 @@ func LoadAllRegistryImages(ctx context.Context, named reference.Named, remote re
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fetcher for image %q: %w", named, err)
 	}
-	provider := providerFromFetcher(fetcher)
+	provider := contentutil.FromFetcher(fetcher)
 
 	imgs, err := LoadAllContent(ctx, provider, desc, platform)
 	if err != nil {
@@ -102,7 +104,7 @@ func SaveRegistryImage(ctx context.Context, named reference.Named, remote remote
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to get pusher for image %q: %w", named, err)
 	}
-	ingester := ingesterFromPusher(pusher)
+	ingester := contentutil.FromPusher(pusher)
 
 	desc, err := SaveContent(ctx, ingester, named.Name(), image...)
 	if err != nil {
