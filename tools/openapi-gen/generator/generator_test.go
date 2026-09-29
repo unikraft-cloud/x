@@ -78,7 +78,7 @@ components:
 
 const modelsTemplate = `--- models.txt
 {{- range .Models}}
-{{.SchemaName}} {{$.Var "x-package" ""}}
+{{.SchemaName}}
 {{- end}}
 `
 

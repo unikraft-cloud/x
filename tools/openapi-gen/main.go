@@ -20,7 +20,6 @@ type cli struct {
 	Output           string            `short:"o" help:"Output directory for generated files." required:""`
 	Var              map[string]string `short:"v" help:"Set a template variable (e.g. --var package=myapi)." mapsep:","`
 	Templates        string            `short:"t" help:"Directory or Git ref (host/org/repo@ref#dir=path) with template overrides." required:""`
-	Package          string            `help:"Deprecated: use --tag and --namespace instead. Filter to only include schemas and operations with this x-package value."`
 	Tag              []string          `help:"Filter to only include operations carrying one of these tags." sep:"none"`
 	Namespace        []string          `help:"Filter to only include schemas in one of these namespaces (e.g. Instances)." sep:"none"`
 	NamespacePackage []string          `name:"namespace-package" help:"Namespace whose schemas live in another Go package, as <namespace>[=<package>] (e.g. Org.Common, or Org.Common=shared). The package defaults to the last segment lowercased. Those schemas are not generated here and references to them qualify." sep:"none"`
@@ -40,7 +39,6 @@ func main() {
 		Output:           cli.Output,
 		Var:              cli.Var,
 		Templates:        cli.Templates,
-		Package:          cli.Package, //nolint:staticcheck // deprecated, but we still expose it in the cmdline
 		Tag:              cli.Tag,
 		Namespace:        cli.Namespace,
 		NamespacePackage: namespacePackages(cli.NamespacePackage),

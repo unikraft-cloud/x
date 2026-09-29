@@ -26,17 +26,13 @@ type Parser struct {
 	doc            *openapi3.T
 	propertyOrders map[string][]string // schemaName -> ordered property names
 	namespaces     map[string]string   // flattened schema name -> original namespace
+	packages       map[*openapi3.Schema]string
 }
 
 // Model represents a single model file to be generated
 type Model struct {
 	SchemaName string
 	Schema     *openapi3.Schema
-	// Package is derived from the x-package extension.
-	//
-	// Deprecated: x-package is only emitted by our proto-based generation
-	// pipeline. Prefer Namespace, which works for any OpenAPI document.
-	Package string
 	// Namespace is derived from the "Namespace.Name" schema name prefix
 	// (e.g. as emitted by platform-api's TypeSpec compiler).
 	Namespace string
@@ -126,25 +122,31 @@ func (p *Parser) SetPropertyOrder(schemaName string, order []string) {
 	p.propertyOrders[schemaName] = order
 }
 
-// SetSchemaPackage stamps the x-package extension on every schema declared
-// under namespace and returns the names it stamped.
+// SetSchemaPackage assigns the Go package pkg to every schema declared under
+// namespace and returns the names it assigned.
 func (p *Parser) SetSchemaPackage(namespace, pkg string) []string {
 	if p.doc.Components == nil {
 		return nil
 	}
+	if p.packages == nil {
+		p.packages = map[*openapi3.Schema]string{}
+	}
 	prefix := namespace + "."
-	var stamped []string
+	var assigned []string
 	for name, ref := range p.doc.Components.Schemas {
 		if !strings.HasPrefix(name, prefix) || ref.Value == nil {
 			continue
 		}
-		if ref.Value.Extensions == nil {
-			ref.Value.Extensions = map[string]any{}
-		}
-		ref.Value.Extensions["x-package"] = pkg
-		stamped = append(stamped, name)
+		p.packages[ref.Value] = pkg
+		assigned = append(assigned, name)
 	}
-	return stamped
+	return assigned
+}
+
+// SchemaPackage returns the Go package SetSchemaPackage assigned to schema, or
+// "" when schema belongs to the package being generated.
+func (p *Parser) SchemaPackage(schema *openapi3.Schema) string {
+	return p.packages[schema]
 }
 
 // ParseModels extracts all models from the OpenAPI spec
@@ -158,11 +160,9 @@ func (p *Parser) ParseModels() []Model {
 		if schemaIsEmpty(schema) {
 			continue
 		}
-		pkg, _ := schema.Extensions["x-package"].(string)
 		models = append(models, Model{
 			SchemaName: name,
 			Schema:     schema,
-			Package:    pkg,
 			Namespace:  schemaNamespace(name),
 		})
 	}
