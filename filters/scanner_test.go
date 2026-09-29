@@ -41,6 +41,16 @@ func TestScanner(t *testing.T) {
 			},
 		},
 		{
+			name:  "FieldHyphenated",
+			input: "num-requests>0",
+			expected: []tokenResult{
+				{pos: 0, token: tokenField, text: "num-requests"},
+				{pos: 12, token: tokenOperator, text: ">"},
+				{pos: 13, token: tokenValue, text: "0"},
+				{pos: 14, token: tokenEOF},
+			},
+		},
+		{
 			name:  "SelectorsWithOperators",
 			input: "name==value,foo!=bar",
 			expected: []tokenResult{

@@ -61,7 +61,8 @@ func TestFilters(t *testing.T) {
 		{
 			Name: "bar",
 			Labels: map[string]string{
-				"bar": "true",
+				"bar":     "true",
+				"bar-baz": "true",
 			},
 		},
 		{
@@ -186,6 +187,13 @@ func TestFilters(t *testing.T) {
 			input: "labels.foo==omg_asdf.asdf-qwer",
 			expected: []any{
 				corpus[8],
+			},
+		},
+		{
+			name:  "LabelHyphenated",
+			input: "labels.bar-baz==true",
+			expected: []any{
+				corpus[3],
 			},
 		},
 		{
