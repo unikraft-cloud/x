@@ -48,7 +48,6 @@ go run unikraft.com/x/tools/openapi-gen@latest \
 | `--output`           | `-o`  | Output directory for generated files (required)                           |
 | `--var`              | `-v`  | Set a template variable as `key=value` (repeatable)                       |
 | `--templates`        | `-t`  | Directory or Git ref to template overrides (required)                    |
-| `--package`          |       | Deprecated: use `--tag`/`--namespace` instead. Filter to schemas/operations whose `x-package` matches this value |
 | `--tag`              |       | Filter to operations carrying one of these tags (repeatable)              |
 | `--namespace`        |       | Filter to schemas in one of these namespaces, e.g. `Instances` (repeatable) |
 | `--namespace-flatten`|       | Rewrite namespaced schema names: `strip` drops the prefix, `join` concatenates segments |
@@ -132,14 +131,6 @@ The consumer emits its own models plus handlers for the `Instances` tag, and
 its references to `Org.Common.*` come out as `commonv1.Error` with an import of
 `github.com/org/repo/api/common/v1`.
 
-### `--package` (deprecated)
-
-Filters schemas and operations to those whose `x-package` extension matches the
-given value, and exposes it to templates as the `x-package` variable (i.e.
-`{{ .Var "x-package" "" }}`). Only our proto-based pipeline emits that
-extension. Existing proto-sourced callers keep working; new ones should use the
-flags above. `--package` will be removed once those callers have migrated.
-
 ## Internals
 
 ### Go SDK
@@ -157,7 +148,6 @@ err := generator.Run(generator.Options{
 		"var2": "value2",
 	},
 	Templates: "path/to/templates/directory",
-	Package:   "package-name",
 	Tag:       []string{"tag1", "tag2"},
 	Namespace: []string{"namespace-name"},
 	NamespacePackage: map[string]string{
@@ -171,7 +161,7 @@ err := generator.Run(generator.Options{
 
 1. **Parse** — Load the OpenAPI spec with `kin-openapi`, extract YAML property ordering from the raw document.
 2. **Preprocess** — Hoist inline object/enum schemas (found via properties, composition, or array items) to top-level `components/schemas` entries, so every type a generator needs has a name.
-3. **Filter/flatten** — Apply `--package`, `--tag`, and `--namespace` filtering, drop the models `--namespace-package` assigns elsewhere, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
+3. **Filter/flatten** — Apply `--tag` and `--namespace` filtering, drop the models `--namespace-package` assigns elsewhere, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
 4. **Generate** — Execute each template against a `TemplateData` value, `gofmt` the output, and write files.
 
 ### Template data
@@ -232,7 +222,7 @@ Templates have access to all [Sprig](https://masterminds.github.io/sprig/) funct
 | `propertyNamesOrdered`  | `schemaName, schema → []string` | Property names in YAML source order, falling back to sorted composition order |
 | `getProperty`           | `schema, name → *Schema`        | Get a property schema (traverses `allOf`/`oneOf`/`anyOf`)      |
 | `getPropertyRequired`   | `schema, name → bool`           | True if property is required (traverses `allOf`)               |
-| `getTypePackage`        | `v → string`                    | Deprecated (proto-only): return `x-package` for a type ref (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
+| `getTypePackage`        | `v → string`                    | Return the Go package `--namespace-package` assigns to a type ref, or `""` for a local type (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
 
 ### Iteration helpers
 

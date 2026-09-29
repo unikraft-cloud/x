@@ -252,14 +252,9 @@ func (tf *templateFuncs) wrapComment(text string, width int, prefix string) stri
 	return strings.Join(lines, "\n")
 }
 
-// getTypePackage returns the x-package value for a type reference.
+// getTypePackage returns the Go package --namespace-package assigns to a type reference.
 // Accepts *openapi3.Schema, *openapi3.SchemaRef, *openapi3.Parameter, or string ($ref).
-// Returns empty string if no x-package is found.
-//
-// Deprecated: x-package is only emitted by our proto-based generation
-// pipeline. New templates that need to distinguish local from foreign type
-// references should compare against the "current_package" var (set from
-// --namespace) instead.
+// Returns empty string for a type of the package being generated.
 func (tf *templateFuncs) getTypePackage(v any) string {
 	ref := tf.extractRef(v)
 	if ref == "" {
@@ -272,11 +267,7 @@ func (tf *templateFuncs) getTypePackage(v any) string {
 	}
 
 	if schemaRef, ok := tf.parser.doc.Components.Schemas[typeName]; ok {
-		if schemaRef.Value != nil {
-			if pkg, _ := schemaRef.Value.Extensions["x-package"].(string); pkg != "" {
-				return pkg
-			}
-		}
+		return tf.parser.SchemaPackage(schemaRef.Value)
 	}
 
 	return ""

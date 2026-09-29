@@ -4,7 +4,6 @@
 {{template "header" .}}
 package {{$.Var "package" ""}}
 
-{{- $currentPkg := $.Var "x-package" "" -}}
 {{- $basePkg := $.Var "base_package" "api" -}}
 {{- $extPkgs := dict}}
 {{- range $model := .Models}}
@@ -13,7 +12,7 @@ package {{$.Var "package" ""}}
 {{- $prop := getProperty $model.Schema $propName}}
 {{- if $prop}}
 {{- $typePkg := getTypePackage $prop}}
-{{- if and $typePkg (ne $typePkg $currentPkg)}}
+{{- if $typePkg}}
 {{- $_ := set $extPkgs $typePkg true}}
 {{- end}}
 {{- end}}

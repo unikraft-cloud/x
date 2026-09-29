@@ -28,8 +28,9 @@ type GoUnionVariant struct {
 	Declare bool
 	// Doc is the description of the branch, if the spec gives one.
 	Doc string
-	// Package is the x-package, and Namespace the "Namespace.Name" prefix, of a
-	// schema that lives outside the package being generated.  Union discovery
+	// Package is the Go package --namespace-package assigns, and Namespace the
+	// "Namespace.Name" prefix, of a schema that lives outside the package being
+	// generated.  Union discovery
 	// spans the whole document, so a branch may name a schema that
 	// package/namespace filtering left in another package; such a variant is a
 	// local wrapper (Declare is true) whose Underlying type templates qualify
@@ -316,7 +317,7 @@ type goUnionSchema struct {
 // type of its own, keyed by that type name.
 //
 // It reads the parser's components rather than the selected models because
-// FilterByPackage and FilterByNamespace narrow the models before templates run.
+// FilterByNamespace and ImportNamespace narrow the models before templates run.
 // A branch referencing a schema of another package is still a named schema, and
 // mistaking it for an anonymous one would declare it a second time under a name
 // of our choosing.
@@ -329,10 +330,9 @@ func (tf *templateFuncs) goUnionSchemas() map[string]goUnionSchema {
 		if name == "" || schemaIsEmpty(schema) {
 			return
 		}
-		pkg, _ := schema.Extensions["x-package"].(string)
 		schemas[name] = goUnionSchema{
 			schema:    schema,
-			pkg:       pkg,
+			pkg:       tf.parser.SchemaPackage(schema),
 			selected:  selected,
 			namespace: namespace,
 		}
@@ -634,19 +634,18 @@ func goUnionAmbiguous(branches []goUnionBranch) bool {
 
 // goUnionForeign reports whether a named branch's schema is generated into a
 // package other than the one being generated, and so is a type this package
-// cannot attach the union's marker method to.  It compares against the
-// "x-package" and "current_package" template vars, the two ways a caller says
-// which package it is generating; with neither set there is nothing to be
-// foreign to.
+// cannot attach the union's marker method to.  A schema --namespace-package
+// assigns a package to is always foreign; otherwise the "current_package"
+// template var says which namespace is being generated.
 func (tf *templateFuncs) goUnionForeign(schema goUnionSchema) bool {
+	if schema.pkg != "" {
+		return true
+	}
 	if tf.vars == nil {
 		return false
 	}
 	vars := *tf.vars
 
-	if current := vars["x-package"]; current != "" && schema.pkg != "" && schema.pkg != current {
-		return true
-	}
 	// current_package is the lowercased namespace the caller selected, so the
 	// comparison against a schema's "Namespace.Name" prefix ignores case.
 	if current := vars["current_package"]; current != "" && schema.namespace != "" &&

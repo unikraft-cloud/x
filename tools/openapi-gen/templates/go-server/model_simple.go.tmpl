@@ -1,7 +1,6 @@
 {{define "model_simple" -}}
 {{- $schema := .Schema -}}
 {{- $schemaName := .SchemaName -}}
-{{- $currentPkg := .Package -}}
 {{- $propNames := propertyNamesOrdered $schemaName $schema -}}
 {{- if $schema.Description}}
 // {{$schema.Description | replace "\n" "\n// "}}
@@ -19,12 +18,12 @@ type {{$schemaName}} struct {
 {{- $rawType := schemaToGoType $prop}}
 {{- $typePkg := getTypePackage $prop}}
 {{- $propType := $rawType}}
-{{- if and $typePkg (ne $typePkg $currentPkg)}}
+{{- if $typePkg}}
 {{- $propType = regexReplaceAll "([A-Z]\\w+)$" $rawType (printf "%sv1.${1}" $typePkg)}}
 {{- end}}
 {{- if not $required}}
 	{{- if and (ne $openAPIType "array") (ne $openAPIType "object")}}
-		{{- if and $typePkg (ne $typePkg $currentPkg)}}
+		{{- if $typePkg}}
 		{{- $propType = printf "*%s" (regexReplaceAll "([A-Z]\\w+)$" $rawType (printf "%sv1.${1}" $typePkg))}}
 		{{- else}}
 		{{- $propType = printf "*%s" $rawType}}

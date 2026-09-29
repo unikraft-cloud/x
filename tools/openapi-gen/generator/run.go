@@ -34,14 +34,6 @@ type Options struct {
 	// template overrides.
 	Templates string
 
-	// Package, when set, filters schemas and operations to this x-package
-	// value and is exposed to templates as the "x-package" variable.
-	//
-	// Deprecated: x-package is emitted only by our proto-based generation
-	// pipeline. Prefer Tag and Namespace, which work against any OpenAPI
-	// document.
-	Package string
-
 	// Tag filters operations to those carrying one of these tags.
 	Tag []string
 
@@ -64,12 +56,8 @@ type Options struct {
 // Run generates code from an OpenAPI spec and a set of templates according to
 // opts. It is the programmatic equivalent of the openapi-gen command.
 func Run(opts Options) error {
-	vars := make(map[string]string, len(opts.Var)+2)
+	vars := make(map[string]string, len(opts.Var)+1)
 	maps.Copy(vars, opts.Var)
-
-	if opts.Package != "" {
-		vars["x-package"] = opts.Package
-	}
 
 	if len(opts.Namespace) == 1 {
 		vars["current_package"] = strings.ToLower(opts.Namespace[0])
@@ -90,9 +78,6 @@ func Run(opts Options) error {
 		return fmt.Errorf("error creating generator: %w", err)
 	}
 
-	if opts.Package != "" {
-		generator.FilterByPackage(opts.Package)
-	}
 	if len(opts.Tag) > 0 {
 		generator.FilterByTag(opts.Tag)
 	}
@@ -101,7 +86,7 @@ func Run(opts Options) error {
 	}
 
 	for _, namespace := range slices.Sorted(maps.Keys(opts.NamespacePackage)) {
-		generator.MapNamespaceToPackage(namespace, opts.NamespacePackage[namespace])
+		generator.ImportNamespace(namespace, opts.NamespacePackage[namespace])
 	}
 
 	// Flatten namespaced schema names last, after filtering has matched on the
