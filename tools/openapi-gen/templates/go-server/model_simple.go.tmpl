@@ -19,12 +19,12 @@ type {{$schemaName}} struct {
 {{- $typePkg := getTypePackage $prop}}
 {{- $propType := $rawType}}
 {{- if $typePkg}}
-{{- $propType = regexReplaceAll "([A-Z]\\w+)$" $rawType (printf "%sv1.${1}" $typePkg)}}
+{{- $propType = regexReplaceAll "([A-Z]\\w+)$" $rawType (printf "%s.${1}" $typePkg)}}
 {{- end}}
 {{- if not $required}}
 	{{- if and (ne $openAPIType "array") (ne $openAPIType "object")}}
 		{{- if $typePkg}}
-		{{- $propType = printf "*%s" (regexReplaceAll "([A-Z]\\w+)$" $rawType (printf "%sv1.${1}" $typePkg))}}
+		{{- $propType = printf "*%s" (regexReplaceAll "([A-Z]\\w+)$" $rawType (printf "%s.${1}" $typePkg))}}
 		{{- else}}
 		{{- $propType = printf "*%s" $rawType}}
 		{{- end}}

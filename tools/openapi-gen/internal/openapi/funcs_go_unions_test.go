@@ -61,12 +61,13 @@ func resolvedRef(name string, schema *openapi3.Schema) *openapi3.SchemaRef {
 	return &openapi3.SchemaRef{Ref: "#/components/schemas/" + name, Value: schema}
 }
 
-// withPackage assigns schema to the Go package pkg, as --namespace-package does.
-func withPackage(tf *templateFuncs, schema *openapi3.Schema, pkg string) *templateFuncs {
-	if tf.parser.packages == nil {
-		tf.parser.packages = map[*openapi3.Schema]string{}
+// withImportPath assigns schema to the Go import path importPath, as
+// --namespace-import-path does.
+func withImportPath(tf *templateFuncs, schema *openapi3.Schema, importPath string) *templateFuncs {
+	if tf.parser.importPaths == nil {
+		tf.parser.importPaths = map[*openapi3.Schema]string{}
 	}
-	tf.parser.packages[schema] = pkg
+	tf.parser.importPaths[schema] = importPath
 	return tf
 }
 
@@ -394,10 +395,10 @@ func TestGoUnionsWrapsBranchOfAnotherPackage(t *testing.T) {
 	foreign := imageSpec().Schema
 
 	// Only Thing survived filtering; ImageSpec is generated in another package.
-	tf := withPackage(unionFuncs(objectModel("Thing", prop{"image", anyOf(
+	tf := withImportPath(unionFuncs(objectModel("Thing", prop{"image", anyOf(
 		inline(&openapi3.Schema{Type: strType("string")}),
 		resolvedRef("ImageSpec", foreign),
-	)})), foreign, "images")
+	)})), foreign, "example.com/api/images")
 	tf.parser.doc.Components.Schemas["ImageSpec"] = &openapi3.SchemaRef{Value: foreign}
 
 	unions := tf.goUnions()
@@ -801,14 +802,14 @@ func TestGoUnionsInlineListOfLocalRef(t *testing.T) {
 func TestGoUnionsSkipsInlineListOfForeignRef(t *testing.T) {
 	foreign := objectModel("FooSpec", prop{"foo", &openapi3.Schema{Type: strType("string")}}).Schema
 
-	tf := withPackage(unionFuncs(
+	tf := withImportPath(unionFuncs(
 		imageSpec(),
 		namedModel("FooSpec", foreign),
 		objectModel("Thing", prop{"image", anyOf(
 			inline(&openapi3.Schema{Type: strType("array"), Items: resolvedRef("FooSpec", foreign)}),
 			ref("ImageSpec"),
 		)}),
-	), foreign, "other")
+	), foreign, "example.com/api/other")
 
 	require.Empty(t, unionNames(tf.goUnions()))
 }

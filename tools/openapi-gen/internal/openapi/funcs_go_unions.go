@@ -28,7 +28,7 @@ type GoUnionVariant struct {
 	Declare bool
 	// Doc is the description of the branch, if the spec gives one.
 	Doc string
-	// Package is the Go package --namespace-package assigns, and Namespace the
+	// Package is the package name --namespace-import-path assigns, and Namespace the
 	// "Namespace.Name" prefix, of a schema that lives outside the package being
 	// generated.  Union discovery
 	// spans the whole document, so a branch may name a schema that
@@ -634,8 +634,8 @@ func goUnionAmbiguous(branches []goUnionBranch) bool {
 
 // goUnionForeign reports whether a named branch's schema is generated into a
 // package other than the one being generated, and so is a type this package
-// cannot attach the union's marker method to.  A schema --namespace-package
-// assigns a package to is always foreign; otherwise the "current_package"
+// cannot attach the union's marker method to.  A schema --namespace-import-path
+// assigns an import path to is always foreign; otherwise the "current_package"
 // template var says which namespace is being generated.
 func (tf *templateFuncs) goUnionForeign(schema goUnionSchema) bool {
 	if schema.pkg != "" {

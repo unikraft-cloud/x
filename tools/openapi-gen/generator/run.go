@@ -42,10 +42,11 @@ type Options struct {
 	// is exposed to templates as the "current_package" variable.
 	Namespace []string
 
-	// NamespacePackage maps a namespace to the Go package its schemas are
-	// generated into elsewhere, dropping them from this run so that references
-	// to them qualify (e.g. "UnikraftCloud.Common": "common").
-	NamespacePackage map[string]string
+	// NamespaceImportPath maps a namespace to the import path of the Go
+	// package its schemas are generated into elsewhere, dropping them from this
+	// run so that references to them use that package (e.g.
+	// "Org.Common": "github.com/org/repo/api/common/v1").
+	NamespaceImportPath map[string]string
 
 	// Flatten rewrites namespaced schema names into valid Go identifiers:
 	// "strip" drops the namespace prefix, "join" concatenates the segments,
@@ -85,8 +86,12 @@ func Run(opts Options) error {
 		generator.FilterByNamespace(opts.Namespace)
 	}
 
-	for _, namespace := range slices.Sorted(maps.Keys(opts.NamespacePackage)) {
-		generator.ImportNamespace(namespace, opts.NamespacePackage[namespace])
+	for _, namespace := range slices.Sorted(maps.Keys(opts.NamespaceImportPath)) {
+		importPath := opts.NamespaceImportPath[namespace]
+		if importPath == "" {
+			return fmt.Errorf("namespace %q has no import path", namespace)
+		}
+		generator.ImportNamespace(namespace, importPath)
 	}
 
 	// Flatten namespaced schema names last, after filtering has matched on the

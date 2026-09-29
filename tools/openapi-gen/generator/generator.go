@@ -92,10 +92,10 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 }
 
 // ImportNamespace marks every schema declared under namespace as imported
-// from the Go package pkg. It drops those models, so references to them
-// resolve to pkg and the schemas are not generated again here.
-func (g *Generator) ImportNamespace(namespace, pkg string) {
-	stamped := g.parser.SetSchemaPackage(namespace, pkg)
+// from the Go package at importPath. It drops those models, so references to
+// them resolve to that package and the schemas are not generated again here.
+func (g *Generator) ImportNamespace(namespace, importPath string) {
+	stamped := g.parser.SetSchemaImportPath(namespace, importPath)
 	if len(stamped) == 0 {
 		return
 	}

@@ -58,11 +58,11 @@ func writeRun(t *testing.T, spec, tmpl string, opts Options) string {
 	return string(got)
 }
 
-// A mapped namespace is not generated here, so only local models remain.
-func TestRunNamespacePackageDropsMappedModels(t *testing.T) {
+// An imported namespace is not generated here, so only local models remain.
+func TestRunNamespaceImportPathDropsImportedModels(t *testing.T) {
 	got := writeRun(t, namespacedSpec, modelsTemplate, Options{
-		NamespacePackage: map[string]string{"Org.Common": "common"},
-		Flatten:          "strip",
+		NamespaceImportPath: map[string]string{"Org.Common": "example.com/api/common/v1"},
+		Flatten:             "strip",
 	})
 
 	require.Contains(t, got, "Machine")
@@ -70,27 +70,27 @@ func TestRunNamespacePackageDropsMappedModels(t *testing.T) {
 }
 
 // Without the mapping the same schema is generated alongside its users.
-func TestRunWithoutNamespacePackageKeepsModels(t *testing.T) {
+func TestRunWithoutNamespaceImportPathKeepsModels(t *testing.T) {
 	got := writeRun(t, namespacedSpec, modelsTemplate, Options{Flatten: "strip"})
 
 	require.Contains(t, got, "Machine")
 	require.Contains(t, got, "Status")
 }
 
-// A reference to a mapped type resolves to the package the mapping names.
-func TestRunNamespacePackageQualifiesReferences(t *testing.T) {
+// A reference to an imported type resolves to the package at its import path.
+func TestRunNamespaceImportPathQualifiesReferences(t *testing.T) {
 	tmpl := `--- models.txt
 {{- range $model := .Models}}
 {{- range $name := propertyNamesOrdered $model.SchemaName $model.Schema}}
 {{- $prop := getProperty $model.Schema $name}}
-{{$name}} {{getTypePackage $prop}} {{schemaToGoType $prop}}
+{{$name}} {{getTypePackage $prop}} {{getTypeImportPath $prop}} {{schemaToGoType $prop}}
 {{- end}}
 {{- end}}
 `
 	got := writeRun(t, namespacedSpec, tmpl, Options{
-		NamespacePackage: map[string]string{"Org.Common": "common"},
-		Flatten:          "strip",
+		NamespaceImportPath: map[string]string{"Org.Common": "example.com/api/common/v1"},
+		Flatten:             "strip",
 	})
 
-	require.Contains(t, got, "status common Status")
+	require.Contains(t, got, "status commonv1 example.com/api/common/v1 Status")
 }
