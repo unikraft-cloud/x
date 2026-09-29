@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"gopkg.in/yaml.v3"
@@ -26,7 +28,7 @@ type Parser struct {
 	doc            *openapi3.T
 	propertyOrders map[string][]string // schemaName -> ordered property names
 	namespaces     map[string]string   // flattened schema name -> original namespace
-	packages       map[*openapi3.Schema]string
+	importPaths    map[*openapi3.Schema]string
 }
 
 // Model represents a single model file to be generated
@@ -122,14 +124,14 @@ func (p *Parser) SetPropertyOrder(schemaName string, order []string) {
 	p.propertyOrders[schemaName] = order
 }
 
-// SetSchemaPackage assigns the Go package pkg to every schema declared under
-// namespace and returns the names it assigned.
-func (p *Parser) SetSchemaPackage(namespace, pkg string) []string {
+// SetSchemaImportPath assigns the Go import path importPath to every schema
+// declared under namespace and returns the names it assigned.
+func (p *Parser) SetSchemaImportPath(namespace, importPath string) []string {
 	if p.doc.Components == nil {
 		return nil
 	}
-	if p.packages == nil {
-		p.packages = map[*openapi3.Schema]string{}
+	if p.importPaths == nil {
+		p.importPaths = map[*openapi3.Schema]string{}
 	}
 	prefix := namespace + "."
 	var assigned []string
@@ -137,16 +139,54 @@ func (p *Parser) SetSchemaPackage(namespace, pkg string) []string {
 		if !strings.HasPrefix(name, prefix) || ref.Value == nil {
 			continue
 		}
-		p.packages[ref.Value] = pkg
+		p.importPaths[ref.Value] = importPath
 		assigned = append(assigned, name)
 	}
 	return assigned
 }
 
-// SchemaPackage returns the Go package SetSchemaPackage assigned to schema, or
+// SchemaImportPath returns the Go import path SetSchemaImportPath assigned to
+// schema, or "" when schema belongs to the package being generated.
+func (p *Parser) SchemaImportPath(schema *openapi3.Schema) string {
+	return p.importPaths[schema]
+}
+
+// SchemaPackage returns the name that qualifies schema in generated code, or
 // "" when schema belongs to the package being generated.
 func (p *Parser) SchemaPackage(schema *openapi3.Schema) string {
-	return p.packages[schema]
+	return importAlias(p.importPaths[schema])
+}
+
+// importAlias returns the package name for importPath: its last element, with
+// the element before it prepended when the last one is a major version (so
+// ".../common/v1" gives "commonv1").
+func importAlias(importPath string) string {
+	if importPath == "" {
+		return ""
+	}
+	dir, alias := path.Split(importPath)
+	if isMajorVersion(alias) && dir != "" {
+		alias = path.Base(dir) + alias
+	}
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
+			return r
+		}
+		return -1
+	}, alias)
+}
+
+// isMajorVersion reports whether elem is a major version element such as "v1".
+func isMajorVersion(elem string) bool {
+	if len(elem) < 2 || elem[0] != 'v' {
+		return false
+	}
+	for _, r := range elem[1:] {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // ParseModels extracts all models from the OpenAPI spec

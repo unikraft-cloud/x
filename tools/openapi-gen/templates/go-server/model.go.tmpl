@@ -4,7 +4,6 @@
 {{template "header" .}}
 package {{$.Var "package" ""}}
 
-{{- $basePkg := $.Var "base_package" "api" -}}
 {{- $extPkgs := dict}}
 {{- range $model := .Models}}
 {{- /* Check each property for external type references */}}
@@ -13,7 +12,7 @@ package {{$.Var "package" ""}}
 {{- if $prop}}
 {{- $typePkg := getTypePackage $prop}}
 {{- if $typePkg}}
-{{- $_ := set $extPkgs $typePkg true}}
+{{- $_ := set $extPkgs $typePkg (getTypeImportPath $prop)}}
 {{- end}}
 {{- end}}
 {{- end}}
@@ -25,8 +24,8 @@ import (
 	"time"
 {{- if $extPkgs}}
 
-{{- range $pkg, $_ := $extPkgs}}
-	{{$pkg}}v1 "{{$basePkg}}/{{$pkg}}/v1"
+{{- range $pkg, $importPath := $extPkgs}}
+	{{$pkg}} "{{$importPath}}"
 {{- end}}
 {{- end}}
 )

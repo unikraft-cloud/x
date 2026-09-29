@@ -35,7 +35,6 @@ g.JSON(code, gin.H{"message": err.Error()})
 {{- end -}}
 {{- end }}
 {{- $allOps := .Operations -}}
-{{- $basePkg := $.Var "base_package" "api" -}}
 {{- range $tagName := uniqueTags .Operations}}
 --- {{snakecase $tagName}}_gin.gen.go
 {{template "header" .}}
@@ -70,12 +69,12 @@ import (
 {{- if $content}}
 {{- if $content.Schema.Ref}}
 {{- $p := getTypePackage $content.Schema}}
-{{- if $p}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- if $p}}{{- $_ := set $extPkgs $p (getTypeImportPath $content.Schema)}}{{- end}}
 {{- else if $content.Schema.Value}}
 {{- if and $content.Schema.Value.Type (eq (getType $content.Schema.Value) "array")}}
 {{- if $content.Schema.Value.Items.Ref}}
 {{- $p := getTypePackage $content.Schema.Value.Items}}
-{{- if $p}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- if $p}}{{- $_ := set $extPkgs $p (getTypeImportPath $content.Schema.Value.Items)}}{{- end}}
 {{- end}}
 {{- end}}
 {{- end}}
@@ -88,14 +87,14 @@ import (
 {{- if $respContent}}
 {{- if $respContent.Schema.Ref}}
 {{- $p := getTypePackage $respContent.Schema}}
-{{- if $p}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- if $p}}{{- $_ := set $extPkgs $p (getTypeImportPath $respContent.Schema)}}{{- end}}
 {{- end}}
 {{- end}}
 {{- $sseContent := index $defaultResp.Value.Content "text/event-stream"}}
 {{- if $sseContent}}
 {{- if $sseContent.Schema.Ref}}
 {{- $p := getTypePackage $sseContent.Schema}}
-{{- if $p}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- if $p}}{{- $_ := set $extPkgs $p (getTypeImportPath $sseContent.Schema)}}{{- end}}
 {{- end}}
 {{- end}}
 {{- end}}
@@ -105,14 +104,14 @@ import (
 {{- if .Value.Schema}}
 {{- if .Value.Schema.Ref}}
 {{- $p := getTypePackage .Value.Schema}}
-{{- if $p}}{{- $_ := set $extPkgs $p true}}{{- end}}
+{{- if $p}}{{- $_ := set $extPkgs $p (getTypeImportPath .Value.Schema)}}{{- end}}
 {{- end}}
 {{- end}}
 {{- end}}
 {{- end}}
 {{- end}}
-{{- range $pkg, $_ := $extPkgs}}
-	{{$pkg}}v1 "{{$basePkg}}/{{$pkg}}/v1"
+{{- range $pkg, $importPath := $extPkgs}}
+	{{$pkg}} "{{$importPath}}"
 {{- end}}
 )
 
@@ -206,13 +205,13 @@ type {{$serviceName}} interface {
 {{- $qualifiedReqType := $requestBodyType}}
 {{- $reqPkg := getTypePackage $requestBodySchema}}
 {{- if $reqPkg}}
-{{- $qualifiedReqType = printf "%sv1.%s" $reqPkg $requestBodyType}}
+{{- $qualifiedReqType = printf "%s.%s" $reqPkg $requestBodyType}}
 {{- end}}
 {{- /* Qualify response type */}}
 {{- $qualifiedRespType := $responseType}}
 {{- $respPkg := getTypePackage $responseSchema}}
 {{- if $respPkg}}
-{{- $qualifiedRespType = printf "%sv1.%s" $respPkg $responseType}}
+{{- $qualifiedRespType = printf "%s.%s" $respPkg $responseType}}
 {{- end}}
 {{- if $isSSE}}
 	{{$op.OperationID}}(g *gin.Context, cancel context.CancelFunc{{range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}{{if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}) <-chan *{{$qualifiedRespType}}
@@ -220,7 +219,7 @@ type {{$serviceName}} interface {
 	{{$op.OperationID}}(g *gin.Context
 {{- range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}
 {{- if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}
-{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if $ptPkg}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) ({{if $wrapResponse}}*{{$respPrefix}}Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}]{{else}}{{if $qualifiedRespType}}*{{$qualifiedRespType}}{{else}}any{{end}}{{end}}, int, error)
+{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if $ptPkg}}{{- $pt = printf "%s.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) ({{if $wrapResponse}}*{{$respPrefix}}Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}]{{else}}{{if $qualifiedRespType}}*{{$qualifiedRespType}}{{else}}any{{end}}{{end}}, int, error)
 {{- end}}
 {{- end}}
 {{- end}}
@@ -313,13 +312,13 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- $qualifiedReqType := $requestBodyType}}
 {{- $reqPkg := getTypePackage $requestBodySchema}}
 {{- if $reqPkg}}
-{{- $qualifiedReqType = printf "%sv1.%s" $reqPkg $requestBodyType}}
+{{- $qualifiedReqType = printf "%s.%s" $reqPkg $requestBodyType}}
 {{- end}}
 {{- /* Qualify response type */}}
 {{- $qualifiedRespType := $responseType}}
 {{- $respPkg := getTypePackage $responseSchema}}
 {{- if $respPkg}}
-{{- $qualifiedRespType = printf "%sv1.%s" $respPkg $responseType}}
+{{- $qualifiedRespType = printf "%s.%s" $respPkg $responseType}}
 {{- end}}
 
 func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Context) {
@@ -410,7 +409,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 	// Bind query parameters
 	var query struct {
 {{- range $queryParams}}
-{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if $ptPkg}}{{- $pt = printf "%sv1.%s" $ptPkg $pt}}{{- end}}
+{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if $ptPkg}}{{- $pt = printf "%s.%s" $ptPkg $pt}}{{- end}}
 		{{pascalcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}} `form:"{{.Name}}"`
 {{- end}}
 	}

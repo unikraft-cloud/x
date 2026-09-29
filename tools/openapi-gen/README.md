@@ -51,7 +51,7 @@ go run unikraft.com/x/tools/openapi-gen@latest \
 | `--tag`              |       | Filter to operations carrying one of these tags (repeatable)              |
 | `--namespace`        |       | Filter to schemas in one of these namespaces, e.g. `Instances` (repeatable) |
 | `--namespace-flatten`|       | Rewrite namespaced schema names: `strip` drops the prefix, `join` concatenates segments |
-| `--namespace-package`|       | Namespace whose schemas live in another Go package, as `<namespace>[=<package>]` (repeatable) |
+| `--namespace-import-path`| | Namespace whose schemas live in another Go package, as `<namespace>=<import path>` (repeatable) |
 
 ## Selecting what to generate
 
@@ -91,18 +91,18 @@ templates as the `current_package` variable.
 `join` to `NamespaceType`, and the default leaves it alone. Flattening runs
 after every filter, so the filters still match the original names.
 
-### `--namespace-package`
+### `--namespace-import-path`
 
-Marks a namespace as belonging to another Go package: its schemas are not
-generated in this run, and every reference to one is qualified with that
-package. The value is `<namespace>[=<package>]`, and the package defaults to
-the namespace's last segment lowercased, so `--namespace-package=Org.Common`
-and `--namespace-package=Org.Common=common` mean the same thing. Pass the flag
-more than once for more than one namespace.
+Marks a namespace as belonging to the Go package at an import path: its schemas
+are not generated in this run, and every reference to one is qualified with
+that package. The value is `<namespace>=<import path>`, for example
+`--namespace-import-path=Org.Common=github.com/org/repo/api/common/v1`. Pass
+the flag more than once for more than one namespace.
 
-The `go-server` templates render a qualified reference as `<package>v1.Type`
-and import `<base_package>/<package>/v1`, where `base_package` is the template
-variable of that name.
+The package name comes from the import path: its last element, with the element
+before it prepended when the last one is a major version. So
+`github.com/org/repo/api/common/v1` gives `commonv1`, and the `go-server`
+templates render a reference as `commonv1.Type` and import that path.
 
 ### Generating a shared package
 
@@ -112,8 +112,7 @@ selecting the namespace and nothing else:
 
 ```sh
 openapi-gen -i api.yaml -o ./api/common/v1 -v package=commonv1 \
-  -v base_package=github.com/org/repo/api -t ./templates/go-server \
-  --tag=NoOperations --namespace=Org --namespace-flatten=strip
+  -t ./templates/go-server --tag=NoOperations --namespace=Org --namespace-flatten=strip
 ```
 
 `--tag=NoOperations` matches no tag, which is how a models-only run asks for no
@@ -123,8 +122,9 @@ Then generate each consumer, mapping that namespace to the shared package:
 
 ```sh
 openapi-gen -i api.yaml -o ./api/instances/v1 -v package=instancesv1 \
-  -v base_package=github.com/org/repo/api -t ./templates/go-server \
-  --tag=Instances --namespace-package=Org.Common --namespace-flatten=strip
+  -t ./templates/go-server --tag=Instances \
+  --namespace-import-path=Org.Common=github.com/org/repo/api/common/v1 \
+  --namespace-flatten=strip
 ```
 
 The consumer emits its own models plus handlers for the `Instances` tag, and
@@ -150,8 +150,8 @@ err := generator.Run(generator.Options{
 	Templates: "path/to/templates/directory",
 	Tag:       []string{"tag1", "tag2"},
 	Namespace: []string{"namespace-name"},
-	NamespacePackage: map[string]string{
-		"Org.Common": "common",
+	NamespaceImportPath: map[string]string{
+		"Org.Common": "github.com/org/repo/api/common/v1",
 	},
 	Flatten:   "strip",
 })
@@ -161,7 +161,7 @@ err := generator.Run(generator.Options{
 
 1. **Parse** — Load the OpenAPI spec with `kin-openapi`, extract YAML property ordering from the raw document.
 2. **Preprocess** — Hoist inline object/enum schemas (found via properties, composition, or array items) to top-level `components/schemas` entries, so every type a generator needs has a name.
-3. **Filter/flatten** — Apply `--tag` and `--namespace` filtering, drop the models `--namespace-package` assigns elsewhere, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
+3. **Filter/flatten** — Apply `--tag` and `--namespace` filtering, drop the models `--namespace-import-path` imports from elsewhere, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
 4. **Generate** — Execute each template against a `TemplateData` value, `gofmt` the output, and write files.
 
 ### Template data
@@ -222,7 +222,8 @@ Templates have access to all [Sprig](https://masterminds.github.io/sprig/) funct
 | `propertyNamesOrdered`  | `schemaName, schema → []string` | Property names in YAML source order, falling back to sorted composition order |
 | `getProperty`           | `schema, name → *Schema`        | Get a property schema (traverses `allOf`/`oneOf`/`anyOf`)      |
 | `getPropertyRequired`   | `schema, name → bool`           | True if property is required (traverses `allOf`)               |
-| `getTypePackage`        | `v → string`                    | Return the Go package `--namespace-package` assigns to a type ref, or `""` for a local type (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
+| `getTypePackage`        | `v → string`                    | Return the package name that qualifies a type ref imported with `--namespace-import-path` (e.g. `commonv1`), or `""` for a local type (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
+| `getTypeImportPath`     | `v → string`                    | Return the import path of a type ref imported with `--namespace-import-path`, or `""` for a local type (same arguments as `getTypePackage`) |
 
 ### Iteration helpers
 
