@@ -186,7 +186,7 @@ func TestRepeatableFlagPlaceholders(t *testing.T) {
 				return flag
 			}
 		}
-		t.Fatalf("flag %q not found", name)
+		require.Failf(t, "flag not found", "no flag named %q", name)
 		return nil
 	}
 
@@ -276,7 +276,7 @@ func TestOptionalEnumChoices(t *testing.T) {
 				return flag
 			}
 		}
-		t.Fatalf("flag %q not found", name)
+		require.Failf(t, "flag not found", "no flag named %q", name)
 		return nil
 	}
 

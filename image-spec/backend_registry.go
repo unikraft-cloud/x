@@ -19,9 +19,10 @@ import (
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
 	"github.com/distribution/reference"
-	"github.com/moby/buildkit/util/contentutil"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"unikraft.com/x/image-spec/contentutil"
 )
 
 // This file provides functions for loading and saving images to/from remote

@@ -739,10 +739,15 @@ func goUnionShape(ref *openapi3.SchemaRef) *openapi3.SchemaRef {
 	return &openapi3.SchemaRef{Value: &value}
 }
 
-// goUnionBase returns the name the union and its declared variants derive from,
-// which is the first named branch with a trailing "Spec" dropped.  It is empty
-// when no branch is a named schema.
+// goUnionBase returns the name the union and its declared variants derive from:
+// the name every branch shares when all of them are named, and otherwise the
+// first named branch with a trailing "Spec" dropped.  It is empty when no
+// branch is a named schema.
 func goUnionBase(branches []goUnionBranch) string {
+	if base := goUnionSharedBase(branches); base != "" {
+		return base
+	}
+
 	for _, branch := range branches {
 		if !branch.Named {
 			continue
@@ -754,6 +759,49 @@ func goUnionBase(branches []goUnionBranch) string {
 		return base
 	}
 	return ""
+}
+
+// goUnionSharedBase returns the leading words every branch name shares, which
+// only an all-named union can have: an anonymous branch is named after the base
+// rather than contributing to it.
+func goUnionSharedBase(branches []goUnionBranch) string {
+	if len(branches) < 2 {
+		return ""
+	}
+
+	var shared []string
+	for i, branch := range branches {
+		if !branch.Named {
+			return ""
+		}
+
+		words := strings.Split(strcase.ToKebab(branch.GoType), "-")
+		if i > 0 {
+			words = commonPrefix(shared, words)
+		}
+		if len(words) == 0 {
+			return ""
+		}
+		shared = words
+	}
+
+	// ToKebab lowercases, so the base is the name cut to the shared words'
+	// length rather than those words rejoined.
+	name := branches[0].GoType
+	n := len(strings.Join(shared, ""))
+	if n > len(name) {
+		return ""
+	}
+
+	base := name[:n]
+	for _, branch := range branches {
+		// A variant sharing its union's name would redeclare it.
+		if branch.GoType == base {
+			return ""
+		}
+	}
+
+	return base
 }
 
 // goUnionKey identifies a union by the shapes it holds.  The branches are
@@ -856,4 +904,15 @@ func goUnionOf(name, base string, branches []goUnionBranch, reserved map[string]
 	}
 
 	return union
+}
+
+// commonPrefix returns the leading elements a and b share.
+func commonPrefix[T comparable](a, b []T) []T {
+	a = a[:min(len(a), len(b))]
+	for i := range a {
+		if a[i] != b[i] {
+			return a[:i]
+		}
+	}
+	return a
 }

@@ -1,4 +1,4 @@
-go 1.26.3
+go 1.27.0
 
 use .
 
@@ -19,11 +19,15 @@ use (
 	./log
 	./middleware
 	./oidext
+	./processmetrics
 	./ptr
 	./ringbuffer
 	./router
 	./sanitize
+	./shell
+	./signal
 	./startstopper
+	./stdio
 	./telemetry
 	./text
 	./version
@@ -39,4 +43,5 @@ use (
 	./tools/openapi-gen
 	./tools/openapi-gen/examples
 	./tools/protoc-gen-go-struct
+	./tools/sh
 )

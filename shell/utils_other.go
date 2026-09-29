@@ -3,12 +3,14 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-//go:build !appengine && (freebsd || darwin || dragonfly || netbsd || openbsd)
-// +build !appengine
-// +build freebsd darwin dragonfly netbsd openbsd
+//go:build !js && !windows
 
-package guesstermwidth
+package shell
 
 import "syscall"
 
-const termiosIoctlGet = syscall.TIOCGETA
+func (f remoteFileInfo) Sys() any { return &syscall.Stat_t{Uid: unknownOwner, Gid: unknownOwner} }
+
+func ownProcessGroup() *syscall.SysProcAttr {
+	return &syscall.SysProcAttr{Setpgid: true}
+}

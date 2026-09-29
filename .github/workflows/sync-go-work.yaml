@@ -1,0 +1,60 @@
+name: sync-go-work
+
+on:
+  push:
+    branches: ['dependabot/go_modules/**']
+
+  workflow_call:
+    inputs:
+      goprivate:
+        description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
+        type: string
+        required: false
+    secrets:
+      gh_pat:
+        description: GitHub PAT used to push the commit and start the pull request checks
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    if: >-
+      github.actor == 'dependabot[bot]' &&
+      startsWith(github.ref, 'refs/heads/dependabot/go_modules/')
+
+    concurrency:
+      group: sync-go-work-${{ github.repository }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.gh_pat }}
+
+      - name: Setup go
+        uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
+        with:
+          gh_pat: ${{ secrets.gh_pat }}
+          goprivate: ${{ inputs.goprivate }}
+
+      - name: Refresh go.work.sum
+        shell: bash
+        run: |
+          go list -m all >/dev/null
+
+      - name: Push the result
+        shell: bash
+        run: |
+          if git diff --quiet -- go.work.sum; then
+            echo "go.work.sum is already in sync"
+            exit 0
+          fi
+
+          git config user.name 'Unikraft Bot'
+          git config user.email 'monkey@unikraft.io'
+          git commit --signoff -m 'gomod(deps): Update go.work.sum' -- go.work.sum
+          git push

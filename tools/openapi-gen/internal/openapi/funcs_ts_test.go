@@ -6,10 +6,10 @@
 package openapi
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/stretchr/testify/require"
 )
 
 func strType(t string) *openapi3.Types {
@@ -57,25 +57,17 @@ func TestSchemaToTsType(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := schemaToTsType(c.schema); got != c.want {
-				t.Fatalf("schemaToTsType() = %q, want %q", got, c.want)
-			}
+			require.Equal(t, c.want, schemaToTsType(c.schema))
 		})
 	}
 }
 
 func TestTsSafeName(t *testing.T) {
-	if got := tsSafeName("interface"); got != "_interface" {
-		t.Fatalf("tsSafeName(interface) = %q", got)
-	}
-	if got := tsSafeName("Instance"); got != "Instance" {
-		t.Fatalf("tsSafeName(Instance) = %q", got)
-	}
+	require.Equal(t, "_interface", tsSafeName("interface"))
+	require.Equal(t, "Instance", tsSafeName("Instance"))
 	// `constructor` must be escaped so an operation ID normalising to it is not
 	// emitted as the class constructor.
-	if got := tsSafeName("constructor"); got != "_constructor" {
-		t.Fatalf("tsSafeName(constructor) = %q", got)
-	}
+	require.Equal(t, "_constructor", tsSafeName("constructor"))
 }
 
 func TestSchemaToTsTypeNullable(t *testing.T) {
@@ -93,9 +85,7 @@ func TestSchemaToTsTypeNullable(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := schemaToTsType(c.schema); got != c.want {
-				t.Fatalf("schemaToTsType() = %q, want %q", got, c.want)
-			}
+			require.Equal(t, c.want, schemaToTsType(c.schema))
 		})
 	}
 }
@@ -105,23 +95,17 @@ func TestSchemaToTsTypeComposition(t *testing.T) {
 		{Ref: "#/components/schemas/A"},
 		{Ref: "#/components/schemas/B"},
 	}}
-	if got := schemaToTsType(oneOf); got != "A | B" {
-		t.Fatalf("oneOf = %q, want %q", got, "A | B")
-	}
+	require.Equal(t, "A | B", schemaToTsType(oneOf))
 	anyOf := &openapi3.Schema{AnyOf: openapi3.SchemaRefs{
 		{Value: &openapi3.Schema{Type: strType("string")}},
 		{Ref: "#/components/schemas/B"},
 	}}
-	if got := schemaToTsType(anyOf); got != "string | B" {
-		t.Fatalf("anyOf = %q, want %q", got, "string | B")
-	}
+	require.Equal(t, "string | B", schemaToTsType(anyOf))
 	allOf := &openapi3.Schema{AllOf: openapi3.SchemaRefs{
 		{Ref: "#/components/schemas/A"},
 		{Ref: "#/components/schemas/B"},
 	}}
-	if got := schemaToTsType(allOf); got != "A & B" {
-		t.Fatalf("allOf = %q, want %q", got, "A & B")
-	}
+	require.Equal(t, "A & B", schemaToTsType(allOf))
 
 	itemAllOfObject := &openapi3.Schema{
 		Type: strType("array"),
@@ -133,9 +117,7 @@ func TestSchemaToTsTypeComposition(t *testing.T) {
 			},
 		}},
 	}
-	if got := schemaToTsType(itemAllOfObject); got != "(A & B)[]" {
-		t.Fatalf("array item allOf object = %q, want %q", got, "(A & B)[]")
-	}
+	require.Equal(t, "(A & B)[]", schemaToTsType(itemAllOfObject))
 }
 
 func TestQualifyModels(t *testing.T) {
@@ -154,41 +136,27 @@ func TestQualifyModels(t *testing.T) {
 		{"(Instance | Volume)[]", "(models.Instance | models.Volume)[]"},
 	}
 	for _, c := range cases {
-		if got := tf.qualifyModels("models", c.in); got != c.want {
-			t.Fatalf("qualifyModels(%q) = %q, want %q", c.in, got, c.want)
-		}
+		t.Run(c.in, func(t *testing.T) {
+			require.Equal(t, c.want, tf.qualifyModels("models", c.in))
+		})
 	}
 }
 
 func TestQuoteTsControlChars(t *testing.T) {
-	if got := quoteTs("a\nb\tc"); got != `"a\nb\tc"` {
-		t.Fatalf("quoteTs(control) = %q", got)
-	}
-	if got := quoteTs(`a"b\c`); got != `"a\"b\\c"` {
-		t.Fatalf("quoteTs(quotes) = %q", got)
-	}
+	require.Equal(t, `"a\nb\tc"`, quoteTs("a\nb\tc"))
+	require.Equal(t, `"a\"b\\c"`, quoteTs(`a"b\c`))
 }
 
 func TestTsDocEscapesTerminator(t *testing.T) {
 	got := tsDoc("closes */ here", "")
-	if strings.Contains(got, "*/ here") {
-		t.Fatalf("tsDoc did not escape comment terminator: %q", got)
-	}
+	require.NotContains(t, got, "*/ here")
 }
 
 func TestTsArrayOfUnion(t *testing.T) {
-	if got := tsArrayOf("A | B"); got != "(A | B)[]" {
-		t.Fatalf("tsArrayOf(union) = %q", got)
-	}
-	if got := tsArrayOf("Instance"); got != "Instance[]" {
-		t.Fatalf("tsArrayOf(single) = %q", got)
-	}
+	require.Equal(t, "(A | B)[]", tsArrayOf("A | B"))
+	require.Equal(t, "Instance[]", tsArrayOf("Instance"))
 }
 
 func TestReservedWordsSorted(t *testing.T) {
-	for i := 1; i < len(tsReservedWords); i++ {
-		if tsReservedWords[i-1] >= tsReservedWords[i] {
-			t.Fatalf("tsReservedWords not sorted at %d: %q >= %q", i, tsReservedWords[i-1], tsReservedWords[i])
-		}
-	}
+	require.IsIncreasing(t, tsReservedWords)
 }

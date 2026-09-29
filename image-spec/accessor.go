@@ -15,6 +15,8 @@ import (
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
 	"github.com/distribution/reference"
+
+	"unikraft.com/x/image-spec/uri"
 )
 
 type Accessor struct {
@@ -77,7 +79,7 @@ func (accessor *Accessor) Load(ctx context.Context, src *URI, platform platforms
 		}
 		return LoadRegistryImage(ctx, named, accessor.remote, platform)
 	case URISchemeOCILayout:
-		path, tag := parsePathTag(src.Path)
+		path, tag := uri.SplitPathTag(src.Path)
 		return LoadOCILayoutNamed(ctx, path, tag, platform)
 	case URISchemeOCIArchive:
 		return LoadTarball(ctx, src.Path, platform)
@@ -95,7 +97,7 @@ func (accessor *Accessor) LoadAll(ctx context.Context, src *URI, platform platfo
 		}
 		return LoadAllRegistryImages(ctx, named, accessor.remote, platform)
 	case URISchemeOCILayout:
-		path, tag := parsePathTag(src.Path)
+		path, tag := uri.SplitPathTag(src.Path)
 		return LoadAllOCILayoutsNamed(ctx, path, tag, platform)
 	case URISchemeOCIArchive:
 		return LoadAllTarballs(ctx, src.Path, platform)
@@ -114,7 +116,7 @@ func (accessor *Accessor) Save(ctx context.Context, dest *URI, img ...*Image) er
 		_, _, err = SaveRegistryImage(ctx, named, accessor.remote, img...)
 		return err
 	case URISchemeOCILayout:
-		path, tag := parsePathTag(dest.Path)
+		path, tag := uri.SplitPathTag(dest.Path)
 		if tag == "" {
 			tag = "latest"
 		}
@@ -139,7 +141,7 @@ func (accessor *Accessor) Delete(ctx context.Context, target *URI) error {
 		}
 		return DeleteRegistryImage(ctx, named, accessor.remote, accessor.registryHosts, accessor.registryHeaders)
 	case URISchemeOCILayout:
-		path, tag := parsePathTag(target.Path)
+		path, tag := uri.SplitPathTag(target.Path)
 		if tag == "" {
 			return os.RemoveAll(path)
 		}

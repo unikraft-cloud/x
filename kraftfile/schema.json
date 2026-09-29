@@ -48,6 +48,18 @@
       ]
     },
     "FSSource": {
+      "if": {
+        "required": [
+          "dockerfile"
+        ]
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "const": "dockerfile"
+          }
+        }
+      },
       "properties": {
         "type": {
           "type": "string"
@@ -57,16 +69,6 @@
         },
         "dockerfile": {
           "type": "string"
-        }
-      },
-      "if": {
-        "required": ["dockerfile"]
-      },
-      "then": {
-        "properties": {
-          "type": {
-            "const": "dockerfile"
-          }
         }
       },
       "additionalProperties": true,

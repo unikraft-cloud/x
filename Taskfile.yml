@@ -11,7 +11,7 @@ tasks:
     # NOTE: this is a hack to work around the fact that go-task doesn't
     # allow passing the 'dir' setting to child tasks:
     # https://github.com/go-task/task/issues/585
-    cmd: task -d {{.module}} -t Taskfile.go.yml -s {{.gotask}}
+    cmd: task -d {{.module}} -t Taskfile.go.yml -s {{.gotask}} {{with .package}}package={{.}}{{end}}
 
   forall:
     requires: { vars: [gotask] }
@@ -55,12 +55,82 @@ tasks:
     - git add -A -- .
     - git diff --cached --exit-code -- .
 
+  kraftfile-schema-check:
+    desc: "Verify kraftfile/schema.json is regenerated from the Go spec"
+    dir: kraftfile
+    cmds:
+    - go generate ./...
+    - git add -A -- .
+    - git diff --cached --exit-code -- .
+
   # ci tasks
 
   ci/check:
   - task: forall
     vars: { gotask: static-check }
   - task: openapi-gen-examples-check
+  - task: kraftfile-schema-check
+  - task: ci/check-wasm
+  - task: ci/check-windows
+
+  ci/check-wasm:
+    desc: "Verify the modules the browser CLI needs still build for js/wasm"
+    vars:
+      # Modules that must keep building for js/wasm.  The rest reach for a
+      # daemon, a terminal or a syscall the js runtime does not have.
+      # This list is alphabetical and should not be reordered.
+      modules:
+      - ./colors
+      - ./filters
+      - ./fingerprint
+      - ./guesstermwidth
+      - ./image-spec
+      - ./io
+      - ./joinerrgroup
+      - ./kingkong
+      - ./kraftfile
+      - ./log
+      - ./ptr
+      - ./ringbuffer
+      - ./sanitize
+      - ./signal
+      - ./stdio
+      - ./text
+      - ./version
+    cmds:
+    - for: { var: modules }
+      task: forone
+      vars:
+        module: '{{.ITEM}}'
+        gotask: wasm-check
+
+  ci/check-windows:
+    desc: "Verify the modules the CLI needs still build for windows"
+    vars:
+      # Modules the CLI links on windows.
+      # This list is alphabetical and should not be reordered.
+      modules:
+      - ./colors
+      - ./filters
+      - ./fingerprint
+      - ./guesstermwidth
+      - ./image-spec
+      - ./io
+      - ./joinerrgroup
+      - ./kingkong
+      - ./kraftfile
+      - ./log
+      - ./ptr
+      - ./shell
+      - ./signal
+      - ./stdio
+      - ./version
+    cmds:
+    - for: { var: modules }
+      task: forone
+      vars:
+        module: '{{.ITEM}}'
+        gotask: windows-check
 
   ci/test:
   - task: forall

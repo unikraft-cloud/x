@@ -3,10 +3,6 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-//go:build !appengine && linux
+package shell
 
-package guesstermwidth
-
-import "syscall"
-
-const termiosIoctlGet = syscall.TCGETS
+func (f remoteFileInfo) Sys() any { return nil }

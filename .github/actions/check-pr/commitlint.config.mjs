@@ -3,8 +3,9 @@ import { RuleConfigSeverity, } from "@commitlint/types";
 const base = {
     extends: ['@commitlint/config-conventional'],
     ignores: [
-        // ignore commits from dependabot
+        // ignore commits from bots, their sign-offs blow the line limit
         (commit) => /Signed-off-by: dependabot\[bot\]/.test(commit),
+        (commit) => /Signed-off-by: github-actions\[bot\]/.test(commit),
     ],
     rules: {
         "type-enum": [

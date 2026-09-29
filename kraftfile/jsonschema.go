@@ -141,6 +141,20 @@ func (FS) JSONSchemaExtend(schema *jsonschema.Schema) {
 	objectSchema.OneOf = nil
 	objectSchema.Required = []string{"source"}
 	objectSchema.AdditionalProperties = jsonschema.TrueSchema
+	if objectSchema.Properties == nil {
+		objectSchema.Properties = jsonschema.NewProperties()
+	}
+
+	// Deprecated: 'source' as a plain path string, paired with a sibling
+	// 'type'. Superseded by the structured 'source' object, but still parsed.
+	objectSchema.Properties.Set("source", &jsonschema.Schema{
+		OneOf: []*jsonschema.Schema{
+			{Type: "string"},
+			{Ref: "#/$defs/FSSource"},
+		},
+	})
+	objectSchema.Properties.Set("type", &jsonschema.Schema{Type: "string"})
+
 	applyOneOf(schema,
 		&jsonschema.Schema{Type: "string"},
 		&objectSchema,
@@ -151,6 +165,9 @@ func (FSSource) JSONSchemaExtend(schema *jsonschema.Schema) {
 	if schema == nil {
 		return
 	}
+	schema.If = &jsonschema.Schema{Required: []string{"dockerfile"}}
+	schema.Then = &jsonschema.Schema{Properties: jsonschema.NewProperties()}
+	schema.Then.Properties.Set("type", &jsonschema.Schema{Const: string(SourceTypeDockerfile)})
 	schema.AdditionalProperties = jsonschema.TrueSchema
 }
 

@@ -289,6 +289,9 @@ Each entry follows the same syntax as `rootfs` (both short-hand and long-hand):
 ```yaml
 spec: v0.7
 
+targets:
+  - kraftcloud/x86_64
+
 roms:
   - ./extra-data/
   - source:
@@ -296,6 +299,9 @@ roms:
       type: erofs
     format: erofs
 ```
+
+ROMs are architecture-specific, so a build MUST be able to resolve which architectures to build them for.
+A `Kraftfile` that declares `roms` and no `runtime` therefore MUST also declare `targets`, unless the architecture is supplied by the tooling.
 
 ## Top-level `unikraft` attribute
 

@@ -14,6 +14,8 @@ import (
 	"syscall"
 )
 
+var ErrNoKraftfile = errors.New("no kraftfile found in directory")
+
 func ParseFile(path string, opts ...ParseOpt) (*Kraftfile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -38,7 +40,7 @@ func ParseDirectory(path string, opts ...ParseOpt) (*Kraftfile, error) {
 			return ParseFile(filepath.Join(path, file.Name()), opts...)
 		}
 	}
-	return nil, fmt.Errorf("no kraftfile found in directory")
+	return nil, ErrNoKraftfile
 }
 
 var DefaultFileNames = []string{

@@ -11,7 +11,7 @@ import (
 
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/docker/cli/cli/config"
-	imagespec "github.com/unikraft-cloud/x/image-spec"
+	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/version"
 )
 

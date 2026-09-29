@@ -4,10 +4,9 @@ package {{ .Var "package" "client" }}
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"time"
-
-	jsonv2 "github.com/go-json-experiment/json"
-	"github.com/go-json-experiment/json/jsontext"
 )
 
 // Prevent unused import errors.
@@ -49,14 +48,14 @@ type {{ $schemaName }} struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-// UnmarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is populated with any unknown object members.
 func (m *{{ $schemaName }}) UnmarshalJSON(data []byte) error {
 	type Alias {{ $schemaName }}
 	return jsonv2.Unmarshal(data, (*Alias)(m))
 }
 
-// MarshalJSON delegates to go-json-experiment so that AdditionalProperties
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
 // (tagged `json:",embed"`) is flattened into the parent JSON object.
 func (m {{ $schemaName }}) MarshalJSON() ([]byte, error) {
 	type Alias {{ $schemaName }}

@@ -8,6 +8,8 @@ package sanitize
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSanitizeErrorMessage(t *testing.T) {
@@ -112,15 +114,11 @@ func TestSanitizeErrorMessage(t *testing.T) {
 			result := SanitizeErrorMessage(tt.input)
 
 			for _, want := range tt.contains {
-				if !strings.Contains(result, want) {
-					t.Errorf("sanitizeErrorMessage() = %q, should contain %q", result, want)
-				}
+				assert.Contains(t, result, want)
 			}
 
 			for _, exclude := range tt.excludes {
-				if strings.Contains(result, exclude) {
-					t.Errorf("sanitizeErrorMessage() = %q, should NOT contain %q", result, exclude)
-				}
+				assert.NotContains(t, result, exclude)
 			}
 		})
 	}

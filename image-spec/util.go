@@ -112,3 +112,27 @@ func Manifests(ctx context.Context, provider content.Provider, image ocispec.Des
 
 	return m, nil
 }
+
+// ignoringOSFeatures strips OSFeatures from candidates before matching, so a
+// platform without them still matches descriptors that carry them.
+func ignoringOSFeatures(m platforms.MatchComparer) platforms.MatchComparer {
+	if m == nil {
+		return nil
+	}
+	return ignoringOSFeaturesMatcher{m}
+}
+
+type ignoringOSFeaturesMatcher struct {
+	platforms.MatchComparer
+}
+
+func (m ignoringOSFeaturesMatcher) Match(p ocispec.Platform) bool {
+	p.OSFeatures = nil
+	return m.MatchComparer.Match(p)
+}
+
+func (m ignoringOSFeaturesMatcher) Less(p1, p2 ocispec.Platform) bool {
+	p1.OSFeatures = nil
+	p2.OSFeatures = nil
+	return m.MatchComparer.Less(p1, p2)
+}

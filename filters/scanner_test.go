@@ -8,6 +8,8 @@ package filters
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type tokenResult struct {
@@ -370,16 +372,12 @@ func TestScanner(t *testing.T) {
 					}
 				} else {
 					tokv := tokenResult{pos: pos, token: tok, text: s}
-					if i >= len(testcase.expected) {
-						t.Fatalf("too many tokens parsed")
-					}
+					require.Less(t, i, len(testcase.expected), "too many tokens parsed")
 					if tok == tokenIllegal {
 						tokv.err = sc.err
 					}
 
-					if tokv != testcase.expected[i] {
-						t.Fatalf("token unexpected: %v != %v", tokv, testcase.expected[i])
-					}
+					require.Equal(t, testcase.expected[i], tokv)
 				}
 
 				if tok == tokenEOF {
@@ -390,13 +388,9 @@ func TestScanner(t *testing.T) {
 
 			// make sure we've eof'd
 			_, tok, _ := sc.scan()
-			if tok != tokenEOF {
-				t.Fatal("must consume all input")
-			}
+			require.Equal(t, token(tokenEOF), tok, "must consume all input")
 
-			if len(testcase.expected) == 0 {
-				t.Fatal("must define expected tokens")
-			}
+			require.NotEmpty(t, testcase.expected, "must define expected tokens")
 		})
 	}
 }

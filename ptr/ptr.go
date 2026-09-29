@@ -19,7 +19,7 @@ import (
 // Deprecated: Ptr exists for historical compatibility and should not be used.
 // Please use ToPtr instead.
 func Ptr[t any](v t) *t {
-	return &v
+	return new(v)
 }
 
 // ZeroIfNil returns the zero value of type T if the pointer is nil,
@@ -120,7 +120,7 @@ func SafeDeref[T any](ptr *T) (T, bool) {
 // ToPtr converts a value to a pointer.
 // Returns a pointer to the value.
 func ToPtr[T any](value T) *T {
-	return &value
+	return new(value)
 }
 
 // FromPtr converts a pointer to an optional-style (value, ok) pair.
