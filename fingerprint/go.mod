@@ -8,7 +8,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/sys v0.48.0
-	tailscale.com v1.102.4
+	tailscale.com v1.102.5
 	unikraft.com/x/ptr v0.0.0-20260108134909-16540cbbe59c
 )
 
