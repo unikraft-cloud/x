@@ -24,7 +24,7 @@ func TestWithDefaultTag(t *testing.T) {
 
 	tagged := ref.WithDefaultTag()
 	require.Equal(t, "latest", tagged.Tag())
-	require.Equal(t, "docker.io/library/nginx:latest", tagged.String())
+	require.Equal(t, "unikraft.io/official/nginx:latest", tagged.String())
 
 	require.Equal(t, tagged, tagged.WithDefaultTag())
 	require.Equal(t, ref, tagged.WithoutDefaultTag())
@@ -55,11 +55,7 @@ func TestWithoutDefaultTag(t *testing.T) {
 }
 
 func TestFormat(t *testing.T) {
-	const (
-		domain = "unikraft.io"
-		prefix = "official/"
-	)
-	opts := reference.FormatOpts{DefaultDomain: domain, DefaultPrefix: prefix}
+	opts := reference.FormatOpts{}
 
 	for _, tt := range []struct{ name, in, want, wantShort string }{
 		{
@@ -97,7 +93,7 @@ func TestFormat(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ref, err := reference.Parse(tt.in, reference.WithDefaultDomain(domain), reference.WithDefaultPrefix(prefix))
+			ref, err := reference.Parse(tt.in)
 			require.NoError(t, err)
 
 			require.Equal(t, tt.want, ref.Format(opts))
@@ -106,7 +102,7 @@ func TestFormat(t *testing.T) {
 			short.OmitDigest = true
 			require.Equal(t, tt.wantShort, ref.Format(short))
 
-			back, err := reference.Parse(tt.want, reference.WithDefaultDomain(domain), reference.WithDefaultPrefix(prefix))
+			back, err := reference.Parse(tt.want)
 			require.NoError(t, err)
 			require.Equal(t, ref, back, "Format is not round-tripping")
 		})
@@ -118,7 +114,7 @@ func TestFormat(t *testing.T) {
 func TestMatches(t *testing.T) {
 	parse := func(t *testing.T, s string) reference.Reference {
 		t.Helper()
-		ref, err := reference.Parse(s, reference.WithDefaultDomain("unikraft.io"), reference.WithDefaultPrefix("official/"))
+		ref, err := reference.Parse(s)
 		require.NoError(t, err)
 		return ref
 	}
@@ -361,11 +357,7 @@ func TestStringIsAFixedPoint(t *testing.T) {
 }
 
 func TestFormatDoesNotRenderADifferentImage(t *testing.T) {
-	const (
-		domain = "unikraft.io"
-		prefix = "official/"
-	)
-	opts := reference.FormatOpts{DefaultDomain: domain, DefaultPrefix: prefix}
+	opts := reference.FormatOpts{}
 
 	for _, tt := range []struct{ name, want string }{
 		{"unikraft.io/official/nginx", "nginx"},

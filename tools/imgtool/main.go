@@ -17,11 +17,11 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/containerd/platforms"
-	"github.com/distribution/reference"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/tonistiigi/units"
 
 	imagespec "unikraft.com/x/image-spec"
+	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/log"
 	"unikraft.com/x/version"
 )
@@ -219,11 +219,8 @@ func (c *DeleteCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-func name(named reference.Named, desc ocispec.Descriptor) string {
-	result := ""
-	if named != nil {
-		result = reference.FamiliarString(named)
-	}
+func name(ref reference.Reference, desc ocispec.Descriptor) string {
+	result := ref.Format(reference.FormatOpts{})
 	if desc.Digest != "" {
 		if result != "" {
 			result += "@"
