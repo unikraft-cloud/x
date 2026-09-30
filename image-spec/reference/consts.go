@@ -6,9 +6,12 @@
 package reference
 
 const (
+	defaultDomain = "unikraft.io"
+	defaultPrefix = "official/"
+
 	dockerDomain       = "docker.io"
 	legacyDockerDomain = "index.docker.io"
-	officialRepoPrefix = "library/"
+	dockerPrefix       = "library/"
 
 	defaultTag = "latest"
 	localhost  = "localhost"

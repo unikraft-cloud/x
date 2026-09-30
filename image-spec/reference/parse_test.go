@@ -17,11 +17,6 @@ import (
 )
 
 func TestParseDefaults(t *testing.T) {
-	opts := []reference.ParseOpt{
-		reference.WithDefaultDomain("unikraft.io"),
-		reference.WithDefaultPrefix("official"),
-	}
-
 	for _, tt := range []struct{ name, in, want string }{
 		{"a bare name gets the domain and prefix", "nginx", "unikraft.io/official/nginx"},
 		{"a tag survives", "nginx:v1", "unikraft.io/official/nginx:v1"},
@@ -30,14 +25,14 @@ func TestParseDefaults(t *testing.T) {
 		{"a third-party domain gets no prefix", "example.org/nginx", "example.org/nginx"},
 		{"localhost is a domain, not a namespace", "localhost/nginx", "localhost/nginx"},
 
-		{"docker hub gets library, not the caller's prefix", "docker.io/nginx", "docker.io/library/nginx"},
+		{"docker hub gets library, not official", "docker.io/nginx", "docker.io/library/nginx"},
 		{"the legacy docker index is canonicalized", "index.docker.io/nginx", "docker.io/library/nginx"},
 		{"a namespaced docker hub name is untouched", "docker.io/myuser/app", "docker.io/myuser/app"},
 
 		{"index.unikraft.io stays distinct", "index.unikraft.io/me/app", "index.unikraft.io/me/app"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ref, err := reference.Parse(tt.in, opts...)
+			ref, err := reference.Parse(tt.in)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, ref.AsNamed().String())
 			require.Equal(t, tt.want, ref.String())
@@ -45,7 +40,8 @@ func TestParseDefaults(t *testing.T) {
 	}
 }
 
-func TestParseMatchesUpstreamNormalizationByDefault(t *testing.T) {
+func TestParseMatchesUpstreamOnDockerHub(t *testing.T) {
+	opt := reference.WithDefaultDomain("docker.io")
 	for _, tt := range []struct{ in, want string }{
 		{"nginx", "docker.io/library/nginx"},
 		{"nginx:v1", "docker.io/library/nginx:v1"},
@@ -54,11 +50,11 @@ func TestParseMatchesUpstreamNormalizationByDefault(t *testing.T) {
 		{"index.docker.io/nginx", "docker.io/library/nginx"},
 		{"example.org:5000/nginx", "example.org:5000/nginx"},
 	} {
-		ref, err := reference.Parse(tt.in)
+		ref, err := reference.Parse(tt.in, opt)
 		require.NoError(t, err, "input %q", tt.in)
 		require.Equal(t, tt.want, ref.AsNamed().String(), "input %q", tt.in)
 
-		named, err := reference.ParseNormalizedNamed(tt.in)
+		named, err := reference.ParseNormalizedNamed(tt.in, opt)
 		require.NoError(t, err, "input %q", tt.in)
 		upstream, err := distref.ParseNormalizedNamed(tt.in)
 		require.NoError(t, err, "input %q", tt.in)
@@ -67,8 +63,7 @@ func TestParseMatchesUpstreamNormalizationByDefault(t *testing.T) {
 }
 
 func TestParseNormalizedNamed(t *testing.T) {
-	named, err := reference.ParseNormalizedNamed("nginx:v1",
-		reference.WithDefaultDomain("unikraft.io"), reference.WithDefaultPrefix("official/"))
+	named, err := reference.ParseNormalizedNamed("nginx:v1")
 	require.NoError(t, err)
 	require.Equal(t, "unikraft.io/official/nginx:v1", named.String())
 
@@ -81,22 +76,21 @@ func TestParseNormalizedNamed(t *testing.T) {
 func TestParseRejectsBareIdentifier(t *testing.T) {
 	const identifier = "43d3d758e6fba7d4734ac142cfdbf8aa786fcbbfd828017eecaadc5140a4b190"
 
-	_, err := reference.Parse(identifier, reference.WithDefaultDomain("unikraft.io"))
+	_, err := reference.Parse(identifier)
 	require.ErrorIs(t, err, reference.ErrInvalidReference)
 	require.ErrorContains(t, err, "cannot specify 64-byte hexadecimal strings")
 
 	for _, in := range []string{identifier + ":v1", identifier[:63], identifier + "a"} {
-		ref, err := reference.Parse(in, reference.WithDefaultDomain("unikraft.io"), reference.WithDefaultPrefix("official/"))
+		ref, err := reference.Parse(in)
 		require.NoError(t, err, "input %q", in)
 		require.True(t, strings.HasPrefix(ref.String(), "unikraft.io/official/"), "input %q -> %s", in, ref)
 	}
 }
 
 func TestParseOptionsIgnoreEmptyValues(t *testing.T) {
-	ref, err := reference.Parse("nginx",
-		reference.WithDefaultDomain(""), reference.WithDefaultPrefix(""))
+	ref, err := reference.Parse("nginx", reference.WithDefaultDomain(""))
 	require.NoError(t, err)
-	require.Equal(t, "docker.io/library/nginx", ref.String())
+	require.Equal(t, "unikraft.io/official/nginx", ref.String())
 }
 
 func TestParseHTTP(t *testing.T) {
@@ -334,8 +328,8 @@ func TestParseOCI(t *testing.T) {
 		in    string
 		named string
 	}{
-		{name: "bare", in: "nginx", named: "docker.io/library/nginx"},
-		{name: "tagged", in: "myuser/app:v1", named: "docker.io/myuser/app:v1"},
+		{name: "bare", in: "nginx", named: "unikraft.io/official/nginx"},
+		{name: "tagged", in: "myuser/app:v1", named: "unikraft.io/myuser/app:v1"},
 		{
 			name:  "oci scheme is stripped",
 			in:    "oci://index.unikraft.io/me/app@" + testDigest,

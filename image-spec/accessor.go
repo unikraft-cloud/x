@@ -14,8 +14,8 @@ import (
 	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
-	"github.com/distribution/reference"
 
+	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/image-spec/schemes"
 )
 
@@ -23,16 +23,12 @@ type Accessor struct {
 	remote          remotes.Resolver
 	registryHosts   docker.RegistryHosts
 	registryHeaders http.Header
-	refParser       func(string) (reference.Named, error)
 }
 
 func NewAccessor(opts ...AccessOpt) *Accessor {
 	s := &Accessor{}
 	for _, o := range opts {
 		o(s)
-	}
-	if s.refParser == nil {
-		s.refParser = reference.ParseNormalizedNamed
 	}
 	if s.remote == nil {
 		s.remote = docker.NewResolver(docker.ResolverOptions{})
@@ -64,16 +60,10 @@ func WithRegistryHeaders(headers http.Header) AccessOpt {
 	}
 }
 
-func WithReferenceParser(rp func(string) (reference.Named, error)) AccessOpt {
-	return func(so *Accessor) {
-		so.refParser = rp
-	}
-}
-
 func (accessor *Accessor) Load(ctx context.Context, src *Location, platform platforms.MatchComparer) (*Image, error) {
 	switch src.Scheme {
 	case schemes.OCI:
-		named, err := accessor.refParser(src.Path)
+		named, err := reference.ParseNormalizedNamed(src.Path)
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
@@ -91,7 +81,7 @@ func (accessor *Accessor) Load(ctx context.Context, src *Location, platform plat
 func (accessor *Accessor) LoadAll(ctx context.Context, src *Location, platform platforms.MatchComparer) ([]*Image, error) {
 	switch src.Scheme {
 	case schemes.OCI:
-		named, err := accessor.refParser(src.Path)
+		named, err := reference.ParseNormalizedNamed(src.Path)
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
@@ -109,7 +99,7 @@ func (accessor *Accessor) LoadAll(ctx context.Context, src *Location, platform p
 func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Image) error {
 	switch dest.Scheme {
 	case schemes.OCI:
-		named, err := accessor.refParser(dest.Path)
+		named, err := reference.ParseNormalizedNamed(dest.Path)
 		if err != nil {
 			return fmt.Errorf("parsing image reference %q: %w", dest, err)
 		}
@@ -135,7 +125,7 @@ func (accessor *Accessor) Delete(ctx context.Context, target *Location) error {
 		if accessor.registryHosts == nil {
 			return fmt.Errorf("no registry hosts configured for %q", target.Path)
 		}
-		named, err := accessor.refParser(target.Path)
+		named, err := reference.ParseNormalizedNamed(target.Path)
 		if err != nil {
 			return fmt.Errorf("parsing image reference %q: %w", target, err)
 		}

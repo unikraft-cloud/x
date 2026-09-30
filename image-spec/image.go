@@ -10,15 +10,16 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/v2/core/content"
-	"github.com/distribution/reference"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"unikraft.com/x/image-spec/reference"
 )
 
 // Image represents a unikraft image stored in OCI format.
 type Image struct {
 	// Name is the reference name of the image (if available), which is where
 	// it was loaded from.
-	Name reference.Named
+	Name reference.Reference
 
 	// Descriptor is the OCI descriptor of the image manifest (if available).
 	Descriptor ocispec.Descriptor

@@ -159,14 +159,10 @@ func (r Reference) String() string {
 type FormatOpts struct {
 	// OmitDigest removes the digest, for concise output such as a table cell.
 	OmitDigest bool
-
-	// DefaultDomain and DefaultPrefix are removed when present.
-	DefaultDomain string
-	DefaultPrefix string
 }
 
-// Format renders r in the short form a human reads. An HTTP reference is
-// rendered as its URI.
+// Format renders r in the short form a human reads, the inverse of Parse with
+// no options. An HTTP reference is rendered as its URI.
 func (r Reference) Format(o FormatOpts) string {
 	if r.IsZero() {
 		return ""
@@ -179,13 +175,11 @@ func (r Reference) Format(o FormatOpts) string {
 	}
 
 	domain, repository := r.domain, r.path
-	if domain == o.DefaultDomain {
+	if domain == defaultDomain {
 		candidate, trimmed := repository, false
 
-		if o.DefaultPrefix != "" && strings.HasPrefix(candidate, o.DefaultPrefix) {
-			if rest := strings.TrimPrefix(candidate, o.DefaultPrefix); !strings.ContainsRune(rest, '/') {
-				candidate, trimmed = rest, true
-			}
+		if rest, ok := strings.CutPrefix(candidate, defaultPrefix); ok && !strings.ContainsRune(rest, '/') {
+			candidate, trimmed = rest, true
 		}
 
 		if trimmed || strings.ContainsRune(candidate, '/') {

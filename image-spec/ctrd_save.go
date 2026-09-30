@@ -20,11 +20,11 @@ import (
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/pkg/labels"
 	"github.com/containerd/errdefs"
-	"github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	ocispecs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
+
 	"unikraft.com/x/log"
 )
 
@@ -226,14 +226,14 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 
 	// if the image source has a name, add a cross-repo mount
 	wdesc := desc
-	if image.Name != nil {
+	if !image.Name.IsZero() {
 		if wdesc.Annotations == nil {
 			wdesc.Annotations = make(map[string]string)
 		} else {
 			wdesc.Annotations = maps.Clone(wdesc.Annotations)
 		}
-		source := reference.Domain(image.Name)
-		repo := reference.Path(image.Name)
+		source := image.Name.Domain()
+		repo := image.Name.Path()
 		wdesc.Annotations[labels.LabelDistributionSource+"."+source] = repo
 	}
 

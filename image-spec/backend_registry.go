@@ -18,11 +18,12 @@ import (
 	ctrdreference "github.com/containerd/containerd/v2/pkg/reference"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
-	"github.com/distribution/reference"
+	distref "github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"unikraft.com/x/image-spec/contentutil"
+	"unikraft.com/x/image-spec/reference"
 )
 
 // This file provides functions for loading and saving images to/from remote
@@ -33,18 +34,18 @@ import (
 // our global harbor (at index.unikraft.io), as well as direct push.
 
 // LoadRegistryImage loads a image from a remote registry.
-func LoadRegistryImage(ctx context.Context, named reference.Named, remote remotes.Resolver, platform platforms.MatchComparer) (*Image, error) {
-	named = reference.TagNameOnly(named)
+func LoadRegistryImage(ctx context.Context, named distref.Named, remote remotes.Resolver, platform platforms.MatchComparer) (*Image, error) {
+	named = distref.TagNameOnly(named)
 
 	name, desc, err := remote.Resolve(ctx, named.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve image %q: %w", named, err)
 	}
-	ref, err := reference.Parse(name)
+	ref, err := distref.Parse(name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse resolved image name %q: %w", name, err)
 	}
-	named, ok := ref.(reference.Named)
+	named, ok := ref.(distref.Named)
 	if !ok {
 		return nil, fmt.Errorf("resolved image name %q is not a named reference", name)
 	}
@@ -59,23 +60,26 @@ func LoadRegistryImage(ctx context.Context, named reference.Named, remote remote
 	if err != nil {
 		return nil, fmt.Errorf("failed to load image %q: %w", named, err)
 	}
-	img.Name = named
+	img.Name, err = reference.FromNamed(named)
+	if err != nil {
+		return nil, fmt.Errorf("naming image %q: %w", named, err)
+	}
 	return img, nil
 }
 
 // LoadAllRegistryImages loads all available images from a remote registry.
-func LoadAllRegistryImages(ctx context.Context, named reference.Named, remote remotes.Resolver, platform platforms.MatchComparer) ([]*Image, error) {
-	named = reference.TagNameOnly(named)
+func LoadAllRegistryImages(ctx context.Context, named distref.Named, remote remotes.Resolver, platform platforms.MatchComparer) ([]*Image, error) {
+	named = distref.TagNameOnly(named)
 
 	name, desc, err := remote.Resolve(ctx, named.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve image %q: %w", named, err)
 	}
-	ref, err := reference.Parse(name)
+	ref, err := distref.Parse(name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse resolved image name %q: %w", name, err)
 	}
-	named, ok := ref.(reference.Named)
+	named, ok := ref.(distref.Named)
 	if !ok {
 		return nil, fmt.Errorf("resolved image name %q is not a named reference", name)
 	}
@@ -90,15 +94,19 @@ func LoadAllRegistryImages(ctx context.Context, named reference.Named, remote re
 	if err != nil {
 		return nil, fmt.Errorf("failed to load image %q: %w", named, err)
 	}
+	imgName, err := reference.FromNamed(named)
+	if err != nil {
+		return nil, fmt.Errorf("naming image %q: %w", named, err)
+	}
 	for _, img := range imgs {
-		img.Name = named
+		img.Name = imgName
 	}
 	return imgs, nil
 }
 
 // SaveRegistryImage saves a image to a remote registry.
-func SaveRegistryImage(ctx context.Context, named reference.Named, remote remotes.Resolver, image ...*Image) (reference.Named, ocispec.Descriptor, error) {
-	named = reference.TagNameOnly(named)
+func SaveRegistryImage(ctx context.Context, named distref.Named, remote remotes.Resolver, image ...*Image) (distref.Named, ocispec.Descriptor, error) {
+	named = distref.TagNameOnly(named)
 
 	pusher, err := remote.Pusher(ctx, named.String())
 	if err != nil {
@@ -114,8 +122,8 @@ func SaveRegistryImage(ctx context.Context, named reference.Named, remote remote
 }
 
 // DeleteRegistryImage deletes a image from a remote registry.
-func DeleteRegistryImage(ctx context.Context, named reference.Named, remote remotes.Resolver, hosts docker.RegistryHosts, headers http.Header) error {
-	named = reference.TagNameOnly(named)
+func DeleteRegistryImage(ctx context.Context, named distref.Named, remote remotes.Resolver, hosts docker.RegistryHosts, headers http.Header) error {
+	named = distref.TagNameOnly(named)
 
 	name, desc, err := remote.Resolve(ctx, named.String())
 	if err != nil {
@@ -136,11 +144,11 @@ func DeleteRegistryImage(ctx context.Context, named reference.Named, remote remo
 		return err
 	}
 
-	ref, err := reference.Parse(name)
+	ref, err := distref.Parse(name)
 	if err != nil {
 		return fmt.Errorf("failed to parse resolved image name %q: %w", name, err)
 	}
-	resolved, ok := ref.(reference.Named)
+	resolved, ok := ref.(distref.Named)
 	if !ok {
 		return fmt.Errorf("resolved image name %q is not a named reference", name)
 	}
@@ -148,8 +156,8 @@ func DeleteRegistryImage(ctx context.Context, named reference.Named, remote remo
 		return fmt.Errorf("no registry hosts configured for %q", resolved)
 	}
 
-	refHost := reference.Domain(resolved)
-	repository := reference.Path(resolved)
+	refHost := distref.Domain(resolved)
+	repository := distref.Path(resolved)
 	if repository == "" {
 		return fmt.Errorf("resolved image name %q has empty repository", name)
 	}

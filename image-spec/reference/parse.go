@@ -33,15 +33,13 @@ var (
 
 type parseOptions struct {
 	defaultDomain string
-	defaultPrefix string
 }
 
-// ParseOpt sets the registry domain and repository prefix that an identifier
-// leaves implicit. Parse adds them and Format takes them away again.
+// ParseOpt changes what an identifier leaves implicit.
 type ParseOpt func(*parseOptions)
 
 // WithDefaultDomain sets the registry domain to assume for an identifier that
-// does not name one. An empty domain is ignored.
+// does not name one, in place of unikraft.io. An empty domain is ignored.
 func WithDefaultDomain(domain string) ParseOpt {
 	if domain == legacyDockerDomain {
 		domain = dockerDomain
@@ -53,23 +51,8 @@ func WithDefaultDomain(domain string) ParseOpt {
 	}
 }
 
-// WithDefaultPrefix sets the repository prefix to assume for a single-segment
-// repository on the default domain, for example "official/". A trailing '/' is
-// added if absent. An empty prefix is ignored.
-func WithDefaultPrefix(prefix string) ParseOpt {
-	return func(o *parseOptions) {
-		if prefix == "" {
-			return
-		}
-		if !strings.HasSuffix(prefix, "/") {
-			prefix += "/"
-		}
-		o.defaultPrefix = prefix
-	}
-}
-
 func newParseOptions(opts []ParseOpt) parseOptions {
-	o := parseOptions{defaultDomain: dockerDomain, defaultPrefix: officialRepoPrefix}
+	o := parseOptions{defaultDomain: defaultDomain}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -300,11 +283,9 @@ func parseNormalizedNamed(s string, o parseOptions) (distref.Named, error) {
 // using the default domain when the name does not carry one.
 func splitDockerDomain(name string, o parseOptions) (domain, remoteName string) {
 	maybeDomain, maybeRemoteName, ok := strings.Cut(name, "/")
-	if !ok {
-		return o.defaultDomain, o.defaultPrefix + name
-	}
-
 	switch {
+	case !ok:
+		domain, remoteName = o.defaultDomain, name
 	case maybeDomain == legacyDockerDomain:
 		domain, remoteName = dockerDomain, maybeRemoteName
 	case isDomain(maybeDomain):
@@ -315,11 +296,10 @@ func splitDockerDomain(name string, o parseOptions) (domain, remoteName string) 
 
 	if !strings.ContainsRune(remoteName, '/') {
 		switch domain {
-		case o.defaultDomain:
-			remoteName = o.defaultPrefix + remoteName
 		case dockerDomain:
-			// Docker Hub's official namespace is fixed, whatever the options say.
-			remoteName = officialRepoPrefix + remoteName
+			remoteName = dockerPrefix + remoteName
+		case o.defaultDomain:
+			remoteName = defaultPrefix + remoteName
 		}
 	}
 
