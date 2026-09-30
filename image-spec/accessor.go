@@ -16,7 +16,7 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/distribution/reference"
 
-	"unikraft.com/x/image-spec/uri"
+	"unikraft.com/x/image-spec/schemes"
 )
 
 type Accessor struct {
@@ -70,68 +70,68 @@ func WithReferenceParser(rp func(string) (reference.Named, error)) AccessOpt {
 	}
 }
 
-func (accessor *Accessor) Load(ctx context.Context, src *URI, platform platforms.MatchComparer) (*Image, error) {
+func (accessor *Accessor) Load(ctx context.Context, src *Location, platform platforms.MatchComparer) (*Image, error) {
 	switch src.Scheme {
-	case URISchemeOCI:
+	case schemes.OCI:
 		named, err := accessor.refParser(src.Path)
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
 		return LoadRegistryImage(ctx, named, accessor.remote, platform)
-	case URISchemeOCILayout:
-		path, tag := uri.SplitPathTag(src.Path)
+	case schemes.OCILayout:
+		path, tag := splitPathTag(src.Path)
 		return LoadOCILayoutNamed(ctx, path, tag, platform)
-	case URISchemeOCIArchive:
+	case schemes.OCIArchive:
 		return LoadTarball(ctx, src.Path, platform)
 	default:
-		return nil, fmt.Errorf("unsupported URI scheme: %q", src.Scheme)
+		return nil, fmt.Errorf("unsupported location scheme: %q", src.Scheme)
 	}
 }
 
-func (accessor *Accessor) LoadAll(ctx context.Context, src *URI, platform platforms.MatchComparer) ([]*Image, error) {
+func (accessor *Accessor) LoadAll(ctx context.Context, src *Location, platform platforms.MatchComparer) ([]*Image, error) {
 	switch src.Scheme {
-	case URISchemeOCI:
+	case schemes.OCI:
 		named, err := accessor.refParser(src.Path)
 		if err != nil {
 			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
 		return LoadAllRegistryImages(ctx, named, accessor.remote, platform)
-	case URISchemeOCILayout:
-		path, tag := uri.SplitPathTag(src.Path)
+	case schemes.OCILayout:
+		path, tag := splitPathTag(src.Path)
 		return LoadAllOCILayoutsNamed(ctx, path, tag, platform)
-	case URISchemeOCIArchive:
+	case schemes.OCIArchive:
 		return LoadAllTarballs(ctx, src.Path, platform)
 	default:
-		return nil, fmt.Errorf("unsupported URI scheme: %q", src.Scheme)
+		return nil, fmt.Errorf("unsupported location scheme: %q", src.Scheme)
 	}
 }
 
-func (accessor *Accessor) Save(ctx context.Context, dest *URI, img ...*Image) error {
+func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Image) error {
 	switch dest.Scheme {
-	case URISchemeOCI:
+	case schemes.OCI:
 		named, err := accessor.refParser(dest.Path)
 		if err != nil {
 			return fmt.Errorf("parsing image reference %q: %w", dest, err)
 		}
 		_, _, err = SaveRegistryImage(ctx, named, accessor.remote, img...)
 		return err
-	case URISchemeOCILayout:
-		path, tag := uri.SplitPathTag(dest.Path)
+	case schemes.OCILayout:
+		path, tag := splitPathTag(dest.Path)
 		if tag == "" {
 			tag = "latest"
 		}
 		_, err := SaveOCILayoutNamed(ctx, path, tag, img...)
 		return err
-	case URISchemeOCIArchive:
+	case schemes.OCIArchive:
 		return SaveTarball(ctx, dest.Path, img...)
 	default:
-		return fmt.Errorf("unsupported URI scheme: %q", dest.Scheme)
+		return fmt.Errorf("unsupported location scheme: %q", dest.Scheme)
 	}
 }
 
-func (accessor *Accessor) Delete(ctx context.Context, target *URI) error {
+func (accessor *Accessor) Delete(ctx context.Context, target *Location) error {
 	switch target.Scheme {
-	case URISchemeOCI:
+	case schemes.OCI:
 		if accessor.registryHosts == nil {
 			return fmt.Errorf("no registry hosts configured for %q", target.Path)
 		}
@@ -140,15 +140,15 @@ func (accessor *Accessor) Delete(ctx context.Context, target *URI) error {
 			return fmt.Errorf("parsing image reference %q: %w", target, err)
 		}
 		return DeleteRegistryImage(ctx, named, accessor.remote, accessor.registryHosts, accessor.registryHeaders)
-	case URISchemeOCILayout:
-		path, tag := uri.SplitPathTag(target.Path)
+	case schemes.OCILayout:
+		path, tag := splitPathTag(target.Path)
 		if tag == "" {
 			return os.RemoveAll(path)
 		}
 		return DeleteOCILayoutNamed(path, tag)
-	case URISchemeOCIArchive:
+	case schemes.OCIArchive:
 		return os.Remove(target.Path)
 	default:
-		return fmt.Errorf("unsupported URI scheme: %q", target.Scheme)
+		return fmt.Errorf("unsupported location scheme: %q", target.Scheme)
 	}
 }
