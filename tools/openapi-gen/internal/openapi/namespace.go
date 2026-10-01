@@ -116,8 +116,8 @@ func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
 	// valid Go identifiers. The namespace each name carried is recorded on the
 	// parser, since the flattened name no longer shows it and consumers such as
 	// goUnions need it to qualify a type from another namespace. Package-level
-	// qualification is handled separately via the "x-package" extension and the
-	// "current_package" template var (see getTypePackage).
+	// qualification is handled separately via Parser.SchemaPackage (see
+	// getTypePackage).
 	renamed := make(openapi3.Schemas, len(doc.Components.Schemas))
 	namespaces := map[string]string{}
 	for name, ref := range doc.Components.Schemas {
