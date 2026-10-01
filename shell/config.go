@@ -33,6 +33,12 @@ type Builtin interface {
 	Run(ctx context.Context, streams stdio.Stdio, args []string) (int, error)
 }
 
+// Restarts is a Builtin that takes the instance down and up again, for the
+// arguments it reports true on
+type Restarts interface {
+	Restarts(args []string) bool
+}
+
 // BuiltinFunc is a Builtin made of a function.
 type BuiltinFunc func(ctx context.Context, streams stdio.Stdio, args []string) (int, error)
 
