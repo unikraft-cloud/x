@@ -42,19 +42,62 @@ type WidgetsHandler struct {
 	resp    func(*gin.Context, int, any)
 }
 
-// RegisterWidgets registers the HTTP handlers for the Widgets service.
-func RegisterWidgets(engine gin.IRouter, service Widgets, resp func(*gin.Context, int, any), middleware ...gin.HandlerFunc) {
+// Per-operation identifiers for Widgets, for use with WithOperationMiddleware.
+const (
+	OpCreateWidget = "CreateWidget"
+	OpDeleteWidget = "DeleteWidget"
+	OpGetWidget    = "GetWidget"
+	OpListWidgets  = "ListWidgets"
+	OpWatchWidget  = "WatchWidget"
+)
+
+// WidgetsRegistration configures and registers the HTTP handlers for the Widgets service.
+type WidgetsRegistration struct {
+	service      Widgets
+	resp         func(*gin.Context, int, any)
+	middleware   []gin.HandlerFunc
+	opMiddleware map[string][]gin.HandlerFunc
+}
+
+// NewWidgetsRegistration creates a WidgetsRegistration, configure it with WithMiddleware and WithOperationMiddleware, then call Register.
+func NewWidgetsRegistration(service Widgets, resp func(*gin.Context, int, any)) *WidgetsRegistration {
+	return &WidgetsRegistration{
+		service:      service,
+		resp:         resp,
+		opMiddleware: make(map[string][]gin.HandlerFunc),
+	}
+}
+
+// WithMiddleware adds middleware that runs for every operation in Widgets.
+func (r *WidgetsRegistration) WithMiddleware(middleware ...gin.HandlerFunc) *WidgetsRegistration {
+	r.middleware = append(r.middleware, middleware...)
+	return r
+}
+
+// WithOperationMiddleware adds middleware that runs only for operationID, after the service-wide middleware.
+func (r *WidgetsRegistration) WithOperationMiddleware(operationID string, middleware ...gin.HandlerFunc) *WidgetsRegistration {
+	r.opMiddleware[operationID] = append(r.opMiddleware[operationID], middleware...)
+	return r
+}
+
+// Register registers the HTTP handlers for the Widgets service on engine.
+func (r *WidgetsRegistration) Register(engine gin.IRouter) {
 	handler := &WidgetsHandler{
-		service: service,
-		resp:    resp,
+		service: r.service,
+		resp:    r.resp,
 	}
 
-	group := engine.Group("", middleware...)
-	group.Handle("POST", "/widgets", handler.createWidget)
-	group.Handle("DELETE", "/widgets/:id", handler.deleteWidget)
-	group.Handle("GET", "/widgets/:id", handler.getWidget)
-	group.Handle("GET", "/widgets", handler.listWidgets)
-	group.Handle("GET", "/widgets/:id/events", handler.watchWidget)
+	group := engine.Group("", r.middleware...)
+	group.Handle("POST", "/widgets", append(r.opMiddleware[OpCreateWidget], handler.createWidget)...)
+	group.Handle("DELETE", "/widgets/:id", append(r.opMiddleware[OpDeleteWidget], handler.deleteWidget)...)
+	group.Handle("GET", "/widgets/:id", append(r.opMiddleware[OpGetWidget], handler.getWidget)...)
+	group.Handle("GET", "/widgets", append(r.opMiddleware[OpListWidgets], handler.listWidgets)...)
+	group.Handle("GET", "/widgets/:id/events", append(r.opMiddleware[OpWatchWidget], handler.watchWidget)...)
+}
+
+// RegisterWidgets registers the HTTP handlers for the Widgets service.
+func RegisterWidgets(engine gin.IRouter, service Widgets, resp func(*gin.Context, int, any), middleware ...gin.HandlerFunc) {
+	NewWidgetsRegistration(service, resp).WithMiddleware(middleware...).Register(engine)
 }
 
 func (handler *WidgetsHandler) createWidget(g *gin.Context) {
