@@ -25,7 +25,18 @@ import (
 	"unikraft.com/x/ptr"
 )
 
-func New() (*Fingerprint, error) {
+func New(opts ...Option) (*Fingerprint, error) {
+	o := options{
+		machineId: true,
+		cpu:       true,
+		memory:    true,
+		kernel:    true,
+	}
+
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	host := hostinfo.New()
 	container, _ := host.Container.Get()
 
@@ -37,45 +48,8 @@ func New() (*Fingerprint, error) {
 		}
 	}
 
-	machineId, err := machineid.ID()
-	if err != nil {
-		return nil, err
-	}
-
-	if !uuid.FromStringOrNil(machineId).IsNil() {
-		machineId = strings.ToLower(machineId)
-	}
-
-	// The CPU details are best-effort, as WMI answers them on Windows and can
-	// fail or time out.
-	cpuInfo, _ := cpu.Info()
-	cpuCores, _ := cpu.Counts(false)
-	var cpu0 cpu.InfoStat
-	if len(cpuInfo) > 0 {
-		cpu0 = cpuInfo[0]
-	}
-
-	memInfo, err := mem.VirtualMemory()
-	if err != nil {
-		return nil, err
-	}
-
-	kernelRelease, kernelVersion := getKernelReleaseVersion()
-
-	return &Fingerprint{
-		MachineId:      machineId,
+	f := &Fingerprint{
 		Hostname:       dnsname.TrimCommonSuffixes(host.Hostname),
-		CpuCores:       ptr.NilIfZero(int32(cpuCores)),
-		CpusThreads:    ptr.NilIfZero(int32(len(cpuInfo))),
-		CpuVendorId:    ptr.NilIfZero(cpu0.VendorID),
-		CpuFamily:      ptr.NilIfZero(cpu0.Family),
-		CpuModel:       ptr.NilIfZero(cpu0.Model),
-		CpuModelName:   ptr.NilIfZero(cpu0.ModelName),
-		CpuCacheSize:   ptr.NilIfZero(cpu0.CacheSize),
-		CpuMhz:         ptr.NilIfZero(cpu0.Mhz),
-		CpuFlags:       cpu0.Flags,
-		CpuMicrocode:   ptr.NilIfZero(cpu0.Microcode),
-		MemTotal:       ptr.NilIfZero(int64(memInfo.Total)),
 		Os:             host.OS,
 		Container:      container,
 		Distro:         ptr.NilIfZero(host.Distro),
@@ -85,10 +59,56 @@ func New() (*Fingerprint, error) {
 		Goos:           runtime.GOOS,
 		GoVersion:      ptr.NilIfZero(runtime.Version()),
 		OsVersion:      ptr.NilIfZero(host.OSVersion),
-		KernelFeatures: detectKernelFeatures(),
-		KernelRelease:  ptr.NilIfZero(kernelRelease),
-		KernelVersion:  ptr.NilIfZero(kernelVersion),
-	}, nil
+	}
+
+	if o.machineId {
+		machineId, err := machineid.ID()
+		if err != nil {
+			return nil, err
+		}
+		if !uuid.FromStringOrNil(machineId).IsNil() {
+			machineId = strings.ToLower(machineId)
+		}
+		f.MachineId = machineId
+	}
+
+	if o.kernel {
+		kernelRelease, kernelVersion := getKernelReleaseVersion()
+		f.KernelFeatures = detectKernelFeatures()
+		f.KernelRelease = ptr.NilIfZero(kernelRelease)
+		f.KernelVersion = ptr.NilIfZero(kernelVersion)
+	}
+
+	if o.cpu {
+		// The CPU details are best-effort, as WMI answers them on Windows and can
+		// fail or time out.
+		cpuInfo, _ := cpu.Info()
+		cpuCores, _ := cpu.Counts(false)
+		var cpu0 cpu.InfoStat
+		if len(cpuInfo) > 0 {
+			cpu0 = cpuInfo[0]
+		}
+		f.CpuCores = ptr.NilIfZero(int32(cpuCores))
+		f.CpusThreads = ptr.NilIfZero(int32(len(cpuInfo)))
+		f.CpuVendorId = ptr.NilIfZero(cpu0.VendorID)
+		f.CpuFamily = ptr.NilIfZero(cpu0.Family)
+		f.CpuModel = ptr.NilIfZero(cpu0.Model)
+		f.CpuModelName = ptr.NilIfZero(cpu0.ModelName)
+		f.CpuCacheSize = ptr.NilIfZero(cpu0.CacheSize)
+		f.CpuMhz = ptr.NilIfZero(cpu0.Mhz)
+		f.CpuFlags = cpu0.Flags
+		f.CpuMicrocode = ptr.NilIfZero(cpu0.Microcode)
+	}
+
+	if o.memory {
+		memInfo, err := mem.VirtualMemory()
+		if err != nil {
+			return nil, err
+		}
+		f.MemTotal = ptr.NilIfZero(int64(memInfo.Total))
+	}
+
+	return f, nil
 }
 
 // getMacOSVersion retrieves the macOS version using the `sw_vers` command.
