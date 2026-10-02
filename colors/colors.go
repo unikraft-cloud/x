@@ -6,9 +6,42 @@
 package colors
 
 import (
+	"image/color"
+	"os"
+
 	"charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/compat"
+	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/term"
 )
+
+var (
+	// HasDarkBackground is true if the terminal has a dark background. Unlike
+	// lipgloss/v2/compat, it only asks a terminal: on Windows, lipgloss asks
+	// the console when stdin is redirected, and can wait for a reply forever.
+	HasDarkBackground = func() bool {
+		if !term.IsTerminal(os.Stdin.Fd()) || !term.IsTerminal(os.Stdout.Fd()) {
+			return true
+		}
+		return lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+	}()
+
+	// Profile is the color profile of the terminal.
+	Profile = colorprofile.Detect(os.Stdout, os.Environ())
+)
+
+// AdaptiveColor is a color for light and for dark terminal backgrounds.
+type AdaptiveColor struct {
+	Light color.Color
+	Dark  color.Color
+}
+
+// RGBA gives the color for the terminal background, as color.Color does.
+func (c AdaptiveColor) RGBA() (r, g, b, a uint32) {
+	if HasDarkBackground {
+		return c.Dark.RGBA()
+	}
+	return c.Light.RGBA()
+}
 
 var (
 	Blue50     = lipgloss.Color("#eff6ff")
@@ -67,34 +100,34 @@ var (
 	Slate900   = lipgloss.Color("#0f172b")
 	Slate950   = lipgloss.Color("#020618")
 
-	Primary     = compat.AdaptiveColor{Light: Blue500, Dark: Blue500}
+	Primary     = AdaptiveColor{Light: Blue500, Dark: Blue500}
 	PrimaryFg   = lipgloss.NewStyle().Foreground(Primary).Render
 	PrimaryFgBg = lipgloss.NewStyle().
-			Background(compat.AdaptiveColor{Light: Blue100, Dark: Blue900}).
-			Foreground(compat.AdaptiveColor{Light: Blue900, Dark: Blue100}).
+			Background(AdaptiveColor{Light: Blue100, Dark: Blue900}).
+			Foreground(AdaptiveColor{Light: Blue900, Dark: Blue100}).
 			Render
-	Success     = compat.AdaptiveColor{Light: Emerald500, Dark: Emerald500}
+	Success     = AdaptiveColor{Light: Emerald500, Dark: Emerald500}
 	SuccessFg   = lipgloss.NewStyle().Foreground(Success).Render
 	SuccessFgBg = lipgloss.NewStyle().
-			Background(compat.AdaptiveColor{Light: Emerald100, Dark: Emerald900}).
-			Foreground(compat.AdaptiveColor{Light: Emerald900, Dark: Emerald100}).
+			Background(AdaptiveColor{Light: Emerald100, Dark: Emerald900}).
+			Foreground(AdaptiveColor{Light: Emerald900, Dark: Emerald100}).
 			Render
-	Warning     = compat.AdaptiveColor{Light: Orange500, Dark: Orange500}
+	Warning     = AdaptiveColor{Light: Orange500, Dark: Orange500}
 	WarningFg   = lipgloss.NewStyle().Foreground(Warning).Render
 	WarningFgBg = lipgloss.NewStyle().
-			Background(compat.AdaptiveColor{Light: Orange100, Dark: Orange900}).
-			Foreground(compat.AdaptiveColor{Light: Orange900, Dark: Orange100}).
+			Background(AdaptiveColor{Light: Orange100, Dark: Orange900}).
+			Foreground(AdaptiveColor{Light: Orange900, Dark: Orange100}).
 			Render
-	Error     = compat.AdaptiveColor{Light: Rose600, Dark: Rose600}
+	Error     = AdaptiveColor{Light: Rose600, Dark: Rose600}
 	ErrorFg   = lipgloss.NewStyle().Foreground(Error).Render
 	ErrorFgBg = lipgloss.NewStyle().
-			Background(compat.AdaptiveColor{Light: Rose100, Dark: Rose900}).
-			Foreground(compat.AdaptiveColor{Light: Rose900, Dark: Rose100}).
+			Background(AdaptiveColor{Light: Rose100, Dark: Rose900}).
+			Foreground(AdaptiveColor{Light: Rose900, Dark: Rose100}).
 			Render
-	Info     = compat.AdaptiveColor{Light: Slate400, Dark: Slate400}
+	Info     = AdaptiveColor{Light: Slate400, Dark: Slate400}
 	InfoFg   = lipgloss.NewStyle().Foreground(Info).Render
 	InfoFgBg = lipgloss.NewStyle().
-			Background(compat.AdaptiveColor{Light: Slate100, Dark: Slate900}).
-			Foreground(compat.AdaptiveColor{Light: Slate900, Dark: Slate100}).
+			Background(AdaptiveColor{Light: Slate100, Dark: Slate900}).
+			Foreground(AdaptiveColor{Light: Slate900, Dark: Slate100}).
 			Render
 )
