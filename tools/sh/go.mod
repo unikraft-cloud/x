@@ -42,7 +42,7 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	mvdan.cc/sh/v3 v3.14.1 // indirect
-	unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1 // indirect
+	unikraft.com/x/colors v0.0.0-20261002142539-8e42d27c6ee0 // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1 // indirect
 	unikraft.com/x/io v0.0.0-20260917091642-9e44538566da // indirect
 	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1 // indirect

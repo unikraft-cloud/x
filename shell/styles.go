@@ -7,14 +7,13 @@ package shell
 
 import (
 	"charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/compat"
 	"unikraft.com/x/colors"
 )
 
 // The colours are the CLI's
 var (
-	stringColor   = compat.AdaptiveColor{Light: colors.Emerald600, Dark: colors.Emerald400}
-	operatorColor = compat.AdaptiveColor{Light: colors.Orange600, Dark: colors.Orange400}
+	stringColor   = colors.AdaptiveColor{Light: colors.Emerald600, Dark: colors.Emerald400}
+	operatorColor = colors.AdaptiveColor{Light: colors.Orange600, Dark: colors.Orange400}
 
 	promptStyle       = lipgloss.NewStyle().Foreground(colors.Primary).Bold(true)
 	promptDirStyle    = lipgloss.NewStyle().Faint(true)
