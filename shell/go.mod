@@ -14,7 +14,7 @@ require (
 	mvdan.cc/sh/v3 v3.14.1
 	unikraft.com/x/colors v0.0.0-20261002142539-8e42d27c6ee0
 	unikraft.com/x/io v0.0.0-20260917091642-9e44538566da
-	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1
+	unikraft.com/x/log v0.0.0-20261001175239-9a0204088d3c
 	unikraft.com/x/stdio v0.0.0-20260828231716-926f8701e2a7
 )
 
