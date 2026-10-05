@@ -12,7 +12,7 @@ require (
 	github.com/reeflective/readline v1.3.0
 	github.com/stretchr/testify v1.12.1
 	mvdan.cc/sh/v3 v3.14.1
-	unikraft.com/x/colors v0.0.0-20261002142539-8e42d27c6ee0
+	unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1
 	unikraft.com/x/io v0.0.0-20260917091642-9e44538566da
 	unikraft.com/x/log v0.0.0-20261001175239-9a0204088d3c
 	unikraft.com/x/stdio v0.0.0-20260828231716-926f8701e2a7
@@ -42,6 +42,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/exp v0.0.0-20260603202125-055de637280b // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
