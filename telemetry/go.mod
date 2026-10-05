@@ -1,6 +1,6 @@
 module unikraft.com/x/telemetry
 
-go 1.26.6
+go 1.27.1
 
 require (
 	go.opentelemetry.io/otel v1.46.0

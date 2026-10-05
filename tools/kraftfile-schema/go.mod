@@ -1,6 +1,6 @@
 module unikraft.com/x/tools/kraftfile-schema
 
-go 1.26.6
+go 1.27.1
 
 replace unikraft.com/x/kraftfile => ../../kraftfile
 

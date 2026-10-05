@@ -1,6 +1,6 @@
 module unikraft.com/x/kraftfile
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/invopop/jsonschema v0.14.0
