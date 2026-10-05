@@ -1,8 +1,11 @@
 module unikraft.com/x/tools/sh
 
-go 1.26.6
+go 1.26.7
 
 replace unikraft.com/x/shell => ../../shell
+
+// Use the fork with charmbracelet/lipgloss#746 until a release has it.
+replace charm.land/lipgloss/v2 => github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507
 
 require (
 	unikraft.com/x/shell v0.0.0-20260917082858-916d9555ace3

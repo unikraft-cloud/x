@@ -1,6 +1,6 @@
 module unikraft.com/x/kingkong
 
-go 1.26.6
+go 1.26.7
 
 require (
 	charm.land/lipgloss/v2 v2.0.6
@@ -36,3 +36,6 @@ require (
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )
+
+// Use the fork with charmbracelet/lipgloss#746 until a release has it.
+replace charm.land/lipgloss/v2 => github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507
