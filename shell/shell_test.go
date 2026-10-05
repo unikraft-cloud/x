@@ -694,6 +694,53 @@ func TestCompletionGroupsWhatItOffers(t *testing.T) {
 	}, got, "a menu heads the builtins apart from what the instance has")
 }
 
+// offering is a builtin that offers fixed names and keeps what it was asked about
+type offering struct {
+	names []string
+	asked []string
+}
+
+func (offering) Run(context.Context, stdio.Stdio, []string) (int, error) { return 0, nil }
+
+func (o *offering) Complete(_ context.Context, args []string) ([]string, error) {
+	o.asked = args
+	return o.names, nil
+}
+
+func TestCompletionAsksTheBuiltin(t *testing.T) {
+	root := newFixture(t)
+	mount := &offering{names: []string{"my vol", "logs/app"}}
+	s := &state{
+		runner: &interp.Runner{Dir: root},
+		cfg:    Config{Transport: local(), Builtins: map[string]Builtin{"mount": mount, "halt": &offering{}}},
+	}
+
+	for _, tt := range []struct {
+		name  string
+		line  string
+		want  []string
+		asked []string
+	}{
+		{"a-name-is-escaped", ":mount --ro my", []string{`my\ vol`}, []string{"mount", "--ro", "my"}},
+		{"a-directory-is-not-repeated", ":mount logs/a", []string{"logs/app"}, []string{"mount", "logs/a"}},
+		{"nothing-offered-falls-back-to-paths", ":halt $R/host", []string{"$R/hostname"}, nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mount.asked = nil
+			line := []rune(strings.ReplaceAll(tt.line, "$R", root))
+
+			_, got := s.complete(t.Context(), line, len(line))
+
+			var want []string
+			for _, w := range tt.want {
+				want = append(want, strings.ReplaceAll(w, "$R", root))
+			}
+			assert.Equal(t, want, got)
+			assert.Equal(t, tt.asked, mount.asked, "the builtin hears its line, the word under the cursor last")
+		})
+	}
+}
+
 // exitTransport reports a fixed outcome for every command.
 type exitTransport struct {
 	code int

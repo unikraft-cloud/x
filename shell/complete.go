@@ -64,7 +64,7 @@ func (s *state) completions(ctx context.Context, line []rune, cursor int) (start
 
 	if len(w.args) == 0 && !strings.Contains(w.text, "/") {
 		cands, err = s.commandMatches(ctx, w)
-	} else {
+	} else if cands, err = s.builtinMatches(ctx, w); len(cands) == 0 && err == nil {
 		cands, err = s.pathMatches(ctx, w)
 	}
 	// wordAt counts bytes; a caller editing a line counts runes.
@@ -209,6 +209,33 @@ func (s *state) pathMatches(ctx context.Context, w word) ([]candidate, error) {
 			Value:   w.lead() + w.spell(e.Name(), e.IsDir()),
 			Display: display,
 		})
+	}
+	return matches, nil
+}
+
+func (s *state) builtinMatches(ctx context.Context, w word) ([]candidate, error) {
+	if len(w.args) == 0 || !strings.HasPrefix(w.args[0], BuiltinMarker) {
+		return nil, nil
+	}
+	name := strings.TrimPrefix(w.args[0], BuiltinMarker)
+	c, ok := s.cfg.Builtins[name].(BuiltinCompleter)
+	if !ok {
+		return nil, nil
+	}
+
+	names, err := c.Complete(ctx, append(append([]string{name}, w.args[1:]...), w.text))
+	if err != nil {
+		return nil, err
+	}
+
+	dir, _ := path.Split(w.text)
+	var matches []candidate
+	for _, n := range names {
+		if !strings.HasPrefix(n, w.text) {
+			continue
+		}
+		n = strings.TrimPrefix(n, dir)
+		matches = append(matches, candidate{Value: w.lead() + w.spell(n, false), Display: n})
 	}
 	return matches, nil
 }
