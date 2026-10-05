@@ -94,6 +94,7 @@ tasks:
       - ./ptr
       - ./ringbuffer
       - ./sanitize
+      - ./shell
       - ./signal
       - ./stdio
       - ./text

@@ -27,6 +27,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/creack/pty"
+	"github.com/reeflective/readline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"mvdan.cc/sh/v3/interp"
@@ -618,6 +619,79 @@ func TestFailedCommandIsNotAShellFailure(t *testing.T) {
 
 	require.NoError(t, err, "a failing command is not the shell failing")
 	assert.Equal(t, 1, code, "but its status is the session's to report")
+}
+
+func TestCompletion(t *testing.T) {
+	root := newFixture(t)
+	for _, name := range []string{"var/log/my app.log", "it's", "evil;rm -rf", "my notes.txt", "my dir/file.txt"} {
+		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), nil, 0o644))
+	}
+	s := &state{
+		runner: &interp.Runner{Dir: root},
+		cfg:    Config{Transport: local(), Builtins: builtinsNamed("start", "stop")},
+	}
+	complete := completer(func(line []rune, cursor int) (int, []candidate, error) {
+		return s.completions(t.Context(), line, cursor)
+	})
+
+	for _, tt := range []struct {
+		name string
+		line string
+		want []string
+		word string
+	}{
+		{"an-escape-typed-is-kept", `cat $R/var/log/my\ a`, []string{`$R/var/log/my\ app.log`}, `$R/var/log/my\ a`},
+		{"a-quoted-directory-stays-open", "ls '$R/va", []string{"'$R/var/"}, "'$R/va"},
+		{"a-quote-in-a-name-is-quoted", "cat '$R/it", []string{`'$R/it'\''s'`}, "'$R/it"},
+		{"a-separator-in-a-name-is-escaped", "cat $R/ev", []string{`$R/evil\;rm\ -rf`}, "$R/ev"},
+		{"a-quote-after-the-directory-is-kept", `cat $R/"my n`, []string{`$R/"my notes.txt"`}, `$R/"my n`},
+		{"a-closed-quote-is-not-closed-again", `cat "my dir"/fi`, []string{`"my dir"/file.txt`}, `"my dir"/fi`},
+		{"a-command-after-a-pipe", "echo hi | :sta", []string{":start"}, ":sta"},
+		{"a-command-after-a-keyword", "while ! :sta", []string{":start"}, ":sta"},
+		{"a-command-after-an-assignment", "A=1 :sta", []string{":start"}, ":sta"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			line := strings.ReplaceAll(tt.line, "$R", root)
+
+			comps := complete([]rune(line), len(line))
+
+			var got []string
+			comps.EachValue(func(c readline.Completion) readline.Completion {
+				got = append(got, c.Value)
+				return c
+			})
+
+			var want []string
+			for _, w := range tt.want {
+				want = append(want, strings.ReplaceAll(w, "$R", root))
+			}
+			assert.Equal(t, want, got)
+			assert.Equal(t, strings.ReplaceAll(tt.word, "$R", root), comps.PREFIX,
+				"the word the candidates replace")
+		})
+	}
+}
+
+func TestCompletionGroupsWhatItOffers(t *testing.T) {
+	s := &state{
+		runner: &interp.Runner{Dir: "/"},
+		cfg:    Config{Transport: ExecTransport(scriptTransport("ls\x00cat\x00ls\x00").Exec), Builtins: builtinsNamed("start")},
+	}
+
+	_, cands, err := s.completions(t.Context(), nil, 0)
+	require.NoError(t, err)
+
+	var got []string
+	for _, c := range cands {
+		got = append(got, fmt.Sprintf("%s %s %s", c.Tag, c.Value, ansi.Strip(c.Display)))
+	}
+	assert.Equal(t, []string{
+		"builtins :history :history",
+		"builtins :start :start",
+		"commands cat cat",
+		"commands ls ls",
+	}, got, "a menu heads the builtins apart from what the instance has")
 }
 
 // exitTransport reports a fixed outcome for every command.
