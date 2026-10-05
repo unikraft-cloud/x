@@ -275,10 +275,10 @@ func TestAFailingBuiltinReportsItsError(t *testing.T) {
 	root := newFixture(t)
 
 	builtins := map[string]Builtin{
-		"fail": BuiltinFunc(func(_ context.Context, _ stdio.Stdio, _ []string) (int, error) {
+		"fail": builtinFunc(func(_ context.Context, _ stdio.Stdio, _ []string) (int, error) {
 			return 0, errors.New("could not fail properly")
 		}),
-		"failcode": BuiltinFunc(func(_ context.Context, _ stdio.Stdio, _ []string) (int, error) {
+		"failcode": builtinFunc(func(_ context.Context, _ stdio.Stdio, _ []string) (int, error) {
 			return 3, errors.New("failed with a status of its own")
 		}),
 	}
