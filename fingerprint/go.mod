@@ -1,6 +1,6 @@
 module unikraft.com/x/fingerprint
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/denisbrodbeck/machineid v1.0.1

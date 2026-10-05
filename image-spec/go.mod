@@ -1,6 +1,6 @@
 module unikraft.com/x/image-spec
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/containerd/containerd/v2 v2.4.1

@@ -1,6 +1,6 @@
 module unikraft.com/x/router
 
-go 1.26.6
+go 1.27.1
 
 require (
 	codeberg.org/gruf/go-bytesize v1.0.4

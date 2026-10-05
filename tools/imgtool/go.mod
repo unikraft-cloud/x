@@ -1,6 +1,6 @@
 module github.com/unikraft-cloud/x/tools/imgtool
 
-go 1.26.6
+go 1.27.1
 
 replace unikraft.com/x/image-spec => ../../image-spec
 

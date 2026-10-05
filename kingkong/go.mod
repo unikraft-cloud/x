@@ -1,6 +1,6 @@
 module unikraft.com/x/kingkong
 
-go 1.26.6
+go 1.27.1
 
 require (
 	charm.land/lipgloss/v2 v2.0.6
