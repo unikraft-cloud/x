@@ -32,10 +32,3 @@ type SuspendFunc func(sig ...os.Signal) (restore func())
 type Builtin interface {
 	Run(ctx context.Context, streams stdio.Stdio, args []string) (int, error)
 }
-
-// BuiltinFunc is a Builtin made of a function.
-type BuiltinFunc func(ctx context.Context, streams stdio.Stdio, args []string) (int, error)
-
-func (f BuiltinFunc) Run(ctx context.Context, streams stdio.Stdio, args []string) (int, error) {
-	return f(ctx, streams, args)
-}

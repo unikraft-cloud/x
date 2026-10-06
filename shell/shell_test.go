@@ -126,10 +126,17 @@ func (t scriptTransport) Exec(_ context.Context, cmd Command) (int, error) {
 	return 0, nil
 }
 
+// builtinFunc is a Builtin made of a function.
+type builtinFunc func(ctx context.Context, streams stdio.Stdio, args []string) (int, error)
+
+func (f builtinFunc) Run(ctx context.Context, streams stdio.Stdio, args []string) (int, error) {
+	return f(ctx, streams, args)
+}
+
 // echoBuiltins answer ":say <text>" by printing it, which is enough to see
 // where a builtin's output ends up.
 var echoBuiltins = map[string]Builtin{
-	"say": BuiltinFunc(func(_ context.Context, streams stdio.Stdio, args []string) (int, error) {
+	"say": builtinFunc(func(_ context.Context, streams stdio.Stdio, args []string) (int, error) {
 		fmt.Fprintln(streams.Stdout, strings.Join(args[1:], " "))
 		return 0, nil
 	}),
@@ -139,7 +146,7 @@ var echoBuiltins = map[string]Builtin{
 func builtinsNamed(names ...string) map[string]Builtin {
 	builtins := map[string]Builtin{}
 	for _, name := range names {
-		builtins[name] = BuiltinFunc(func(_ context.Context, _ stdio.Stdio, args []string) (int, error) {
+		builtins[name] = builtinFunc(func(_ context.Context, _ stdio.Stdio, args []string) (int, error) {
 			return 0, fmt.Errorf("%s is not implemented", args[0])
 		})
 	}
@@ -577,7 +584,7 @@ func TestSessionBuiltinsOutsideThePrompt(t *testing.T) {
 
 func TestThePlatformsHelpComesFirst(t *testing.T) {
 	help := map[string]Builtin{
-		"help": BuiltinFunc(func(_ context.Context, streams stdio.Stdio, _ []string) (int, error) {
+		"help": builtinFunc(func(_ context.Context, streams stdio.Stdio, _ []string) (int, error) {
 			fmt.Fprintln(streams.Stdout, "  :start     Start the instance.")
 			return 0, nil
 		}),
@@ -1359,7 +1366,7 @@ func TestAProbeIsCapped(t *testing.T) {
 
 func TestABuiltinsCaptureIsCapped(t *testing.T) {
 	flooding := map[string]Builtin{
-		"flood": BuiltinFunc(func(ctx context.Context, streams stdio.Stdio, _ []string) (int, error) {
+		"flood": builtinFunc(func(ctx context.Context, streams stdio.Stdio, _ []string) (int, error) {
 			chunk := bytes.Repeat([]byte("x"), 64<<10)
 			for ctx.Err() == nil {
 				if _, err := streams.Stdout.Write(chunk); err != nil {
