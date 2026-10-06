@@ -189,6 +189,9 @@
       "oneOf": [
         {
           "properties": {
+            "type": {
+              "type": "string"
+            },
             "source": {
               "type": "string"
             },
@@ -345,6 +348,9 @@
     "specification": {
       "type": "string",
       "pattern": "^v?0\\.7(?:\\.0)?$"
+    },
+    "kernel": {
+      "$ref": "#/$defs/Unikraft"
     }
   },
   "additionalProperties": true,

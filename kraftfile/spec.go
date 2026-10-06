@@ -51,11 +51,17 @@ type Template struct {
 type Runtime string
 
 // Unikraft defines the Unikraft component, which is used to build a unikernel
-// from source.
+// from source, or to provide an already-built kernel binary.
 type Unikraft struct {
-	// Source specifies the source of the Unikraft component, which should be a
-	// reference to a location which contains the unikraft source code
-	// (upstream available at https://github.com/unikraft/unikraft.git).
+	// Type specifies how Source is interpreted, defaulting to
+	// UnikraftTypeSource.
+	Type UnikraftType `json:"type,omitempty"`
+
+	// Source specifies the source of the Unikraft component. For
+	// UnikraftTypeSource, this should be a reference to a location which
+	// contains the unikraft source code (upstream available at
+	// https://github.com/unikraft/unikraft.git). For UnikraftTypeKernel, this
+	// should be a path to an already-built kernel binary.
 	Source string `json:"source,omitempty"`
 
 	// Version can be used to specify a version of the Unikraft component, e.g.
@@ -65,6 +71,23 @@ type Unikraft struct {
 	// KConfig can be used to specify additional KConfig options to be applied
 	// when building the unikernel.
 	KConfig Map `json:"kconfig,omitempty"`
+}
+
+// UnikraftType describes how a Unikraft component's source is interpreted.
+type UnikraftType string
+
+const (
+	UnikraftTypeSource = UnikraftType("source")
+	UnikraftTypeKernel = UnikraftType("kernel")
+)
+
+var UnikraftTypes = []UnikraftType{
+	UnikraftTypeSource,
+	UnikraftTypeKernel,
+}
+
+func (unikraftType UnikraftType) String() string {
+	return string(unikraftType)
 }
 
 // Library defines a library component, which is used to build a library into

@@ -45,6 +45,13 @@ func (Kraftfile) JSONSchemaExtend(schema *jsonschema.Schema) {
 	)
 	schema.AnyOf = nil
 
+	unikraftSchema, ok := schema.Properties.Get("unikraft")
+	if !ok || unikraftSchema == nil {
+		unikraftSchema = &jsonschema.Schema{Ref: "#/$defs/Unikraft"}
+		schema.Properties.Set("unikraft", unikraftSchema)
+	}
+	schema.Properties.Set("kernel", unikraftSchema)
+
 	labelsSchema, ok := schema.Properties.Get("labels")
 	if !ok || labelsSchema == nil {
 		labelsSchema = &jsonschema.Schema{}
