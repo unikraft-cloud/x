@@ -1,8 +1,11 @@
 module unikraft.com/x/tools/sh
 
-go 1.26.6
+go 1.26.7
 
 replace unikraft.com/x/shell => ../../shell
+
+// Use the fork with charmbracelet/lipgloss#746 until a release has it.
+replace charm.land/lipgloss/v2 => github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507
 
 require (
 	unikraft.com/x/shell v0.0.0-20260917082858-916d9555ace3
@@ -42,7 +45,7 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	mvdan.cc/sh/v3 v3.14.1 // indirect
-	unikraft.com/x/colors v0.0.0-20261002142539-8e42d27c6ee0 // indirect
+	unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1 // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1 // indirect
 	unikraft.com/x/io v0.0.0-20260917091642-9e44538566da // indirect
 	unikraft.com/x/log v0.0.0-20261001175239-9a0204088d3c // indirect

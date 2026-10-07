@@ -1,5 +1,3 @@
-charm.land/lipgloss/v2 v2.0.6 h1:EaGKeuA8FvF+v2BT5VmZd2LoYLaMZJXA5n34th8nCIQ=
-charm.land/lipgloss/v2 v2.0.6/go.mod h1:ipDDJNSGa1hlwDtSfW1s2/xR8Vdhbut4PXh2zEKZd0Q=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/charmbracelet/colorprofile v0.4.3 h1:QPa1IWkYI+AOB+fE+mg/5/4HRMZcaXex9t5KX76i20Q=
@@ -57,6 +55,8 @@ github.com/sirupsen/logrus v1.10.2 h1:G2SED73/qrAu6YwbdxOD6peLkCBI3z7L+ykJFTXJBB
 github.com/sirupsen/logrus v1.10.2/go.mod h1:SLEg8TqYulVKKfIGHldVp2K2aYz2DKSVBq4g/H5bR7Q=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507 h1:Pshbef+pR9j+qiRihFkbpBZK5ptj6ikk70uO0MJj1D8=
+github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507/go.mod h1:wwfOgrNqUA9yjL8nmG6BIO0qQnmkEgJ8ISptbme83gI=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e/go.mod h1:RbqR21r5mrJuqunuUZ/Dhy/avygyECGrLceyNeo4LiM=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
@@ -81,8 +81,8 @@ golang.org/x/term v0.46.0 h1:3+OXuTbaKDgwk8jTi3aSLHRlmWqHEUDUtxnbFigO4YE=
 golang.org/x/term v0.46.0/go.mod h1:+K02xbkittuwc0Am4abfA3Fc+XRGXkvBXNO88NCXPoc=
 mvdan.cc/sh/v3 v3.14.1 h1:bXkhQWNHCs0KZEChF8hYS6FC+T2N9mUZLbQv9blditI=
 mvdan.cc/sh/v3 v3.14.1/go.mod h1:syYCoFET8w9tvevxiXUtY8/ICrU+l26jHmhJDra3Vwo=
-unikraft.com/x/colors v0.0.0-20261002142539-8e42d27c6ee0 h1:Wt9eJ70RyPqOlftSsXOxL4AbMMowbLhKg2MkDXewRWI=
-unikraft.com/x/colors v0.0.0-20261002142539-8e42d27c6ee0/go.mod h1:a/ETcSK0gCOduZKEkSB9lDfLFVdO2Z+AxqReTdsEg3w=
+unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1 h1:J/UPM/Eq37GA6yi9AzyKqNeae0wIiuvN00NgQrKoAaM=
+unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1/go.mod h1:RyIaCazBKPgA04x/CRAgpO1ZA/WfPW8S8Z0UMp4Pxs8=
 unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1 h1:1gkowpZPI25+G+lpuNbjdcUxQZPXnAuJA1e03WAt998=
 unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1/go.mod h1:q3EH6bLqLAJ1PqZgHlCJPpvvP6scnjJJspBMyGQtMt4=
 unikraft.com/x/io v0.0.0-20260917091642-9e44538566da h1:jVoMxiIjeUPgukeEVHMOjWOdUQ89E69CXdJKZtVclpY=
