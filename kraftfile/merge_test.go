@@ -141,6 +141,24 @@ func TestMergeUnikraft(t *testing.T) {
 	require.Equal(t, "y", current.Unikraft.KConfig.Get("CONFIG_LIBVFSCORE"))
 }
 
+func TestMergeUnikraftType(t *testing.T) {
+	base := &Kraftfile{
+		Unikraft: &Unikraft{
+			Type:   UnikraftTypeKernel,
+			Source: "./build/helloworld_kraftcloud-x86_64",
+		},
+	}
+
+	current := &Kraftfile{
+		Unikraft: &Unikraft{
+			Source: "https://github.com/unikraft/unikraft.git",
+		},
+	}
+	current.Merge(base)
+	require.Equal(t, UnikraftTypeKernel, current.Unikraft.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", current.Unikraft.Source)
+}
+
 func TestMergeLibraries(t *testing.T) {
 	base := &Kraftfile{
 		Libraries: map[string]Library{

@@ -61,6 +61,9 @@ func (kf *Kraftfile) Merge(other *Kraftfile) {
 			}
 		} else {
 			// Merge fields: other always takes precedence
+			if other.Unikraft.Type != "" {
+				kf.Unikraft.Type = other.Unikraft.Type
+			}
 			if other.Unikraft.Source != "" {
 				kf.Unikraft.Source = other.Unikraft.Source
 			}

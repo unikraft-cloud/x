@@ -305,11 +305,62 @@ A `Kraftfile` that declares `roms` and no `runtime` therefore MUST also declare 
 
 ## Top-level `unikraft` attribute
 
-The `unikraft` attribute CAN be specified and is used to define the source location of the Unikraft core which contains the main build system and core primitives for building a unikernel "from source".
+The `unikraft` attribute CAN be specified and is used to define the Unikraft core which contains the main build system and core primitives for building a unikernel "from source".
 
 If no `unikraft` element is specified, one of either `template` or `runtime` MUST otherwise be specified.
 
 There are two forms of syntax: "short-hand" and "long-hand".
+
+### Setting the source type
+
+The `type` sub-attribute declares how `source` is to be interpreted:
+
+| Type     | Description                                                                 |
+| -------- | --------------------------------------------------------------------------- |
+| `source` | (default) `source` locates the Unikraft core source code, to be built        |
+| `kernel` | `source` is a path to an already-built kernel binary, to be used as-is       |
+
+With `type: kernel`, no build of the Unikraft core is performed, and `version` MUST NOT be set:
+
+```yaml
+spec: v0.7
+
+targets:
+  - kraftcloud/x86_64
+
+unikraft:
+  type: kernel
+  source: ./build/helloworld_kraftcloud-x86_64
+```
+
+A kernel binary carries no architecture or platform metadata of its own, so a `Kraftfile` which declares `type: kernel` MUST also declare `targets`, unless the target is supplied by the tooling.
+
+### The `kernel` alias
+
+The `kernel` attribute is an alias of `unikraft` which defaults `type` to `kernel`.
+Unlike `unikraft`, its short-hand form names the `source` path rather than a version:
+
+```yaml
+spec: v0.7
+
+targets:
+  - kraftcloud/x86_64
+
+kernel: ./build/helloworld_kraftcloud-x86_64
+```
+
+The long-hand form accepts the same sub-attributes as `unikraft`:
+
+```yaml
+spec: v0.7
+
+kernel:
+  source: ./build/helloworld_kraftcloud-x86_64
+  kconfig:
+    CONFIG_LIBUKFS_EROFS: "y"
+```
+
+`kernel` and `unikraft` MUST NOT both be specified.
 
 ### Setting a specific version
 

@@ -323,6 +323,74 @@ libraries:
 	require.Equal(t, "y", value)
 }
 
+func TestParseUnikraftKernelType(t *testing.T) {
+	input := `spec: v0.7
+targets:
+- kraftcloud/x86_64
+unikraft:
+  type: kernel
+  source: ./build/helloworld_kraftcloud-x86_64
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Unikraft)
+	require.Equal(t, UnikraftTypeKernel, doc.Unikraft.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Unikraft.Source)
+	require.Empty(t, doc.Unikraft.Version)
+}
+
+func TestParseUnikraftInvalidType(t *testing.T) {
+	input := `spec: v0.7
+unikraft:
+  type: bananas
+  source: ./kernel
+`
+	_, err := ParseBytes([]byte(input))
+	require.ErrorContains(t, err, `invalid unikraft type "bananas"`)
+}
+
+func TestParseKernelAliasString(t *testing.T) {
+	input := `spec: v0.7
+targets:
+- kraftcloud/x86_64
+kernel: ./build/helloworld_kraftcloud-x86_64
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Unikraft)
+	require.Equal(t, UnikraftTypeKernel, doc.Unikraft.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Unikraft.Source)
+}
+
+func TestParseKernelAliasMap(t *testing.T) {
+	input := `spec: v0.7
+kernel:
+  source: ./build/helloworld_kraftcloud-x86_64
+  kconfig:
+    CONFIG_LIBUKFS_EROFS: 'y'
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Unikraft)
+	require.Equal(t, UnikraftTypeKernel, doc.Unikraft.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Unikraft.Source)
+	value, ok := doc.Unikraft.KConfig.Lookup("CONFIG_LIBUKFS_EROFS")
+	require.True(t, ok)
+	require.Equal(t, "y", value)
+}
+
+func TestParseKernelAndUnikraftConflict(t *testing.T) {
+	input := `spec: v0.7
+kernel: ./build/helloworld_kraftcloud-x86_64
+unikraft: stable
+`
+	_, err := ParseBytes([]byte(input))
+	require.ErrorContains(t, err, "'kernel' and 'unikraft' cannot both be specified")
+}
+
 func TestParseTargetsMapFields(t *testing.T) {
 	input := `spec: v0.7
 targets:

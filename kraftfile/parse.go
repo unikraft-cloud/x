@@ -183,6 +183,33 @@ func (ref *Runtime) UnmarshalJSON(data []byte) error {
 	}
 }
 
+func (kf *Kraftfile) UnmarshalJSON(data []byte) error {
+	type alias Kraftfile
+	if err := json.Unmarshal(data, (*alias)(kf)); err != nil {
+		return err
+	}
+
+	var aliased struct {
+		Kernel json.RawMessage `json:"kernel,omitempty"`
+	}
+	if err := json.Unmarshal(data, &aliased); err != nil {
+		return err
+	}
+	if len(aliased.Kernel) == 0 {
+		return nil
+	}
+	if kf.Unikraft != nil {
+		return fmt.Errorf("'kernel' and 'unikraft' cannot both be specified")
+	}
+
+	var unikraft Unikraft
+	if err := unikraft.unmarshalKernel(aliased.Kernel); err != nil {
+		return err
+	}
+	kf.Unikraft = &unikraft
+	return nil
+}
+
 func (ref *Unikraft) UnmarshalJSON(data []byte) error {
 	var raw any
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -197,10 +224,54 @@ func (ref *Unikraft) UnmarshalJSON(data []byte) error {
 		return nil
 	case map[string]any:
 		type alias Unikraft
-		return json.Unmarshal(data, (*alias)(ref))
+		if err := json.Unmarshal(data, (*alias)(ref)); err != nil {
+			return err
+		}
+		return ref.Type.validate()
 	default:
 		return fmt.Errorf("invalid unikraft value type %T", raw)
 	}
+}
+
+// unmarshalKernel decodes the top-level 'kernel' alias of 'unikraft'. Unlike
+// 'unikraft', a bare string names the kernel's path rather than a version, and
+// the type defaults to UnikraftTypeKernel.
+func (ref *Unikraft) unmarshalKernel(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	switch raw.(type) {
+	case nil:
+		return nil
+	case string:
+		var source string
+		if err := json.Unmarshal(data, &source); err != nil {
+			return err
+		}
+		ref.Type = UnikraftTypeKernel
+		ref.Source = source
+		return nil
+	case map[string]any:
+		type alias Unikraft
+		if err := json.Unmarshal(data, (*alias)(ref)); err != nil {
+			return err
+		}
+		if ref.Type == "" {
+			ref.Type = UnikraftTypeKernel
+		}
+		return ref.Type.validate()
+	default:
+		return fmt.Errorf("invalid kernel value type %T", raw)
+	}
+}
+
+func (unikraftType UnikraftType) validate() error {
+	if unikraftType == "" || slices.Contains(UnikraftTypes, unikraftType) {
+		return nil
+	}
+	return fmt.Errorf("invalid unikraft type %q", unikraftType)
 }
 
 func (ref *Library) UnmarshalJSON(data []byte) error {
