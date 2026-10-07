@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/alecthomas/kong"
+	"github.com/posener/complete"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -80,7 +81,7 @@ func (helpCmd) Run(s *session) error {
 }
 
 type mountCmd struct {
-	Volume   string `arg:"" help:"Volume to attach."`
+	Volume   string `arg:"" completion-predictor:"volume" help:"Volume to attach."`
 	At       string `arg:"" name:"path" help:"Absolute mount path inside the instance."`
 	Readonly bool   `help:"Mount the volume as read-only."`
 }
@@ -128,6 +129,9 @@ func newKong(t *testing.T, s *session, restart func([]string) bool) *builtins.Ko
 			return []any{s}
 		},
 		Restart: restart,
+		Predictors: func(context.Context) map[string]complete.Predictor {
+			return map[string]complete.Predictor{"volume": complete.PredictSet("data", "logs")}
+		},
 	})
 	require.NoError(t, err)
 
@@ -333,5 +337,34 @@ func TestWhichBuiltinsRestart(t *testing.T) {
 func TestNothingRestartsWithoutOne(t *testing.T) {
 	for name, b := range newKong(t, &session{}, nil).Builtins() {
 		assert.False(t, b.(restarts).Restarts([]string{name}), "%s leaves the session nothing to wait for", name)
+	}
+}
+
+func TestTheGrammarCompletesItsArguments(t *testing.T) {
+	k := newKong(t, &session{}, nil)
+	mount, ok := k.Builtins()["mount"].(shell.BuiltinCompleter)
+	require.True(t, ok, "a grammar's builtins complete")
+
+	for _, tt := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"a-predictor-answers-its-tag", []string{"mount", "l"}, []string{"logs"}},
+		{"flags", []string{"mount", "--r"}, []string{"--readonly"}},
+		{"an-untagged-argument-offers-nothing", []string{"mount", "data", ""}, nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			names, err := mount.Complete(t.Context(), tt.args)
+			require.NoError(t, err)
+
+			var got []string
+			for _, n := range names {
+				if strings.HasPrefix(n, tt.args[len(tt.args)-1]) {
+					got = append(got, n)
+				}
+			}
+			assert.Equal(t, tt.want, got)
+		})
 	}
 }

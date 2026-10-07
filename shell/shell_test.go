@@ -27,6 +27,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/creack/pty"
+	"github.com/reeflective/readline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"mvdan.cc/sh/v3/interp"
@@ -613,6 +614,193 @@ func TestFailedCommandIsNotAShellFailure(t *testing.T) {
 	assert.Equal(t, 1, code, "but its status is the session's to report")
 }
 
+func TestCompletion(t *testing.T) {
+	root := newFixture(t)
+	for _, name := range []string{"var/log/my app.log", "it's", "evil;rm -rf", "my notes.txt", "my dir/file.txt"} {
+		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), nil, 0o644))
+	}
+	require.NoError(t, os.Mkdir(filepath.Join(root, "two\nlines"), 0o755))
+	s := &state{
+		runner: &interp.Runner{Dir: root},
+		cfg:    Config{Transport: local(), Builtins: builtinsNamed("start", "stop")},
+	}
+	complete := s.completer(t.Context())
+
+	for _, tt := range []struct {
+		name string
+		line string
+		want []string
+		word string
+	}{
+		{"unique-path", "ls $R/host", []string{"$R/hostname"}, "$R/host"},
+		{"directory-gets-a-slash", "ls $R/va", []string{"$R/var/"}, "$R/va"},
+		{"builtin-unique", ":sta", []string{":start"}, ":sta"},
+		{"nothing-to-offer", "ls $R/nope", nil, ""},
+
+		{"a-space-is-escaped", "cat $R/var/log/my", []string{`$R/var/log/my\ app.log`}, "$R/var/log/my"},
+		{"an-escape-typed-is-kept", `cat $R/var/log/my\ a`, []string{`$R/var/log/my\ app.log`}, `$R/var/log/my\ a`},
+		{"a-quote-typed-is-kept", "cat '$R/var/log/my a", []string{"'$R/var/log/my app.log'"}, "'$R/var/log/my a"},
+		{"double-quotes-too", `cat "$R/var/log/my`, []string{`"$R/var/log/my app.log"`}, `"$R/var/log/my`},
+		{"a-quoted-directory-stays-open", "ls '$R/va", []string{"'$R/var/"}, "'$R/va"},
+		{"a-quote-in-a-name-is-quoted", "cat '$R/it", []string{`'$R/it'\''s'`}, "'$R/it"},
+		{"a-separator-in-a-name-is-escaped", "cat $R/ev", []string{`$R/evil\;rm\ -rf`}, "$R/ev"},
+		{"a-quoted-word-before-is-one-word", "echo 'a b' $R/host", []string{"$R/hostname"}, "$R/host"},
+
+		{"a-quote-with-no-directory-is-kept", "cat 'my n", []string{"'my notes.txt'"}, "'my n"},
+		{"a-closed-quote-is-not-closed-again", `cat "my dir"/fi`, []string{`"my dir"/file.txt`}, `"my dir"/fi`},
+		{"a-quote-of-ours-closes-before-the-slash", "cat two", []string{"'two\nlines'/"}, "two"},
+		{"a-command-after-a-pipe", "echo hi | :sta", []string{":start"}, ":sta"},
+		{"a-command-after-and", "echo hi && :sta", []string{":start"}, ":sta"},
+		{"a-command-after-a-separator", "echo hi; :sta", []string{":start"}, ":sta"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			line := strings.ReplaceAll(tt.line, "$R", root)
+
+			comps := complete([]rune(line), len(line))
+
+			var got []string
+			comps.EachValue(func(c readline.Completion) readline.Completion {
+				got = append(got, c.Value)
+				return c
+			})
+
+			var want []string
+			for _, w := range tt.want {
+				want = append(want, strings.ReplaceAll(w, "$R", root))
+			}
+			assert.Equal(t, want, got)
+			assert.Equal(t, strings.ReplaceAll(tt.word, "$R", root), comps.PREFIX,
+				"the word the candidates replace")
+		})
+	}
+}
+
+func TestCompletionGroupsWhatItOffers(t *testing.T) {
+	probe := &recordingTransport{out: "cat\nls\n"}
+	s := &state{
+		runner: &interp.Runner{Dir: "/"},
+		cfg:    Config{Transport: ExecTransport(probe.Exec), Builtins: builtinsNamed("start")},
+	}
+
+	_, cands, err := s.completions(t.Context(), nil, 0)
+	require.NoError(t, err)
+
+	var got []string
+	for _, c := range cands {
+		got = append(got, fmt.Sprintf("%s %s %s", c.Tag, c.Value, ansi.Strip(c.Display)))
+	}
+	assert.Equal(t, []string{
+		"builtins :history :history",
+		"builtins :start :start",
+		"commands cat cat",
+		"commands ls ls",
+	}, got, "a menu heads the builtins apart from what the instance has")
+}
+
+func TestCompletionNamesAPathWithoutItsDirectory(t *testing.T) {
+	root := newFixture(t)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "my notes.txt"), nil, 0o644))
+	s := &state{runner: &interp.Runner{Dir: root}, cfg: Config{Transport: local()}}
+
+	line := []rune("cat " + root + "/my")
+
+	_, cands, err := s.completions(t.Context(), line, len(line))
+	require.NoError(t, err)
+
+	require.Len(t, cands, 1)
+	assert.Equal(t, root+`/my\ notes.txt`, cands[0].Value, "the line takes the word spelled out")
+	assert.Equal(t, "my notes.txt", cands[0].Display, "a menu names the file alone")
+	assert.Empty(t, cands[0].Tag, "one kind of thing needs no heading")
+}
+
+func TestCompletionSaysWhatItCannotReach(t *testing.T) {
+	probe := &flakyTransport{}
+	s := &state{runner: &interp.Runner{Dir: "/"}, cfg: Config{Transport: ExecTransport(probe.Exec)}}
+
+	comps := s.completer(t.Context())([]rune("l"), 1)
+
+	assert.Equal(t, readline.CompleteMessage("%s", "connection refused"), comps,
+		"a Tab that reaches nothing says why, instead of blinking")
+}
+
+// offering is a builtin that offers fixed names and keeps what it was asked about
+type offering struct {
+	names []string
+	asked []string
+}
+
+func (offering) Run(context.Context, stdio.Stdio, []string) (int, error) { return 0, nil }
+
+func (o *offering) Complete(_ context.Context, args []string) ([]string, error) {
+	o.asked = args
+	return o.names, nil
+}
+
+func TestCompletionAsksTheBuiltin(t *testing.T) {
+	root := newFixture(t)
+	mount := &offering{names: []string{"my vol", "other", "logs/app"}}
+	s := &state{
+		runner: &interp.Runner{Dir: root},
+		cfg:    Config{Transport: local(), Builtins: map[string]Builtin{"mount": mount, "halt": &offering{}}},
+	}
+
+	for _, tt := range []struct {
+		name  string
+		line  string
+		want  []string
+		asked []string
+	}{
+		{"a-name-is-escaped", ":mount --ro my", []string{`my\ vol`}, []string{"mount", "--ro", "my"}},
+		{"a-quote-typed-is-kept", ":mount 'my", []string{"'my vol'"}, []string{"mount", "my"}},
+		{"a-directory-is-not-repeated", ":mount logs/a", []string{"logs/app"}, []string{"mount", "logs/a"}},
+		{"after-a-pipe-too", "echo | :mount o", []string{"other"}, []string{"mount", "o"}},
+		{"nothing-offered-falls-back-to-paths", ":halt $R/host", []string{"$R/hostname"}, nil},
+		{"not-a-builtin", "cat $R/zz", nil, nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mount.asked = nil
+			line := []rune(strings.ReplaceAll(tt.line, "$R", root))
+
+			_, got := s.complete(t.Context(), line, len(line))
+
+			var want []string
+			for _, w := range tt.want {
+				want = append(want, strings.ReplaceAll(w, "$R", root))
+			}
+			assert.Equal(t, want, got)
+			assert.Equal(t, tt.asked, mount.asked, "the builtin hears its line, the word under the cursor last")
+		})
+	}
+}
+
+func TestRemoteCommands(t *testing.T) {
+	probe := &recordingTransport{out: "ls\nsh\nls\n\n"}
+	s := &state{runner: &interp.Runner{Dir: "/bin"}, cfg: Config{Transport: ExecTransport(probe.Exec)}}
+
+	commands, err := s.remoteCommands(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ls", "sh"}, commands)
+
+	require.Len(t, probe.args, 4)
+	assert.Equal(t, []string{"sh", "-c"}, probe.args[:2])
+	assert.Contains(t, probe.args[2], "$PATH")
+	assert.Equal(t, probeDir, probe.dir, "a probe does not need the session's directory")
+}
+
+// recordingTransport keeps the last command it was asked to run
+type recordingTransport struct {
+	out  string
+	dir  string
+	args []string
+}
+
+func (t *recordingTransport) Exec(_ context.Context, cmd Command) (int, error) {
+	t.dir, t.args = cmd.Dir, cmd.Args
+	fmt.Fprint(cmd.Streams.Stdout, t.out)
+	return 0, nil
+}
+
 // exitTransport reports a fixed outcome for every command.
 type exitTransport struct {
 	code int
@@ -797,6 +985,35 @@ func TestAMissingFileCannotBeRedirectedFrom(t *testing.T) {
 		t.Context(), filepath.Join(root, "nope"), io.Discard)
 
 	require.Error(t, err, "the open reports it, not the reader failing later")
+}
+
+// flakyTransport is an instance that is out of reach until it is brought up.
+type flakyTransport struct{ up bool }
+
+func (t *flakyTransport) Exec(_ context.Context, cmd Command) (int, error) {
+	if !t.up {
+		return 0, errors.New("connection refused")
+	}
+	if slices.ContainsFunc(cmd.Args, func(a string) bool { return strings.Contains(a, "for d in $PATH") }) {
+		fmt.Fprint(cmd.Streams.Stdout, "cat\nls\nsh\n")
+	}
+	return 0, nil
+}
+
+func TestCompletionRecoversWhenTheInstanceDoes(t *testing.T) {
+	probe := &flakyTransport{}
+	s := &state{runner: &interp.Runner{Dir: "/"}, cfg: Config{Transport: ExecTransport(probe.Exec)}}
+
+	commands, err := s.remoteCommands(t.Context())
+	require.Error(t, err, "a Tab is told why it has nothing to offer")
+	assert.Empty(t, commands, "nothing to offer while it is down")
+
+	probe.up = true
+
+	commands, err = s.remoteCommands(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"cat", "ls", "sh"}, commands,
+		"a probe that failed must not be cached as the answer")
 }
 
 func TestFileTestsAskTheInstance(t *testing.T) {

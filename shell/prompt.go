@@ -46,6 +46,8 @@ func newPrompt(cfg promptConfig) *prompt {
 	_ = rl.Config.Set("output-meta", true)
 	// The session prints its own ^C.
 	_ = rl.Config.Set("echo-control-characters", false)
+	// A Tab offers what it has instead of inserting the first of it.
+	_ = rl.Config.Set("menu-complete-display-prefix", true)
 
 	rl.History.Add("session", cfg.history)
 	rl.Prompt.Primary(func() string { return cfg.prompt(false) })
