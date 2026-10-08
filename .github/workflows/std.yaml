@@ -30,12 +30,6 @@ concurrency:
 jobs:
   go:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        goos:
-          - linux
-          - darwin
     steps:
       - uses: actions/checkout@v7
 
