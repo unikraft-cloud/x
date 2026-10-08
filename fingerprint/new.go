@@ -17,8 +17,8 @@ import (
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/gofrs/uuid/v5"
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 	"tailscale.com/hostinfo"
 	"tailscale.com/util/dnsname"
 
