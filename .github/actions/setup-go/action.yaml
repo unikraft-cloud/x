@@ -9,6 +9,10 @@ inputs:
   goprivate:
     description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
     required: false
+  cache_save:
+    description: When to save the Go caches, `always` or `push` (only on a push to the default branch)
+    required: false
+    default: always
 
 runs:
   using: composite
@@ -49,7 +53,6 @@ runs:
         {
           echo "cache=$(go env GOCACHE)"
           echo "modcache=$(go env GOMODCACHE)"
-          echo "mod=$(go env GOMOD)"
           echo "version=$(go env GOVERSION)"
         } >>"$GITHUB_OUTPUT"
 
@@ -60,15 +63,56 @@ runs:
         echo "GOPRIVATE=${{ inputs.goprivate }}" >> "$GITHUB_ENV"
         echo "GONOSUMDB=${{ inputs.goprivate }}" >> "$GITHUB_ENV"
 
-    - name: Go caches
+    # All jobs share one module cache, but each job has its own build cache because its flags differ.
+    - name: Select the Go cache action
+      id: cacheaction
+      shell: bash
+      env:
+        CACHE_SAVE: ${{ inputs.cache_save }}
+        IS_DEFAULT_PUSH: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+      run: |
+        case "$CACHE_SAVE" in
+          always) save=true ;;
+          push) save=$IS_DEFAULT_PUSH ;;
+          *) echo "::error::cache_save must be always or push, not $CACHE_SAVE"; exit 1 ;;
+        esac
+        echo "save=$save" >>"$GITHUB_OUTPUT"
+
+    - name: Go module cache
+      if: ${{ steps.cacheaction.outputs.save == 'true' }}
       uses: actions/cache@v5
       with:
-        path: |
-          ${{ steps.goenv.outputs.cache }}
-          ${{ steps.goenv.outputs.modcache }}
-        key: ${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-${{ hashFiles(steps.goenv.outputs.mod) }}
+        path: ${{ steps.goenv.outputs.modcache }}
+        key: gomod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
         restore-keys: |
-          ${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-
+          gomod-${{ runner.os }}-
+
+    - name: Go module cache (restore only)
+      if: ${{ steps.cacheaction.outputs.save != 'true' }}
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.goenv.outputs.modcache }}
+        key: gomod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          gomod-${{ runner.os }}-
+
+    - name: Go build cache
+      if: ${{ steps.cacheaction.outputs.save == 'true' }}
+      uses: actions/cache@v5
+      with:
+        path: ${{ steps.goenv.outputs.cache }}
+        key: gobuild-${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          gobuild-${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-
+
+    - name: Go build cache (restore only)
+      if: ${{ steps.cacheaction.outputs.save != 'true' }}
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.goenv.outputs.cache }}
+        key: gobuild-${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          gobuild-${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-
 
     - name: Setup Task
       uses: go-task/setup-task@v2

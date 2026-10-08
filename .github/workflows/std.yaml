@@ -16,6 +16,11 @@ on:
         description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
         type: string
         required: false
+      cache_save:
+        description: When to save the Go caches, `always` or `push` (only on a push to the default branch)
+        type: string
+        required: false
+        default: always
     secrets:
       gh_pat:
         description: GitHub PAT for accessing private repositories
@@ -38,6 +43,7 @@ jobs:
         with:
           gh_pat: ${{ secrets.gh_pat }}
           goprivate: ${{ inputs.goprivate }}
+          cache_save: ${{ inputs.cache_save || 'always' }}
 
       - name: Run checks
         shell: bash
