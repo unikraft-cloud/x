@@ -17,6 +17,9 @@ vars:
     ref: .goreleaser_version | default "latest"
   goreleaser_bin: "{{.go_bin}} run github.com/goreleaser/goreleaser/v2@{{.goreleaser_version}}"
 
+  license_check_version:
+    ref: .license_check_version | default "prod-staging"
+
   buf_version:
     ref: .buf_version | default "latest"
   buf_bin: "{{.go_bin}} run github.com/bufbuild/buf/cmd/buf@{{.buf_version}}"
@@ -167,13 +170,17 @@ tasks:
       -o './dist/{{.bin}}{{.goexe}}'
       {{.package}}
 
+  # single_target=true builds only the binary of the host platform
   snapshot:
     desc: "Run goreleaser with --snapshot"
     preconditions:
     - test -f .goreleaser.yaml
     cmds:
     - "env DEB_PRERELEASE= DEB_METADATA= DEB_RELEASE= envsubst < .goreleaser.yaml > .goreleaser.yaml.snapshot"
-    - "{{.goreleaser_bin}} release --config .goreleaser.yaml.snapshot --clean --snapshot"
+    - >-
+      {{.goreleaser_bin}}
+      {{ if eq "true" (printf "%v" .single_target) }}build --single-target{{ else }}release{{ end }}
+      --config .goreleaser.yaml.snapshot --clean --snapshot
 
   test:
     desc: "Run gotestsum"
@@ -271,7 +278,7 @@ tasks:
       exclude:
         ref: .exclude | default "*.pb.go,*.gen.go"
     cmd: >-
-      {{.go_bin}} run unikraft.com/x/tools/license-check@prod-staging
+      {{.go_bin}} run unikraft.com/x/tools/license-check@{{.license_check_version}}
       {{ with .include }}--include='{{.}}'{{ end }}
       {{ with .exclude }}--exclude='{{.}}'{{ end }}
       {{.license_check_args}}
@@ -306,3 +313,5 @@ tasks:
     desc: "Tasks for CI build job: snapshot"
     cmds:
     - task: snapshot
+      vars:
+        single_target: '{{.single_target}}'
