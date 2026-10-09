@@ -31,7 +31,7 @@ func TestParseLocation(t *testing.T) {
 		{name: "oci-layout", src: "oci-layout://./layout", scheme: schemes.OCILayout, path: "./layout"},
 		{name: "oci-archive", src: "oci-archive://app.tar", scheme: schemes.OCIArchive, path: "app.tar"},
 		{name: "an unknown scheme is rejected", src: "docker://app", err: true},
-		{name: "an http layout is rejected", src: "https+oci://example.org/me/app/latest", err: true},
+		{name: "http layout", src: "https+oci://example.org/me/app/latest", scheme: schemes.HTTPSOCI, path: "example.org/me/app/latest"},
 		{name: "a bare reference is rejected", src: "unikraft.io/app", err: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

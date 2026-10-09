@@ -14,6 +14,7 @@ import (
 	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
+	distref "github.com/distribution/reference"
 
 	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/image-spec/schemes"
@@ -23,6 +24,7 @@ type Accessor struct {
 	remote          remotes.Resolver
 	registryHosts   docker.RegistryHosts
 	registryHeaders http.Header
+	httpClient      *http.Client
 }
 
 func NewAccessor(opts ...AccessOpt) *Accessor {
@@ -44,6 +46,14 @@ func WithResolver(r remotes.Resolver) AccessOpt {
 	}
 }
 
+// WithHTTPClient sets the client a layout served over HTTP is fetched with.
+// Headers the origin requires belong on its transport.
+func WithHTTPClient(client *http.Client) AccessOpt {
+	return func(so *Accessor) {
+		so.httpClient = client
+	}
+}
+
 func WithRegistryHosts(hosts docker.RegistryHosts) AccessOpt {
 	return func(so *Accessor) {
 		so.registryHosts = hosts
@@ -60,40 +70,135 @@ func WithRegistryHeaders(headers http.Header) AccessOpt {
 	}
 }
 
-func (accessor *Accessor) Load(ctx context.Context, src *Location, platform platforms.MatchComparer) (*Image, error) {
+// Resolve pins src to the digest it currently names. A registry is asked
+// once, so Load does not have to ask again; a local layout or archive is on
+// disk already and is returned as given.
+func (accessor *Accessor) Resolve(ctx context.Context, src *Location) (Resolved, error) {
 	switch src.Scheme {
 	case schemes.OCI:
 		named, err := reference.ParseNormalizedNamed(src.Path)
 		if err != nil {
-			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
+			return Resolved{}, fmt.Errorf("parsing image reference %q: %w", src, err)
 		}
-		return LoadRegistryImage(ctx, named, accessor.remote, platform)
-	case schemes.OCILayout:
-		path, tag := splitPathTag(src.Path)
-		return LoadOCILayoutNamed(ctx, path, tag, platform)
-	case schemes.OCIArchive:
-		return LoadTarball(ctx, src.Path, platform)
+		requested, err := reference.FromNamed(named)
+		if err != nil {
+			return Resolved{}, fmt.Errorf("parsing image reference %q: %w", src, err)
+		}
+		canonical, desc, err := ResolveRegistryImage(ctx, named, accessor.remote)
+		if err != nil {
+			return Resolved{}, err
+		}
+		resolved, err := reference.FromNamed(canonical)
+		if err != nil {
+			return Resolved{}, fmt.Errorf("naming resolved image %q: %w", canonical, err)
+		}
+		return Resolved{
+			Reference:         requested,
+			ResolvedReference: resolved,
+			Location:          Location{Scheme: schemes.OCI, Path: canonical.String()},
+			descriptor:        desc,
+		}, nil
+
+	case schemes.HTTPOCI, schemes.HTTPSOCI:
+		requested, err := reference.Parse(src.String())
+		if err != nil {
+			return Resolved{}, fmt.Errorf("parsing image reference %q: %w", src, err)
+		}
+		pinned, err := ResolveTarballRemote(ctx, requested.AsURL(), accessor.httpClient)
+		if err != nil {
+			return Resolved{}, err
+		}
+		location := Location{Scheme: src.Scheme, Path: pinned.Host + pinned.Path}
+		resolved, err := reference.Parse(location.String())
+		if err != nil {
+			return Resolved{}, fmt.Errorf("naming resolved image %q: %w", pinned, err)
+		}
+		return Resolved{
+			Reference:         requested,
+			ResolvedReference: resolved,
+			Location:          location,
+		}, nil
+
+	case schemes.OCILayout, schemes.OCIArchive:
+		return Resolved{Location: *src}, nil
+
 	default:
-		return nil, fmt.Errorf("unsupported location scheme: %q", src.Scheme)
+		return Resolved{}, fmt.Errorf("unsupported location scheme: %q", src.Scheme)
 	}
 }
 
-func (accessor *Accessor) LoadAll(ctx context.Context, src *Location, platform platforms.MatchComparer) ([]*Image, error) {
-	switch src.Scheme {
+// Load loads the image a Resolve pinned.
+func (accessor *Accessor) Load(ctx context.Context, res Resolved, platform platforms.MatchComparer) (*Image, error) {
+	var (
+		img *Image
+		err error
+	)
+	switch res.Location.Scheme {
 	case schemes.OCI:
-		named, err := reference.ParseNormalizedNamed(src.Path)
+		var named distref.Named
+		named, err = reference.ParseNormalizedNamed(res.Location.Path)
 		if err != nil {
-			return nil, fmt.Errorf("parsing image reference %q: %w", src, err)
+			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
 		}
-		return LoadAllRegistryImages(ctx, named, accessor.remote, platform)
+		img, err = LoadRegistryImage(ctx, named, res.descriptor, accessor.remote, platform)
+	case schemes.HTTPOCI, schemes.HTTPSOCI:
+		var ref reference.Reference
+		ref, err = reference.Parse(res.Location.String())
+		if err != nil {
+			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
+		}
+		img, err = LoadTarballRemote(ctx, ref.AsURL(), accessor.httpClient, platform)
 	case schemes.OCILayout:
-		path, tag := splitPathTag(src.Path)
-		return LoadAllOCILayoutsNamed(ctx, path, tag, platform)
+		path, tag := splitPathTag(res.Location.Path)
+		img, err = LoadOCILayoutNamed(ctx, path, tag, platform)
 	case schemes.OCIArchive:
-		return LoadAllTarballs(ctx, src.Path, platform)
+		img, err = LoadTarball(ctx, res.Location.Path, platform)
 	default:
-		return nil, fmt.Errorf("unsupported location scheme: %q", src.Scheme)
+		return nil, fmt.Errorf("unsupported location scheme: %q", res.Location.Scheme)
 	}
+	if err != nil {
+		return nil, err
+	}
+	img.Resolved = res
+	return img, nil
+}
+
+// LoadAll loads all images a Resolve pinned.
+func (accessor *Accessor) LoadAll(ctx context.Context, res Resolved, platform platforms.MatchComparer) ([]*Image, error) {
+	var (
+		imgs []*Image
+		err  error
+	)
+	switch res.Location.Scheme {
+	case schemes.OCI:
+		var named distref.Named
+		named, err = reference.ParseNormalizedNamed(res.Location.Path)
+		if err != nil {
+			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
+		}
+		imgs, err = LoadAllRegistryImages(ctx, named, res.descriptor, accessor.remote, platform)
+	case schemes.HTTPOCI, schemes.HTTPSOCI:
+		var ref reference.Reference
+		ref, err = reference.Parse(res.Location.String())
+		if err != nil {
+			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
+		}
+		imgs, err = LoadAllTarballsRemote(ctx, ref.AsURL(), accessor.httpClient, platform)
+	case schemes.OCILayout:
+		path, tag := splitPathTag(res.Location.Path)
+		imgs, err = LoadAllOCILayoutsNamed(ctx, path, tag, platform)
+	case schemes.OCIArchive:
+		imgs, err = LoadAllTarballs(ctx, res.Location.Path, platform)
+	default:
+		return nil, fmt.Errorf("unsupported location scheme: %q", res.Location.Scheme)
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, img := range imgs {
+		img.Resolved = res
+	}
+	return imgs, nil
 }
 
 func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Image) error {

@@ -16,7 +16,8 @@ import (
 )
 
 // Location is where an [Accessor] loads an image from, saves it to or deletes it
-// at: a registry, a local OCI layout directory or a local OCI archive.
+// at: a registry, a layout served over HTTP, a local OCI layout directory or a
+// local OCI archive.
 type Location struct {
 	Scheme schemes.Scheme
 	Path   string
@@ -135,7 +136,7 @@ func GuessLocation(src string) (*Location, error) {
 }
 
 func newLocation(scheme string, path string) (*Location, error) {
-	uriScheme, err := parseScheme(scheme)
+	uriScheme, err := schemes.Parse(scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -143,20 +144,6 @@ func newLocation(scheme string, path string) (*Location, error) {
 		Scheme: uriScheme,
 		Path:   path,
 	}, nil
-}
-
-// parseScheme returns the scheme named by scheme, if it is one an Accessor can
-// read or write.
-func parseScheme(scheme string) (schemes.Scheme, error) {
-	parsed, err := schemes.Parse(scheme)
-	if err != nil {
-		return "", err
-	}
-	if parsed.IsHTTP() {
-		return "", fmt.Errorf("%w: %q names an image the platform fetches, not a local one",
-			schemes.ErrUnsupported, scheme)
-	}
-	return parsed, nil
 }
 
 // splitPathTag splits a path from the tag that follows its last colon. The
