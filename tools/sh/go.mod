@@ -1,6 +1,6 @@
 module unikraft.com/x/tools/sh
 
-go 1.26.7
+go 1.27.1
 
 replace unikraft.com/x/shell => ../../shell
 
@@ -28,7 +28,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
-	github.com/mattn/go-isatty v0.0.23 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/reeflective/readline v1.3.0 // indirect

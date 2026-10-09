@@ -1,6 +1,6 @@
 module github.com/unikraft-cloud/x/tools/imgtool
 
-go 1.26.6
+go 1.27.1
 
 replace unikraft.com/x/image-spec => ../../image-spec
 
@@ -34,7 +34,7 @@ require (
 	github.com/gofrs/flock v0.13.1 // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
-	github.com/mattn/go-isatty v0.0.23 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/moby/buildkit v0.31.1 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
