@@ -35,73 +35,83 @@ import (
 
 // LoadRegistryImage loads a image from a remote registry.
 func LoadRegistryImage(ctx context.Context, named distref.Named, remote remotes.Resolver, platform platforms.MatchComparer) (*Image, error) {
-	named = distref.TagNameOnly(named)
-
-	name, desc, err := remote.Resolve(ctx, named.String())
+	requested, resolved, desc, err := resolveRegistryImage(ctx, named, remote)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve image %q: %w", named, err)
-	}
-	ref, err := distref.Parse(name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse resolved image name %q: %w", name, err)
-	}
-	named, ok := ref.(distref.Named)
-	if !ok {
-		return nil, fmt.Errorf("resolved image name %q is not a named reference", name)
+		return nil, err
 	}
 
-	fetcher, err := remote.Fetcher(ctx, name)
+	fetcher, err := remote.Fetcher(ctx, resolved.String())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get fetcher for image %q: %w", named, err)
+		return nil, fmt.Errorf("failed to get fetcher for image %q: %w", resolved, err)
 	}
 	provider := contentutil.FromFetcher(fetcher)
 
 	img, err := LoadContent(ctx, provider, desc, platform)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load image %q: %w", named, err)
+		return nil, fmt.Errorf("failed to load image %q: %w", resolved, err)
 	}
-	img.Name, err = reference.FromNamed(named)
-	if err != nil {
-		return nil, fmt.Errorf("naming image %q: %w", named, err)
-	}
+	img.Reference = requested
+	img.ResolvedReference = resolved
 	return img, nil
 }
 
 // LoadAllRegistryImages loads all available images from a remote registry.
 func LoadAllRegistryImages(ctx context.Context, named distref.Named, remote remotes.Resolver, platform platforms.MatchComparer) ([]*Image, error) {
-	named = distref.TagNameOnly(named)
-
-	name, desc, err := remote.Resolve(ctx, named.String())
+	requested, resolved, desc, err := resolveRegistryImage(ctx, named, remote)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve image %q: %w", named, err)
-	}
-	ref, err := distref.Parse(name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse resolved image name %q: %w", name, err)
-	}
-	named, ok := ref.(distref.Named)
-	if !ok {
-		return nil, fmt.Errorf("resolved image name %q is not a named reference", name)
+		return nil, err
 	}
 
-	fetcher, err := remote.Fetcher(ctx, name)
+	fetcher, err := remote.Fetcher(ctx, resolved.String())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get fetcher for image %q: %w", named, err)
+		return nil, fmt.Errorf("failed to get fetcher for image %q: %w", resolved, err)
 	}
 	provider := contentutil.FromFetcher(fetcher)
 
 	imgs, err := LoadAllContent(ctx, provider, desc, platform)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load image %q: %w", named, err)
-	}
-	imgName, err := reference.FromNamed(named)
-	if err != nil {
-		return nil, fmt.Errorf("naming image %q: %w", named, err)
+		return nil, fmt.Errorf("failed to load image %q: %w", resolved, err)
 	}
 	for _, img := range imgs {
-		img.Name = imgName
+		img.Reference = requested
+		img.ResolvedReference = resolved
 	}
 	return imgs, nil
+}
+
+// resolveRegistryImage resolves named against the registry. It returns the
+// reference as requested, the digest reference it resolved to, and the
+// descriptor of that digest.
+func resolveRegistryImage(ctx context.Context, named distref.Named, remote remotes.Resolver) (reference.Reference, reference.Reference, ocispec.Descriptor, error) {
+	requested, err := reference.FromNamed(named)
+	if err != nil {
+		return reference.Reference{}, reference.Reference{}, ocispec.Descriptor{}, fmt.Errorf("naming image %q: %w", named, err)
+	}
+
+	named = distref.TagNameOnly(named)
+
+	name, desc, err := remote.Resolve(ctx, named.String())
+	if err != nil {
+		return reference.Reference{}, reference.Reference{}, ocispec.Descriptor{}, fmt.Errorf("failed to resolve image %q: %w", named, err)
+	}
+	ref, err := distref.Parse(name)
+	if err != nil {
+		return reference.Reference{}, reference.Reference{}, ocispec.Descriptor{}, fmt.Errorf("failed to parse resolved image name %q: %w", name, err)
+	}
+	resolvedNamed, ok := ref.(distref.Named)
+	if !ok {
+		return reference.Reference{}, reference.Reference{}, ocispec.Descriptor{}, fmt.Errorf("resolved image name %q is not a named reference", name)
+	}
+
+	resolved, err := reference.FromNamed(distref.TrimNamed(resolvedNamed))
+	if err != nil {
+		return reference.Reference{}, reference.Reference{}, ocispec.Descriptor{}, fmt.Errorf("naming resolved image %q: %w", name, err)
+	}
+	resolved, err = resolved.WithDigest(desc.Digest)
+	if err != nil {
+		return reference.Reference{}, reference.Reference{}, ocispec.Descriptor{}, fmt.Errorf("resolved image %q to an invalid digest: %w", name, err)
+	}
+	return requested, resolved, desc, nil
 }
 
 // SaveRegistryImage saves a image to a remote registry.

@@ -67,7 +67,7 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 			fmt.Fprintln(w, "\n"+strings.Repeat("-", 80)+"\n")
 		}
 
-		displayName := name(img.Name, img.Descriptor)
+		displayName := name(img.Reference, img.Descriptor)
 		if displayName == "" {
 			displayName = c.Image
 		}
@@ -113,14 +113,14 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 		if kernel := img.Kernel; kernel != nil {
 			kernelDesc, _ := kernel.Source()
 			fmt.Fprintf(w, "Kernel:\n")
-			fmt.Fprintf(w, "  Name: %s\n", name(img.Name, kernelDesc))
+			fmt.Fprintf(w, "  Name: %s\n", name(img.Reference, kernelDesc))
 			fmt.Fprintf(w, "  Path: %s\n", kernel.Path())
 			fmt.Fprintf(w, "  Size: %.2f\n", units.Bytes(kernelDesc.Size))
 		}
 		if initrd := img.Initrd; initrd != nil {
 			initrdDesc, _ := initrd.Source()
 			fmt.Fprintf(w, "Initrd:\n")
-			fmt.Fprintf(w, "  Name: %s\n", name(img.Name, initrdDesc))
+			fmt.Fprintf(w, "  Name: %s\n", name(img.Reference, initrdDesc))
 			fmt.Fprintf(w, "  Path: %s\n", initrd.Path())
 			fmt.Fprintf(w, "  Size: %.2f\n", units.Bytes(initrdDesc.Size))
 		}
@@ -128,7 +128,7 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 			fmt.Fprintf(w, "ROMs:\n")
 			for _, rom := range roms {
 				romDesc, _ := rom.Source()
-				fmt.Fprintf(w, "  -  Name: %s\n", name(img.Name, romDesc))
+				fmt.Fprintf(w, "  -  Name: %s\n", name(img.Reference, romDesc))
 				fmt.Fprintf(w, "     Path: %s\n", rom.Path())
 				fmt.Fprintf(w, "     Size: %.2f\n", units.Bytes(romDesc.Size))
 			}

@@ -224,17 +224,15 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 		Str("digest", desc.Digest.String()).
 		Msg("copying layer")
 
-	// if the image source has a name, add a cross-repo mount
+	// if the image came from a registry, add a cross-repo mount
 	wdesc := desc
-	if !image.Name.IsZero() {
+	if source := image.source(); !source.IsZero() {
 		if wdesc.Annotations == nil {
 			wdesc.Annotations = make(map[string]string)
 		} else {
 			wdesc.Annotations = maps.Clone(wdesc.Annotations)
 		}
-		source := image.Name.Domain()
-		repo := image.Name.Path()
-		wdesc.Annotations[labels.LabelDistributionSource+"."+source] = repo
+		wdesc.Annotations[labels.LabelDistributionSource+"."+source.Domain()] = source.Path()
 	}
 
 	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(wdesc))
