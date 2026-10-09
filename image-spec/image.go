@@ -18,12 +18,8 @@ import (
 
 // Image represents a unikraft image stored in OCI format.
 type Image struct {
-	// Reference is the reference the image was requested by (if any).
-	Reference reference.Reference
-	// ResolvedReference names the image by digest where it was found (if any).
-	// For a registry it is Reference without its tag and with its digest; for a
-	// layout served over HTTP it is the location the origin redirected to.
-	ResolvedReference reference.Reference
+	// Resolved is where the image was loaded from (if available).
+	Resolved
 
 	// Descriptor is the OCI descriptor of the image manifest (if available).
 	Descriptor ocispec.Descriptor

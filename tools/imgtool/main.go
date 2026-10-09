@@ -48,7 +48,11 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 	}
 
 	accessor := newAccessor(insecure)
-	imgs, err := accessor.LoadAll(ctx, loc, platforms.All)
+	res, err := accessor.Resolve(ctx, loc)
+	if err != nil {
+		return err
+	}
+	imgs, err := accessor.LoadAll(ctx, res, platforms.All)
 	if err != nil {
 		return err
 	}
@@ -177,7 +181,11 @@ func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 	}
 
 	accessor := newAccessor(insecure)
-	imgs, err := accessor.LoadAll(ctx, src, platforms.All)
+	res, err := accessor.Resolve(ctx, src)
+	if err != nil {
+		return err
+	}
+	imgs, err := accessor.LoadAll(ctx, res, platforms.All)
 	if err != nil {
 		return err
 	}
