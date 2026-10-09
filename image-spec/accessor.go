@@ -24,6 +24,7 @@ type Accessor struct {
 	remote          remotes.Resolver
 	registryHosts   docker.RegistryHosts
 	registryHeaders http.Header
+	httpClient      *http.Client
 }
 
 func NewAccessor(opts ...AccessOpt) *Accessor {
@@ -42,6 +43,14 @@ type AccessOpt func(*Accessor)
 func WithResolver(r remotes.Resolver) AccessOpt {
 	return func(so *Accessor) {
 		so.remote = r
+	}
+}
+
+// WithHTTPClient sets the client a layout served over HTTP is fetched with.
+// Headers the origin requires belong on its transport.
+func WithHTTPClient(client *http.Client) AccessOpt {
+	return func(so *Accessor) {
+		so.httpClient = client
 	}
 }
 
@@ -90,6 +99,26 @@ func (accessor *Accessor) Resolve(ctx context.Context, src *Location) (Resolved,
 			descriptor:        desc,
 		}, nil
 
+	case schemes.HTTPOCI, schemes.HTTPSOCI:
+		requested, err := reference.Parse(src.String())
+		if err != nil {
+			return Resolved{}, fmt.Errorf("parsing image reference %q: %w", src, err)
+		}
+		pinned, err := ResolveTarballRemote(ctx, requested.AsURL(), accessor.httpClient)
+		if err != nil {
+			return Resolved{}, err
+		}
+		location := Location{Scheme: src.Scheme, Path: pinned.Host + pinned.Path}
+		resolved, err := reference.Parse(location.String())
+		if err != nil {
+			return Resolved{}, fmt.Errorf("naming resolved image %q: %w", pinned, err)
+		}
+		return Resolved{
+			Reference:         requested,
+			ResolvedReference: resolved,
+			Location:          location,
+		}, nil
+
 	case schemes.OCILayout, schemes.OCIArchive:
 		return Resolved{Location: *src}, nil
 
@@ -112,6 +141,13 @@ func (accessor *Accessor) Load(ctx context.Context, res Resolved, platform platf
 			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
 		}
 		img, err = LoadRegistryImage(ctx, named, res.descriptor, accessor.remote, platform)
+	case schemes.HTTPOCI, schemes.HTTPSOCI:
+		var ref reference.Reference
+		ref, err = reference.Parse(res.Location.String())
+		if err != nil {
+			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
+		}
+		img, err = LoadTarballRemote(ctx, ref.AsURL(), accessor.httpClient, platform)
 	case schemes.OCILayout:
 		path, tag := splitPathTag(res.Location.Path)
 		img, err = LoadOCILayoutNamed(ctx, path, tag, platform)
@@ -141,6 +177,13 @@ func (accessor *Accessor) LoadAll(ctx context.Context, res Resolved, platform pl
 			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
 		}
 		imgs, err = LoadAllRegistryImages(ctx, named, res.descriptor, accessor.remote, platform)
+	case schemes.HTTPOCI, schemes.HTTPSOCI:
+		var ref reference.Reference
+		ref, err = reference.Parse(res.Location.String())
+		if err != nil {
+			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
+		}
+		imgs, err = LoadAllTarballsRemote(ctx, ref.AsURL(), accessor.httpClient, platform)
 	case schemes.OCILayout:
 		path, tag := splitPathTag(res.Location.Path)
 		imgs, err = LoadAllOCILayoutsNamed(ctx, path, tag, platform)
