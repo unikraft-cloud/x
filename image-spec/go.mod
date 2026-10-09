@@ -1,6 +1,6 @@
 module unikraft.com/x/image-spec
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/containerd/containerd/v2 v2.4.1
@@ -29,7 +29,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
-	github.com/mattn/go-isatty v0.0.23 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect

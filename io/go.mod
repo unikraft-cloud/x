@@ -1,6 +1,6 @@
 module unikraft.com/x/io
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/charmbracelet/colorprofile v0.4.3
@@ -16,6 +16,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/exp v0.0.0-20260603202125-055de637280b // indirect
+	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )
