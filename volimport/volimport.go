@@ -3,6 +3,7 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
+// Package volimport copies a CPIO archive into a Unikraft Cloud volume.
 package volimport
 
 import (
@@ -13,13 +14,12 @@ import (
 	"strconv"
 	"strings"
 
-	"unikraft.com/cli/internal/multimetro"
-	"unikraft.com/cli/internal/timeouts"
 	"unikraft.com/cloud/sdk/platform"
 	"unikraft.com/x/log"
+	"unikraft.com/x/timeouts"
 )
 
-func deleteInstanceByUUID(ctx context.Context, c multimetro.MetroClient, instUUID string) error {
+func deleteInstanceByUUID(ctx context.Context, c platform.Client, instUUID string) error {
 	req := platform.DeleteInstanceByUUIDRequestBody{TimeoutS: new(int64(-1))}
 	_, err := timeouts.TryWithFallback(ctx, req,
 		func(ctx context.Context, req platform.DeleteInstanceByUUIDRequestBody) (*platform.Response[platform.DeleteInstancesResponseData], error) {
@@ -36,7 +36,7 @@ const (
 // Start creates a short-lived Unikraft Cloud instance running the
 // volimport service with the given volume attached at /mnt, and returns the
 // instance UUID and the public FQDN on which the import service listens.
-func Start(ctx context.Context, c multimetro.MetroClient, image, volUUID, authStr string, timeoutS uint64, servicePort int) (instUUID, fqdn string, err error) {
+func Start(ctx context.Context, c platform.Client, image, volUUID, authStr string, timeoutS uint64, servicePort int) (instUUID, fqdn string, err error) {
 	args := []string{
 		"volimport",
 		"-p", strconv.FormatUint(uint64(internalPort), 10),
@@ -100,7 +100,7 @@ func Start(ctx context.Context, c multimetro.MetroClient, image, volUUID, authSt
 }
 
 // Terminate deletes the given instance, ignoring "not found" errors.
-func Terminate(ctx context.Context, c multimetro.MetroClient, instUUID string) error {
+func Terminate(ctx context.Context, c platform.Client, instUUID string) error {
 	log.G(ctx).Trace().Str("uuid", instUUID).Msg("deleting volume data import instance")
 	err := deleteInstanceByUUID(ctx, c, instUUID)
 	if err != nil && !platform.ErrorContainsOnly(err, platform.APIHTTPErrorNotFound) {
@@ -110,7 +110,7 @@ func Terminate(ctx context.Context, c multimetro.MetroClient, instUUID string) e
 }
 
 // Wait waits for the given instance to reach the stopped state.
-func Wait(ctx context.Context, c multimetro.MetroClient, instUUID string) error {
+func Wait(ctx context.Context, c platform.Client, instUUID string) error {
 	req := platform.WaitInstanceByUUIDRequestBody{
 		State:    platform.InstanceStateStopped,
 		TimeoutS: new(int64(-1)),
