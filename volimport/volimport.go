@@ -29,6 +29,14 @@ func deleteInstanceByUUID(ctx context.Context, c platform.Client, instUUID strin
 }
 
 const (
+	// DefaultImage is the image that runs the import service.
+	DefaultImage = "official/utils/volimport:1.0"
+
+	// DefaultPort is the public port of the import service.
+	DefaultPort = 42069
+)
+
+const (
 	internalPort = uint32(42069)
 	memoryMB     = int64(128)
 )
