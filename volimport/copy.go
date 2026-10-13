@@ -8,10 +8,10 @@ package volimport
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"time"
 
@@ -86,7 +86,7 @@ func (r *okResponse) parse(raw []byte) error {
 // waitForOK blocks on conn, consuming acknowledgement frames until a terminal
 // status is received.  It returns any payload bytes attached to the terminal
 // frame, or an error if the server reported a failure.
-func (r *okResponse) waitForOK(conn *tls.Conn, errMsg string) ([]byte, error) {
+func (r *okResponse) waitForOK(conn net.Conn, errMsg string) ([]byte, error) {
 	retErr := fmt.Errorf("%s", errMsg)
 	for {
 		var headBuf, bodyBuf []byte
@@ -135,7 +135,7 @@ func (r *okResponse) waitForOK(conn *tls.Conn, errMsg string) ([]byte, error) {
 // waitForOKs runs on a goroutine, consuming per-entry acknowledgement frames
 // from the volimport service until the final stop frame arrives or an error
 // occurs.  It signals completion by sending to result and waitErr.
-func waitForOKs(conn *tls.Conn, auth string, result chan *stopResponse, waitErr chan *error) {
+func waitForOKs(conn net.Conn, auth string, result chan *stopResponse, waitErr chan *error) {
 	var err error
 	var final *stopResponse
 	resp := okResponse{}
@@ -187,7 +187,7 @@ var (
 // size is the byte length of the archive, used for the capacity check.
 // Returns the free and total volume bytes as reported by the service after
 // the import completes.
-func Copy(ctx context.Context, conn *tls.Conn, auth string, r io.Reader, force bool, size uint64) (free, total uint64, err error) {
+func Copy(ctx context.Context, conn net.Conn, auth string, r io.Reader, force bool, size uint64) (free, total uint64, err error) {
 	var resp okResponse
 
 	ctx, cancel := context.WithCancel(ctx)
