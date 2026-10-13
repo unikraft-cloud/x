@@ -30,6 +30,7 @@ use (
 	./stdio
 	./telemetry
 	./text
+	./timeouts
 	./version
 )
 
