@@ -86,6 +86,11 @@ type state struct {
 	exiting     atomic.Bool
 	euid        string
 
+	sizeMu   sync.Mutex
+	terminal bool // a size has been told: the console is a terminal
+	size     WinSize
+	resized  chan WinSize // the running terminal command's Resize, nil between commands
+
 	statsMu  sync.Mutex
 	stats    map[statKey]fs.FileInfo
 	statsGen uint64
@@ -141,6 +146,10 @@ func newState(ctx context.Context, cfg Config, streams stdio.Stdio) (*state, err
 	s.console = console{
 		Out: lockWriter(&terminal, &colorprofile.Writer{Forward: streams.Stdout, Profile: s.profile}),
 		Err: lockWriter(&terminal, &colorprofile.Writer{Forward: streams.Stderr, Profile: s.profile}),
+	}
+	// A pty merges stderr into stdout, so a redirected stderr keeps the pipes.
+	if s.onTerminal && xio.IsTTY(streams.Stderr) {
+		s.resize(s.measure())
 	}
 
 	env, err := s.environ(ctx)
@@ -246,6 +255,9 @@ func (s *state) runInteractive(ctx context.Context) (int, error) {
 	stop := s.captureInterrupts()
 	defer stop()
 	defer s.plainKeys()()
+	if s.terminal {
+		defer s.followSize()()
+	}
 
 	if s.cfg.Banner != "" {
 		fmt.Fprintln(s.console.Err, bannerStyle.Render(s.cfg.Banner))
@@ -356,6 +368,8 @@ func (s *state) runStmt(ctx context.Context, stmt *syntax.Stmt) (status int, int
 		wg   sync.WaitGroup
 		done = make(chan struct{})
 	)
+	// A terminal command its ^C killed ends the statement the way a ^C here does.
+	stmtCtx = context.WithValue(stmtCtx, interruptedKey{}, func() { hit.Store(true); cancel() })
 
 	// A ^C from earlier in the line, when no statement was watching for one.
 	select {
@@ -392,6 +406,9 @@ func (s *state) runStmt(ctx context.Context, stmt *syntax.Stmt) (status int, int
 	s.clearInterrupt(ctx)
 	return StatusInterrupted, true, nil
 }
+
+// interruptedKey carries a statement's own ^C to the command that saw it on its pty.
+type interruptedKey struct{}
 
 func mustParse(src string) *syntax.File {
 	prog, err := syntax.NewParser().Parse(strings.NewReader(src), "")
