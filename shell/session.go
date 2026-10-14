@@ -57,6 +57,9 @@ func (s *Session) Interrupt() {
 	}
 }
 
+// Resize is the host's terminal size; a session never told one runs commands on pipes.
+func (s *Session) Resize(cols, rows int) { s.s.resize(WinSize{Cols: cols, Rows: rows}) }
+
 // Close ends the session, running the EXIT trap that ^D runs at a terminal, and
 // releases what it holds. Call it once however the session ended, not only on a
 // ^D; the trap's own status is the session's to swallow.
