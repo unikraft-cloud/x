@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -20,9 +21,11 @@ import (
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/termios"
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	"unikraft.com/x/stdio"
 )
@@ -45,7 +48,7 @@ func runHelperSession(root string) int {
 	code, err := Run(ctx, Config{
 		Instance:  "fake",
 		Dir:       root,
-		Transport: local(),
+		Transport: ExecTransport(ptyTransport),
 		Builtins:  builtinsNamed("start"),
 		Banner:    "this shell is experimental\nno job control, so no ctrl-z, bg or fg",
 	}, stdio.Stdio{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr})
@@ -58,6 +61,41 @@ func runHelperSession(root string) int {
 		return 1
 	}
 	return code
+}
+
+// ptyTransport runs a command with a terminal under a pty of its own, as the
+// instance would, and every other command through local().
+func ptyTransport(ctx context.Context, cmd Command) (int, error) {
+	if cmd.Terminal == nil {
+		return local().Exec(ctx, cmd)
+	}
+
+	proc := exec.CommandContext(ctx, cmd.Args[0], cmd.Args[1:]...)
+	proc.Dir, proc.Env = cmd.Dir, cmd.Env
+	ptmx, err := pty.StartWithSize(proc, winsize(cmd.Terminal.Size))
+	if err != nil {
+		return 0, err
+	}
+	defer ptmx.Close()
+
+	go func() { _, _ = io.Copy(ptmx, cmd.Streams.Stdin) }()
+	go func() {
+		for {
+			select {
+			case size := <-cmd.Terminal.Resize:
+				_ = pty.Setsize(ptmx, winsize(size))
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	// The read ends with EIO once the command has hung up.
+	_, _ = io.Copy(cmd.Streams.Stdout, ptmx)
+	return ExitStatus(proc.Wait())
+}
+
+func winsize(size WinSize) *pty.Winsize {
+	return &pty.Winsize{Cols: uint16(size.Cols), Rows: uint16(size.Rows)}
 }
 
 func TestPromptNeedsTheProcessTerminal(t *testing.T) {
@@ -441,6 +479,39 @@ func TestPrompt(t *testing.T) {
 
 		term.run("echo after")
 		term.await("after")
+	})
+
+	t.Run("gives-a-command-the-terminal", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.run("stty size")
+		term.await("24 120", "the command's pty is the terminal's size")
+		term.run("sh -c '[ -t 0 ] && echo tty || echo notty' | cat")
+		term.await("notty", "a pipeline runs on pipes")
+	})
+
+	t.Run("follows-the-window-size", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.run("sh -c 'echo begun; sleep 1; stty size'")
+		term.await("begun")
+		require.NoError(t, pty.Setsize(term.ptmx, &pty.Winsize{Rows: 30, Cols: 100}))
+		term.await("30 100", "the window's new size reached the command")
+	})
+
+	t.Run("hands-the-terminal-back", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.run("stty size")
+		term.await("24 120")
+		term.run("exit")
+		require.True(t, term.left())
+
+		mode, err := termios.GetTermios(int(term.ptmx.Fd()))
+		require.NoError(t, err)
+		assert.NotZero(t, mode.Lflag&unix.ECHO, "echo is back on")
+		assert.NotZero(t, mode.Lflag&unix.ICANON, "and so is line editing")
+		assert.NotZero(t, mode.Lflag&unix.ISIG, "and ^C as a signal")
 	})
 
 	t.Run("prints-one-ctrl-c-at-the-prompt", func(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 
 // LocalTransport stands in for an instance by running commands on this
 // machine, so the routing, the remote filesystem handlers and the prompt can
-// all be exercised without a network.
+// all be exercised without a network. Every command runs on pipes, Terminal or not.
 func LocalTransport() ExecTransport { return runLocal }
 
 func runLocal(ctx context.Context, cmd Command) (int, error) {

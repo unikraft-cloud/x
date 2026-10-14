@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"sync/atomic"
+	"syscall"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
@@ -74,6 +75,9 @@ func (s *state) runRemote(ctx context.Context, args []string) error {
 	defer done()
 
 	streams := stdio.Stdio{Stdin: hc.Stdin, Stdout: hc.Stdout, Stderr: hc.Stderr}
+	// The terminal is released after its reader is reclaimed: defers run last in, first out.
+	terminal, release := s.lendTerminal(streams)
+	defer release()
 	in, reclaim := s.commandStdin(ctx, streams.Stdin)
 	streams.Stdin = in
 	// Hand the terminal back before the prompt reads it again, not whenever the
@@ -84,11 +88,15 @@ func (s *state) runRemote(ctx context.Context, args []string) error {
 	streams.Stdout = out
 
 	code, err := s.cfg.Transport.Exec(ctx, Command{
-		Args:    args,
-		Dir:     hc.Dir,
-		Env:     envList(hc.Env),
-		Streams: streams,
+		Args:     args,
+		Dir:      hc.Dir,
+		Env:      envList(hc.Env),
+		Streams:  streams,
+		Terminal: terminal,
 	})
+	// Cooked again before anything is printed here.
+	reclaim()
+	release()
 	switch {
 	case capture.filled():
 		fmt.Fprintln(hc.Stderr, errorStyle.Render(captureFull))
@@ -98,6 +106,12 @@ func (s *state) runRemote(ctx context.Context, args []string) error {
 	case err != nil:
 		fmt.Fprintln(hc.Stderr, errorStyle.Render(sanitised(err).Error()))
 		return interp.ExitStatus(1)
+	case terminal != nil && code == -int(syscall.SIGINT):
+		// The pty delivered the ^C; the rest of the line goes as it would here.
+		if interrupt, ok := ctx.Value(interruptedKey{}).(func()); ok {
+			interrupt()
+		}
+		return interp.ExitStatus(StatusInterrupted)
 	}
 	return codeToExitStatus(code)
 }
