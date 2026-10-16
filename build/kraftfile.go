@@ -61,10 +61,11 @@ func KraftfileBuildOpts(kf *kraftfile.Kraftfile, src Source) (BuildOpts, error) 
 		}
 		romFormat := cmp.Or(rom.Format, kraftfile.FsTypeErofs)
 		romOpt := FSOpts{
-			Source: src,
-			Path:   rom.Source.Path,
-			Format: romFormat,
-			Type:   rom.Source.Type,
+			Source:     src,
+			Path:       rom.Source.Path,
+			Format:     romFormat,
+			Type:       rom.Source.Type,
+			Dockerfile: rom.Source.Dockerfile,
 			// Pad the file to page-size alignment. This is required by the platform
 			// which rejects ROM files that are not page-aligned.
 			Pad: 4096,

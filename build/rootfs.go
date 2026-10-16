@@ -192,14 +192,10 @@ func (b Builder) buildRoms(ctx context.Context, opts BuildOpts) (_ [][]imagespec
 	}()
 
 	for i, rom := range opts.Roms {
+		// The rom is built as a rootfs with all of its own options.
+		rom.Format = cmp.Or(rom.Format, kraftfile.FsTypeErofs)
 		romBuildOpts := BuildOpts{
-			Rootfs: FSOpts{
-				Source: rom.Source,
-				Path:   rom.Path,
-				Type:   rom.Type,
-				Format: cmp.Or(rom.Format, kraftfile.FsTypeErofs),
-				Pad:    rom.Pad,
-			},
+			Rootfs: rom,
 			// propagate BuildKit options from the parent build
 			Platform: opts.Platform,
 			BuildArg: opts.BuildArg,
