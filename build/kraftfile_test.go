@@ -155,6 +155,25 @@ func TestKraftfileToBuildOptsDockerfileWithType(t *testing.T) {
 	require.Equal(t, kraftfile.FsTypeErofs, opts.Rootfs.Format)
 }
 
+func TestKraftfileToBuildOptsRomDockerfile(t *testing.T) {
+	rootfsDir := t.TempDir()
+
+	runtime := kraftfile.Runtime("unikraft.io/unikraft.org/base")
+	kf := &kraftfile.Kraftfile{
+		Runtime: &runtime,
+		Roms: []kraftfile.FS{
+			{Source: &kraftfile.FSSource{Path: "rom", Dockerfile: "Dockerfile.rom"}},
+		},
+	}
+
+	opts, err := KraftfileBuildOpts(kf, LocalSource{Dir: rootfsDir})
+	require.NoError(t, err)
+	require.Len(t, opts.Roms, 1)
+	require.Equal(t, filepath.Join(rootfsDir, "rom"), opts.Roms[0].Path)
+	require.Equal(t, "Dockerfile.rom", opts.Roms[0].Dockerfile)
+	require.Equal(t, kraftfile.SourceTypeDockerfile, opts.Roms[0].Type)
+}
+
 func TestKraftfileToBuildOptsDockerfileWithoutType(t *testing.T) {
 	rootfsDir := t.TempDir()
 

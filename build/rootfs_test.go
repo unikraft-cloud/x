@@ -249,6 +249,20 @@ func TestRomDefaultFormat(t *testing.T) {
 	require.Equal(t, "nested\n", files["subdir/nested.txt"])
 }
 
+// A ROM built from a Dockerfile is built from the one it names, which is
+// looked for before anything connects to BuildKit.
+func TestRomDockerfile(t *testing.T) {
+	dir := writeTestDirectory(t)
+
+	_, err := Builder{}.buildRoms(t.Context(), BuildOpts{
+		Roms: []FSOpts{
+			{Path: dir, Type: kraftfile.SourceTypeDockerfile, Dockerfile: "Dockerfile.rom"},
+		},
+		Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
+	})
+	require.ErrorContains(t, err, `dockerfile "Dockerfile.rom" does not exist`)
+}
+
 // A ROM payload is a compiled artifact, so a multi-platform build must produce
 // one ROM per platform rather than reusing a single one everywhere. Reusing it
 // silently ships, say, an x86_64 binary inside the arm64 image.
