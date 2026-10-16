@@ -8,10 +8,12 @@ package imagespec
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/containerd/containerd/v2/core/content"
@@ -297,6 +299,54 @@ func requireTarPayload(t *testing.T, blob []byte, target string, expected []byte
 	data, err := io.ReadAll(rr)
 	require.NoError(t, err)
 	require.Equal(t, expected, data)
+}
+
+// openReaders is a store that counts the readers it gave out that are still
+// open.
+type openReaders struct {
+	content.Provider
+	open atomic.Int32
+}
+
+func (p *openReaders) ReaderAt(ctx context.Context, desc ocispec.Descriptor) (content.ReaderAt, error) {
+	ra, err := p.Provider.ReaderAt(ctx, desc)
+	if err != nil {
+		return nil, err
+	}
+	p.open.Add(1)
+
+	return countedReader{ra, &p.open}, nil
+}
+
+type countedReader struct {
+	content.ReaderAt
+	open *atomic.Int32
+}
+
+func (r countedReader) Close() error {
+	r.open.Add(-1)
+	return r.ReaderAt.Close()
+}
+
+func TestSaveContentClosesTheBlobsItCopies(t *testing.T) {
+	ctx := t.Context()
+
+	src, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	data := []byte("rom data")
+	desc := ocispec.Descriptor{MediaType: MediaTypeRom, Digest: digest.FromBytes(data), Size: int64(len(data))}
+	require.NoError(t, content.WriteBlob(ctx, src, "rom", bytes.NewReader(data), desc))
+	store := &openReaders{Provider: src}
+
+	// A rom of another image, which the save copies as it is.
+	img := *testImage
+	img.Roms = []File{NewContentStoreFile(store, desc, "")}
+	dst, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	_, err = SaveContent(ctx, dst, "latest", &img)
+	require.NoError(t, err)
+
+	require.Zero(t, store.open.Load(), "readers of the copied rom left open")
 }
 
 func TestOSFeaturesOnlyInConfig(t *testing.T) {

@@ -257,6 +257,7 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to get reader for descriptor: %w", err)
 	}
+	defer r.Close()
 
 	err = content.Copy(ctx, w, content.NewReader(r), desc.Size, desc.Digest)
 	if err != nil {

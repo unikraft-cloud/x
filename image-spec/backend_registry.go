@@ -54,7 +54,7 @@ func LoadRegistryImage(ctx context.Context, named distref.Named, remote remotes.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fetcher for image %q: %w", named, err)
 	}
-	provider := contentutil.FromFetcher(fetcher)
+	provider := verifiedProvider{contentutil.FromFetcher(fetcher)}
 
 	img, err := LoadContent(ctx, provider, desc, platform)
 	if err != nil {
@@ -88,7 +88,7 @@ func LoadAllRegistryImages(ctx context.Context, named distref.Named, remote remo
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fetcher for image %q: %w", named, err)
 	}
-	provider := contentutil.FromFetcher(fetcher)
+	provider := verifiedProvider{contentutil.FromFetcher(fetcher)}
 
 	imgs, err := LoadAllContent(ctx, provider, desc, platform)
 	if err != nil {
