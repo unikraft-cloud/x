@@ -40,7 +40,7 @@ func Manifests(ctx context.Context, provider content.Provider, image ocispec.Des
 }
 
 func readManifest(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) (ocispec.Manifest, error) {
-	p, err := content.ReadBlob(ctx, provider, desc)
+	p, err := readVerifiedBlob(ctx, provider, desc)
 	if err != nil {
 		return ocispec.Manifest{}, err
 	}
@@ -49,6 +49,22 @@ func readManifest(ctx context.Context, provider content.Provider, desc ocispec.D
 		return ocispec.Manifest{}, err
 	}
 	return manifest, nil
+}
+
+// ConfigPlatform is a forked version of images.ConfigPlatform that checks the
+// config against its digest.
+func ConfigPlatform(ctx context.Context, provider content.Provider, configDesc ocispec.Descriptor) (ocispec.Platform, error) {
+	p, err := readVerifiedBlob(ctx, provider, configDesc)
+	if err != nil {
+		return ocispec.Platform{}, err
+	}
+
+	var imagePlatform ocispec.Platform
+	if err := json.Unmarshal(p, &imagePlatform); err != nil {
+		return ocispec.Platform{}, err
+	}
+
+	return platforms.Normalize(imagePlatform), nil
 }
 
 // ManifestDescriptors is like Manifests, but returns the descriptors of the
@@ -71,7 +87,7 @@ func ManifestDescriptors(ctx context.Context, provider content.Provider, image o
 					if err != nil {
 						return nil, err
 					}
-					imagePlatform, err := images.ConfigPlatform(ctx, provider, manifest.Config)
+					imagePlatform, err := ConfigPlatform(ctx, provider, manifest.Config)
 					if err != nil {
 						return nil, err
 					}
@@ -85,7 +101,7 @@ func ManifestDescriptors(ctx context.Context, provider content.Provider, image o
 
 			return nil, nil
 		} else if images.IsIndexType(desc.MediaType) {
-			p, err := content.ReadBlob(ctx, provider, desc)
+			p, err := readVerifiedBlob(ctx, provider, desc)
 			if err != nil {
 				return nil, err
 			}

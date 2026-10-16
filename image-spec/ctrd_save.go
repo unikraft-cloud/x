@@ -255,8 +255,16 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to get reader for descriptor: %w", err)
 	}
+	// NOTE: an ingester need not check what it commits: a pusher leaves that
+	// to the registry it pushes to.
+	vr, err := newVerifiedReader(r, desc)
+	if err != nil {
+		r.Close()
+		return ocispec.Descriptor{}, err
+	}
+	defer vr.Close()
 
-	err = content.Copy(ctx, w, content.NewReader(r), desc.Size, desc.Digest)
+	err = content.Copy(ctx, w, vr, desc.Size, desc.Digest)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to copy content: %w", err)
 	}

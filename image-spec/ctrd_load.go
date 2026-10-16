@@ -68,7 +68,7 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 		Annotations:        mfst.Annotations,
 	}
 
-	dt, err := content.ReadBlob(ctx, store, mfst.Config)
+	dt, err := readVerifiedBlob(ctx, store, mfst.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read image config blob: %w", err)
 	}
@@ -130,20 +130,26 @@ func (f *ContentStoreFile) Open(ctx context.Context) (rc io.ReadCloser, size int
 			r.Close()
 		}
 	}()
-	sr := io.NewSectionReader(r, 0, f.Desc.Size)
+	// NOTE: checked here: only an entry of the blob may be read and the rest
+	// thrown away, so no writer ever sees the whole blob to check it.
+	vr, err := newVerifiedReader(r, f.Desc)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	if f.Path_ == "" {
-		return readCloser{Reader: sr, Closer: r}, f.Desc.Size, nil
+		return vr, f.Desc.Size, nil
 	}
 
 	target := filepath.Join("/", f.Path_)
 
-	tr := tar.NewReader(sr)
+	tr := tar.NewReader(vr.blob)
 	hdr, rr, err := readTarFile(tr, target)
 	if err != nil {
 		return nil, 0, err
 	}
-	return readCloser{Reader: rr, Closer: r}, hdr.Size, nil
+	vr.entry, vr.remaining = rr, hdr.Size
+	return vr, hdr.Size, nil
 }
 
 func (f *ContentStoreFile) Cleanup() error {
@@ -181,9 +187,4 @@ func readTarFile(tr *tar.Reader, target string) (*tar.Header, io.Reader, error) 
 	}
 
 	return nil, nil, &fs.PathError{Op: "open", Path: target, Err: fs.ErrNotExist}
-}
-
-type readCloser struct {
-	io.Reader
-	io.Closer
 }
