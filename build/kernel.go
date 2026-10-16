@@ -9,11 +9,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/image-spec/schemes"
+	"unikraft.com/x/kraftfile"
 	"unikraft.com/x/log"
 
 	"unikraft.com/x/build/progress"
@@ -22,6 +25,47 @@ import (
 // ErrNoRuntimeTarget tells that the runtime has no target of the selected
 // architectures. It occurs only when the build declares no platforms.
 var ErrNoRuntimeTarget = errors.New("runtime has no matching target")
+
+// detectKernelType infers how a kernel source is to be interpreted: a
+// regular file is an already-built kernel, and anything else is source code.
+func detectKernelType(source string) (kraftfile.KernelType, error) {
+	if strings.Contains(source, "://") {
+		return kraftfile.KernelTypeSource, nil
+	}
+
+	fi, err := os.Stat(source)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("kernel path does not exist: %w", err)
+		}
+		return "", fmt.Errorf("checking kernel source %q: %w", source, err)
+	}
+	if fi.Mode().IsRegular() {
+		return kraftfile.KernelTypeKernel, nil
+	}
+	return kraftfile.KernelTypeSource, nil
+}
+
+// loadKernel wraps an already-built kernel binary as an image. A kernel binary
+// carries no platform metadata of its own, so exactly one platform must be
+// requested, and it is taken on trust.
+func loadKernel(opts BuildOpts) ([]*imagespec.Image, error) {
+	if len(opts.Platform) != 1 {
+		return nil, fmt.Errorf("a kernel must be built for exactly one target, got %d", len(opts.Platform))
+	}
+
+	f, err := os.Open(opts.Kernel)
+	if err != nil {
+		return nil, fmt.Errorf("opening kernel: %w", err)
+	}
+
+	return []*imagespec.Image{
+		imagespec.NewImage(
+			imagespec.WithPlatform(opts.Platform[0]),
+			imagespec.WithKernel(imagespec.NewOSFile(f)),
+		),
+	}, nil
+}
 
 func (b Builder) buildKernel(ctx context.Context, opts BuildOpts) ([]*imagespec.Image, error) {
 	access, err := b.images(ctx)

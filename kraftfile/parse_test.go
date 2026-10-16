@@ -309,10 +309,10 @@ libraries:
 	requireValidSchema(t, input)
 	doc, err := ParseBytes([]byte(input))
 	require.NoError(t, err)
-	require.NotNil(t, doc.Unikraft)
-	require.Equal(t, "https://github.com/unikraft/unikraft.git", doc.Unikraft.Source)
-	require.Empty(t, doc.Unikraft.Version)
-	require.Empty(t, doc.Unikraft.Type)
+	require.NotNil(t, doc.Kernel)
+	require.Equal(t, "https://github.com/unikraft/unikraft.git", doc.Kernel.Source)
+	require.Empty(t, doc.Kernel.Version)
+	require.Empty(t, doc.Kernel.Type)
 	require.NotNil(t, doc.Template)
 	require.Equal(t, "https://github.com/unikraft/app-elfloader.git", doc.Template.Source)
 	require.Equal(t, "staging", doc.Template.Version)
@@ -324,7 +324,7 @@ libraries:
 	require.Equal(t, "y", value)
 }
 
-func TestParseUnikraftKernelType(t *testing.T) {
+func TestParseUnikraftAliasKernelType(t *testing.T) {
 	input := `spec: v0.7
 targets:
 - kraftcloud/x86_64
@@ -335,23 +335,23 @@ unikraft:
 	requireValidSchema(t, input)
 	doc, err := ParseBytes([]byte(input))
 	require.NoError(t, err)
-	require.NotNil(t, doc.Unikraft)
-	require.Equal(t, UnikraftTypeKernel, doc.Unikraft.Type)
-	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Unikraft.Source)
-	require.Empty(t, doc.Unikraft.Version)
+	require.NotNil(t, doc.Kernel)
+	require.Equal(t, KernelTypeKernel, doc.Kernel.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Kernel.Source)
+	require.Empty(t, doc.Kernel.Version)
 }
 
-func TestParseUnikraftInvalidType(t *testing.T) {
+func TestParseKernelInvalidType(t *testing.T) {
 	input := `spec: v0.7
 unikraft:
   type: bananas
   source: ./kernel
 `
 	_, err := ParseBytes([]byte(input))
-	require.ErrorContains(t, err, `invalid unikraft type "bananas"`)
+	require.ErrorContains(t, err, `invalid kernel type "bananas"`)
 }
 
-func TestParseKernelAliasString(t *testing.T) {
+func TestParseKernelString(t *testing.T) {
 	input := `spec: v0.7
 targets:
 - kraftcloud/x86_64
@@ -360,12 +360,12 @@ kernel: ./build/helloworld_kraftcloud-x86_64
 	requireValidSchema(t, input)
 	doc, err := ParseBytes([]byte(input))
 	require.NoError(t, err)
-	require.NotNil(t, doc.Unikraft)
-	require.Empty(t, doc.Unikraft.Type)
-	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Unikraft.Source)
+	require.NotNil(t, doc.Kernel)
+	require.Empty(t, doc.Kernel.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Kernel.Source)
 }
 
-func TestParseKernelAliasMap(t *testing.T) {
+func TestParseKernelMap(t *testing.T) {
 	input := `spec: v0.7
 kernel:
   type: kernel
@@ -376,10 +376,10 @@ kernel:
 	requireValidSchema(t, input)
 	doc, err := ParseBytes([]byte(input))
 	require.NoError(t, err)
-	require.NotNil(t, doc.Unikraft)
-	require.Equal(t, UnikraftTypeKernel, doc.Unikraft.Type)
-	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Unikraft.Source)
-	value, ok := doc.Unikraft.KConfig.Lookup("CONFIG_LIBUKFS_EROFS")
+	require.NotNil(t, doc.Kernel)
+	require.Equal(t, KernelTypeKernel, doc.Kernel.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Kernel.Source)
+	value, ok := doc.Kernel.KConfig.Lookup("CONFIG_LIBUKFS_EROFS")
 	require.True(t, ok)
 	require.Equal(t, "y", value)
 }

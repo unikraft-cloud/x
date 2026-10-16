@@ -6,8 +6,12 @@
 package build_test
 
 import (
+	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
@@ -53,4 +57,72 @@ func TestKernelResolveIsAStep(t *testing.T) {
 	})
 
 	assert.Equal(t, []string{"[kernel] resolve " + ref}, steps.names)
+}
+
+const fakeKernel = "not-really-a-kernel"
+
+func writeKernel(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "kernel")
+	require.NoError(t, os.WriteFile(path, []byte(fakeKernel), 0o644))
+	return path
+}
+
+func TestBuildPrebuiltKernel(t *testing.T) {
+	imgs, err := build.Builder{}.Build(t.Context(), build.BuildOpts{
+		Kernel:   writeKernel(t),
+		Cmd:      []string{"/server"},
+		Platform: []ocispec.Platform{{OS: "kraftcloud", Architecture: "x86_64"}},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		for _, img := range imgs {
+			_ = img.Close()
+		}
+	})
+
+	require.Len(t, imgs, 1)
+	require.Equal(t, "kraftcloud/x86_64", platforms.Format(imgs[0].Image.Platform))
+	require.Nil(t, imgs[0].Initrd)
+	require.Equal(t, []string{"/server"}, imgs[0].Image.Config.Cmd)
+	require.NotNil(t, imgs[0].Kernel)
+
+	r, _, err := imgs[0].Kernel.Open(t.Context())
+	require.NoError(t, err)
+	defer r.Close()
+	contents, err := io.ReadAll(r)
+	require.NoError(t, err)
+	require.Equal(t, fakeKernel, string(contents))
+}
+
+func TestBuildPrebuiltKernelPlatforms(t *testing.T) {
+	for name, tc := range map[string]struct {
+		platforms []ocispec.Platform
+		err       string
+	}{
+		"none": {err: "exactly one target, got 0"},
+		"multiple": {
+			platforms: []ocispec.Platform{
+				{OS: "kraftcloud", Architecture: "x86_64"},
+				{OS: "kraftcloud", Architecture: "arm64"},
+			},
+			err: "exactly one target, got 2",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := build.Builder{}.Build(t.Context(), build.BuildOpts{
+				Kernel:   writeKernel(t),
+				Platform: tc.platforms,
+			})
+			require.ErrorContains(t, err, tc.err)
+		})
+	}
+}
+
+func TestBuildPrebuiltKernelMissing(t *testing.T) {
+	_, err := build.Builder{}.Build(t.Context(), build.BuildOpts{
+		Kernel:   filepath.Join(t.TempDir(), "absent"),
+		Platform: []ocispec.Platform{{OS: "kraftcloud", Architecture: "x86_64"}},
+	})
+	require.ErrorContains(t, err, "opening kernel")
 }

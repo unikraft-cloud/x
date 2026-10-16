@@ -74,6 +74,31 @@
       "additionalProperties": true,
       "type": "object"
     },
+    "Kernel": {
+      "oneOf": [
+        {
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "kconfig": {
+              "$ref": "#/$defs/Map"
+            }
+          },
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
     "Library": {
       "oneOf": [
         {
@@ -175,31 +200,6 @@
             },
             "version": {
               "type": "string"
-            }
-          },
-          "additionalProperties": true,
-          "type": "object"
-        },
-        {
-          "type": "string"
-        }
-      ]
-    },
-    "Unikraft": {
-      "oneOf": [
-        {
-          "properties": {
-            "type": {
-              "type": "string"
-            },
-            "source": {
-              "type": "string"
-            },
-            "version": {
-              "type": "string"
-            },
-            "kconfig": {
-              "$ref": "#/$defs/Map"
             }
           },
           "additionalProperties": true,
@@ -317,8 +317,8 @@
         }
       ]
     },
-    "unikraft": {
-      "$ref": "#/$defs/Unikraft"
+    "kernel": {
+      "$ref": "#/$defs/Kernel"
     },
     "libraries": {
       "additionalProperties": {
@@ -349,8 +349,8 @@
       "type": "string",
       "pattern": "^v?0\\.7(?:\\.0)?$"
     },
-    "kernel": {
-      "$ref": "#/$defs/Unikraft"
+    "unikraft": {
+      "$ref": "#/$defs/Kernel"
     }
   },
   "additionalProperties": true,
