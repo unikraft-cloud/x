@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
+	kongcompletion "github.com/jotaen/kong-completion"
+	"github.com/posener/complete"
 
 	"unikraft.com/x/shell"
 	"unikraft.com/x/stdio"
@@ -25,6 +27,9 @@ type KongConfig struct {
 	Options  []kong.Option
 	Bind     func(ctx context.Context, streams stdio.Stdio) []any
 	Restart  func(args []string) bool
+
+	// Predictors answer the grammar's completion-predictor tags for one completion.
+	Predictors func(ctx context.Context) map[string]complete.Predictor
 }
 
 // Kong is a grammar's worth of builtins.
@@ -124,6 +129,33 @@ func (b builtin) parse(out, err io.Writer, args []string) (*kong.Context, error)
 		return nil, perr
 	}
 	return parser.Parse(append([]string{shell.BuiltinMarker + b.name}, args[1:]...))
+}
+
+func (b builtin) Complete(ctx context.Context, args []string) ([]string, error) {
+	if len(args) < 2 {
+		return nil, nil
+	}
+	parser, err := kong.New(b.k.cfg.Commands(), b.k.cfg.options(io.Discard, io.Discard)...)
+	if err != nil {
+		return nil, err
+	}
+	var predictors map[string]complete.Predictor
+	if b.k.cfg.Predictors != nil {
+		predictors = b.k.cfg.Predictors(ctx)
+	}
+	cmd, err := kongcompletion.Command(parser, kongcompletion.WithPredictors(predictors))
+	if err != nil {
+		return nil, err
+	}
+
+	all := append([]string{shell.BuiltinMarker + b.name}, args[1:]...)
+	completed := all[:len(all)-1]
+	return cmd.Predict(complete.Args{
+		All:           all,
+		Completed:     completed,
+		Last:          all[len(all)-1],
+		LastCompleted: completed[len(completed)-1],
+	}), nil
 }
 
 func (b builtin) Run(ctx context.Context, streams stdio.Stdio, args []string) (int, error) {
