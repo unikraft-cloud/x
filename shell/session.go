@@ -50,12 +50,17 @@ func (s *Session) Exited() bool {
 	return s.s.runner.Exited() && s.s.exiting.Load()
 }
 
+// Interrupt ends the line as a ^C at the prompt does, a command on the terminal
+// included; a host after the pty's own ^C writes 0x03 into cfg.Input instead.
 func (s *Session) Interrupt() {
 	select {
 	case s.s.interrupts <- syscall.SIGINT:
 	default:
 	}
 }
+
+// Resize is the host's terminal size; a session never told one runs commands on pipes.
+func (s *Session) Resize(cols, rows int) { s.s.resize(WinSize{Cols: cols, Rows: rows}) }
 
 // Close ends the session, running the EXIT trap that ^D runs at a terminal, and
 // releases what it holds. Call it once however the session ended, not only on a
