@@ -22,7 +22,7 @@ type Kraftfile struct {
 	Labels  map[string]string `json:"labels,omitempty"`
 
 	Runtime   *Runtime           `json:"runtime,omitempty"`
-	Unikraft  *Unikraft          `json:"unikraft,omitempty"`
+	Kernel    *Kernel            `json:"kernel,omitempty"`
 	Libraries map[string]Library `json:"libraries,omitempty"`
 	Rootfs    *FS                `json:"rootfs,omitempty"`
 	Roms      []FS               `json:"roms,omitempty"`
@@ -50,22 +50,22 @@ type Template struct {
 // as a path to an OCI image.
 type Runtime string
 
-// Unikraft defines the Unikraft component, which is used to build a unikernel
-// from source, or to provide an already-built kernel binary.
-type Unikraft struct {
+// Kernel defines the kernel of the unikernel, either built from the Unikraft
+// core's source code, or provided as an already-built kernel binary.
+type Kernel struct {
 	// Type specifies how Source is interpreted. When empty, it is inferred from
 	// Source.
-	Type UnikraftType `json:"type,omitempty"`
+	Type KernelType `json:"type,omitempty"`
 
-	// Source specifies the source of the Unikraft component. For
-	// UnikraftTypeSource, this should be a reference to a location which
-	// contains the unikraft source code (upstream available at
-	// https://github.com/unikraft/unikraft.git). For UnikraftTypeKernel, this
-	// should be a path to an already-built kernel binary.
+	// Source specifies the source of the kernel. For KernelTypeSource, this
+	// should be a reference to a location which contains the unikraft source
+	// code (upstream available at https://github.com/unikraft/unikraft.git).
+	// For KernelTypeKernel, this should be a path to an already-built kernel
+	// binary.
 	Source string `json:"source,omitempty"`
 
-	// Version can be used to specify a version of the Unikraft component, e.g.
-	// to be used when referencing a remote git source.
+	// Version can be used to specify a version of the Unikraft core, e.g. to be
+	// used when referencing a remote git source.
 	Version string `json:"version,omitempty"`
 
 	// KConfig can be used to specify additional KConfig options to be applied
@@ -73,21 +73,21 @@ type Unikraft struct {
 	KConfig Map `json:"kconfig,omitempty"`
 }
 
-// UnikraftType describes how a Unikraft component's source is interpreted.
-type UnikraftType string
+// KernelType describes how a kernel's source is interpreted.
+type KernelType string
 
 const (
-	UnikraftTypeSource = UnikraftType("source")
-	UnikraftTypeKernel = UnikraftType("kernel")
+	KernelTypeSource = KernelType("source")
+	KernelTypeKernel = KernelType("kernel")
 )
 
-var UnikraftTypes = []UnikraftType{
-	UnikraftTypeSource,
-	UnikraftTypeKernel,
+var KernelTypes = []KernelType{
+	KernelTypeSource,
+	KernelTypeKernel,
 }
 
-func (unikraftType UnikraftType) String() string {
-	return string(unikraftType)
+func (kernelType KernelType) String() string {
+	return string(kernelType)
 }
 
 // Library defines a library component, which is used to build a library into
