@@ -1,6 +1,6 @@
 module unikraft.com/x/text
 
-go 1.26.6
+go 1.27.2
 
 require github.com/muesli/reflow v0.3.0
 
