@@ -229,3 +229,132 @@ func TestKraftfileToBuildOptsRootfsOCIType(t *testing.T) {
 		"OCI rootfs reference must not be joined with the kraftfile directory")
 	require.Equal(t, kraftfile.SourceTypeOCI, opts.Rootfs.Type)
 }
+
+func TestKraftfileBuildOptsKernel(t *testing.T) {
+	dir := t.TempDir()
+	kf := &kraftfile.Kraftfile{
+		Kernel: &kraftfile.Kernel{
+			Type:   kraftfile.KernelTypeKernel,
+			Source: "build/helloworld_kraftcloud-x86_64",
+			KConfig: kraftfile.Map{
+				{Key: "CONFIG_LIBUKFS_EROFS", Value: "y"},
+			},
+		},
+		Targets: []kraftfile.Target{
+			{
+				Arch:    "x86_64",
+				Plat:    "kraftcloud",
+				KConfig: kraftfile.Map{{Key: "CONFIG_DEBUG", Value: "y"}},
+			},
+		},
+	}
+
+	opts, err := KraftfileBuildOpts(kf, LocalSource{Dir: dir})
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dir, "build/helloworld_kraftcloud-x86_64"), opts.Kernel)
+	require.Empty(t, opts.Runtime)
+	require.Len(t, opts.Platform, 1)
+	require.Equal(t, []string{
+		"CONFIG_LIBUKFS_EROFS=y",
+		"CONFIG_DEBUG=y",
+	}, opts.Platform[0].OSFeatures)
+	require.Equal(t, kraftfile.FsTypeErofs, defaultRootfsFormat(opts))
+}
+
+func TestKraftfileBuildOptsKernelInferred(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "vmlinux"), []byte("kernel"), 0o644))
+	kf := &kraftfile.Kraftfile{
+		Kernel:  &kraftfile.Kernel{Source: "vmlinux"},
+		Targets: []kraftfile.Target{{Arch: "x86_64", Plat: "kraftcloud"}},
+	}
+
+	opts, err := KraftfileBuildOpts(kf, LocalSource{Dir: dir})
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dir, "vmlinux"), opts.Kernel)
+}
+
+func TestKraftfileBuildOptsKernelErrors(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "unikraft"), 0o755))
+	runtime := kraftfile.Runtime("unikraft.io/unikraft.org/base")
+
+	for name, tc := range map[string]struct {
+		kf  *kraftfile.Kraftfile
+		src Source
+		err string
+	}{
+		"with runtime": {
+			kf: &kraftfile.Kraftfile{
+				Runtime: &runtime,
+				Kernel:  &kraftfile.Kernel{Type: kraftfile.KernelTypeKernel, Source: "kernel"},
+			},
+			err: "mutually exclusive",
+		},
+		"with version": {
+			kf: &kraftfile.Kraftfile{
+				Kernel: &kraftfile.Kernel{Type: kraftfile.KernelTypeKernel, Source: "kernel", Version: "stable"},
+			},
+			err: "does not support a version",
+		},
+		"without source": {
+			kf: &kraftfile.Kraftfile{
+				Kernel: &kraftfile.Kernel{Type: kraftfile.KernelTypeKernel},
+			},
+			err: "missing a source path",
+		},
+		"source version": {
+			kf: &kraftfile.Kraftfile{
+				Kernel: &kraftfile.Kernel{Version: "stable"},
+			},
+			err: "building unikraft from source not currently supported",
+		},
+		"source url": {
+			kf: &kraftfile.Kraftfile{
+				Kernel: &kraftfile.Kernel{Source: "https://github.com/unikraft/unikraft.git"},
+			},
+			err: "building unikraft from source not currently supported",
+		},
+		"source directory": {
+			kf: &kraftfile.Kraftfile{
+				Kernel: &kraftfile.Kernel{Source: "unikraft"},
+			},
+			err: "building unikraft from source not currently supported",
+		},
+		"missing": {
+			kf: &kraftfile.Kraftfile{
+				Kernel: &kraftfile.Kernel{Source: "absent"},
+			},
+			err: "kernel path does not exist",
+		},
+		"state source": {
+			kf: &kraftfile.Kraftfile{
+				Kernel: &kraftfile.Kernel{Type: kraftfile.KernelTypeKernel, Source: "kernel"},
+			},
+			src: StateSource{State: llb.Scratch()},
+			err: "kernel cannot come from an LLB state",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := tc.src
+			if src == nil {
+				src = LocalSource{Dir: dir}
+			}
+			_, err := KraftfileBuildOpts(tc.kf, src)
+			require.ErrorContains(t, err, tc.err)
+		})
+	}
+}
+
+func TestKraftfileBuildOptsNoFullVersion(t *testing.T) {
+	runtime := kraftfile.Runtime("unikraft.io/unikraft.org/base")
+	kf := &kraftfile.Kraftfile{
+		Runtime: &runtime,
+		Targets: []kraftfile.Target{{Arch: "x86_64", Plat: "kraftcloud"}},
+	}
+
+	opts, err := KraftfileBuildOpts(kf, LocalSource{})
+	require.NoError(t, err)
+	require.Len(t, opts.Platform, 1)
+	require.Empty(t, opts.Platform[0].OSVersion)
+}

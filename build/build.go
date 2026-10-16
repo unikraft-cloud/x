@@ -26,6 +26,10 @@ type BuildOpts struct {
 
 	Runtime string
 
+	// Kernel is a host path to an already-built kernel binary, used in place
+	// of resolving one from Runtime.
+	Kernel string
+
 	// Platform lists the targets to build. When empty, PlatformMatcher
 	// selects them from the runtime's targets.
 	Platform        []ocispec.Platform
@@ -125,10 +129,9 @@ func runtimeHasErofsSupport(p ocispec.Platform) bool {
 	return false
 }
 
-// hasKernel reports whether the build produces a kernel. Only runtimes supply
-// one today; building from a Kraftfile's unikraft entry should extend this.
+// hasKernel reports whether the build produces a kernel.
 func (o BuildOpts) hasKernel() bool {
-	return o.Runtime != ""
+	return o.Runtime != "" || o.Kernel != ""
 }
 
 // defaultRootfsFormat returns the default rootfs format for opts. Kernel-less
@@ -148,8 +151,8 @@ func defaultRootfsFormat(opts BuildOpts) kraftfile.FsType {
 
 // Build a unikraft image based on the provided build options.
 func (b Builder) Build(ctx context.Context, opts BuildOpts) ([]*imagespec.Image, error) {
-	if opts.Runtime == "" && opts.Rootfs.Path == "" && len(opts.Roms) == 0 {
-		return nil, fmt.Errorf("no runtime, rootfs, or roms specified: nothing to build")
+	if opts.Runtime == "" && opts.Kernel == "" && opts.Rootfs.Path == "" && len(opts.Roms) == 0 {
+		return nil, fmt.Errorf("no runtime, kernel, rootfs, or roms specified: nothing to build")
 	}
 
 	meta := imagespec.ImageMetadata{
@@ -157,9 +160,22 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) ([]*imagespec.Image,
 	}
 
 	// Build kernel if a runtime is specified. This also determines the
-	// set of platforms we're building for.
+	// set of platforms we're building for. An already-built kernel instead
+	// takes its platform from the declared targets.
 	var kernels []*imagespec.Image
-	if opts.Runtime != "" {
+	switch {
+	case opts.Kernel != "":
+		var err error
+		kernels, err = loadKernel(opts)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			for _, kernel := range kernels {
+				kernel.Close()
+			}
+		}()
+	case opts.Runtime != "":
 		var err error
 		kernels, err = b.buildKernel(ctx, opts)
 		if err != nil {
