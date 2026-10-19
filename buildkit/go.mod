@@ -1,6 +1,6 @@
 module unikraft.com/x/buildkit
 
-go 1.27.0
+go 1.27.2
 
 require (
 	github.com/moby/buildkit v0.31.1
