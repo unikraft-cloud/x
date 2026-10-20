@@ -73,4 +73,8 @@ func (s *Session) Highlight(line string) string {
 	return s.s.paint(highlight(line, s.s.isBuiltinName))
 }
 
+func (s *Session) Complete(ctx context.Context, line []rune, cursor int) (start int, matches []string) {
+	return s.s.complete(ctx, line, cursor)
+}
+
 func AcceptMultiline(line []rune) bool { return acceptMultiline(line) }

@@ -422,6 +422,24 @@ func TestPrompt(t *testing.T) {
 		term.await("needle")
 	})
 
+	t.Run("completes-a-path-on-the-instance", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.send("cat hostna\t")
+		term.await("hostname")
+		term.send("\r")
+		term.await("fakebox")
+	})
+
+	t.Run("heads-the-builtins-in-the-menu", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.ready()
+		term.send(":\t")
+		term.await("builtins", "a menu says what it is offering")
+		term.await(":history")
+	})
+
 	t.Run("keeps-reading-an-incomplete-line", func(t *testing.T) {
 		term := newTerminal(t, root)
 
