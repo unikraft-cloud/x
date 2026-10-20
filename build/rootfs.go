@@ -201,12 +201,13 @@ func (b Builder) buildRoms(ctx context.Context, opts BuildOpts) (_ [][]imagespec
 				Pad:    rom.Pad,
 			},
 			// propagate BuildKit options from the parent build
-			Platform: opts.Platform,
-			BuildArg: opts.BuildArg,
-			Target:   opts.Target,
-			Secrets:  opts.Secrets,
-			SSH:      opts.SSH,
-			NoCache:  opts.NoCache,
+			Platform:      opts.Platform,
+			BuildArg:      opts.BuildArg,
+			BuildContexts: opts.BuildContexts,
+			Target:        opts.Target,
+			Secrets:       opts.Secrets,
+			SSH:           opts.SSH,
+			NoCache:       opts.NoCache,
 		}
 
 		imgs, err := b.buildRootfs(ctx, romBuildOpts, fmt.Sprintf("rom %d", i+1))
@@ -969,6 +970,43 @@ func applyBuildOpts(attrs map[string]string, localDirs map[string]string, inputs
 		localDirs["dockerfile"] = filepath.Dir(opts.Rootfs.Path)
 		attrs["filename"] = filepath.Base(opts.Rootfs.Path)
 	}
+
+	for name, value := range opts.BuildContexts {
+		if strings.TrimSpace(name) == "" || strings.TrimSpace(value) == "" {
+			return fmt.Errorf("invalid build context %q: name and value must be non-empty", name)
+		}
+		if name == "context" || name == "dockerfile" {
+			return fmt.Errorf("invalid build context name %q: reserved name", name)
+		}
+
+		// Pass supported remote and special context references to BuildKit.
+		// OCI layout references may use the "oci-layout:" scheme without "//".
+		if strings.Contains(value, "://") ||
+			strings.HasPrefix(value, "oci-layout:") ||
+			strings.HasPrefix(value, "input:") ||
+			strings.HasPrefix(value, "git@") {
+			attrs["context:"+name] = value
+			continue
+		}
+
+		// Relative local paths are interpreted from the process working directory.
+		dir, err := filepath.Abs(value)
+		if err != nil {
+			return fmt.Errorf("resolving build context %q at %q: %w", name, value, err)
+		}
+
+		info, err := os.Stat(dir)
+		if err != nil {
+			return fmt.Errorf("could not access build context %q at %q: %w", name, value, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("build context %q must be a directory: %q", name, value)
+		}
+
+		localDirs[name] = dir
+		attrs["context:"+name] = "local:" + name
+	}
+
 	if opts.Target != "" {
 		attrs["target"] = opts.Target
 	}
