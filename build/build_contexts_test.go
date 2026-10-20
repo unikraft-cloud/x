@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/moby/buildkit/client/llb"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,8 +20,9 @@ func TestApplyBuildOptsLocalNamedContext(t *testing.T) {
 
 	attrs := map[string]string{}
 	localDirs := map[string]string{}
+	inputs := map[string]llb.State{}
 
-	err := applyBuildOpts(attrs, localDirs, nil, BuildOpts{
+	err := applyBuildOpts(attrs, localDirs, inputs, nil, BuildOpts{
 		Rootfs: FSOpts{Path: dir, Dockerfile: "Dockerfile"},
 		BuildContexts: map[string]string{
 			"shared": contextDir,
@@ -35,8 +37,9 @@ func TestApplyBuildOptsLocalNamedContext(t *testing.T) {
 func TestApplyBuildOptsRemoteNamedContext(t *testing.T) {
 	attrs := map[string]string{}
 	localDirs := map[string]string{}
+	inputs := map[string]llb.State{}
 
-	err := applyBuildOpts(attrs, localDirs, nil, BuildOpts{
+	err := applyBuildOpts(attrs, localDirs, inputs, nil, BuildOpts{
 		Rootfs: FSOpts{Path: t.TempDir(), Dockerfile: "Dockerfile"},
 		BuildContexts: map[string]string{
 			"remote": "https://example.com/context.git",
@@ -58,7 +61,7 @@ func TestApplyBuildOptsNamedContextRequiresDirectory(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "not-a-directory")
 	require.NoError(t, os.WriteFile(file, []byte("test"), 0o600))
 
-	err := applyBuildOpts(map[string]string{}, map[string]string{}, nil, BuildOpts{
+	err := applyBuildOpts(map[string]string{}, map[string]string{}, map[string]llb.State{}, nil, BuildOpts{
 		Rootfs: FSOpts{Path: t.TempDir(), Dockerfile: "Dockerfile"},
 		BuildContexts: map[string]string{
 			"shared": file,
@@ -69,7 +72,7 @@ func TestApplyBuildOptsNamedContextRequiresDirectory(t *testing.T) {
 }
 
 func TestApplyBuildOptsNamedContextRejectsMissingPath(t *testing.T) {
-	err := applyBuildOpts(map[string]string{}, map[string]string{}, nil, BuildOpts{
+	err := applyBuildOpts(map[string]string{}, map[string]string{}, map[string]llb.State{}, nil, BuildOpts{
 		Rootfs: FSOpts{Path: t.TempDir(), Dockerfile: "Dockerfile"},
 		BuildContexts: map[string]string{
 			"shared": filepath.Join(t.TempDir(), "missing"),
@@ -80,7 +83,7 @@ func TestApplyBuildOptsNamedContextRejectsMissingPath(t *testing.T) {
 }
 
 func TestApplyBuildOptsNamedContextRejectsReservedName(t *testing.T) {
-	err := applyBuildOpts(map[string]string{}, map[string]string{}, nil, BuildOpts{
+	err := applyBuildOpts(map[string]string{}, map[string]string{}, map[string]llb.State{}, nil, BuildOpts{
 		Rootfs: FSOpts{Path: t.TempDir(), Dockerfile: "Dockerfile"},
 		BuildContexts: map[string]string{
 			"context": t.TempDir(),
