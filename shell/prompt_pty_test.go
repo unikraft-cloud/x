@@ -20,9 +20,11 @@ import (
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/termios"
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	"unikraft.com/x/stdio"
 )
@@ -441,6 +443,30 @@ func TestPrompt(t *testing.T) {
 
 		term.run("echo after")
 		term.await("after")
+	})
+
+	t.Run("follows-the-window-size", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.run("sh -c 'echo begun; sleep 1; stty size'")
+		term.await("begun")
+		require.NoError(t, pty.Setsize(term.ptmx, &pty.Winsize{Rows: 30, Cols: 100}))
+		term.await("30 100", "the window's new size reached the command")
+	})
+
+	t.Run("hands-the-terminal-back", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.run("stty size")
+		term.await("24 120")
+		term.run("exit")
+		require.True(t, term.left())
+
+		mode, err := termios.GetTermios(int(term.ptmx.Fd()))
+		require.NoError(t, err)
+		assert.NotZero(t, mode.Lflag&unix.ECHO, "echo is back on")
+		assert.NotZero(t, mode.Lflag&unix.ICANON, "and so is line editing")
+		assert.NotZero(t, mode.Lflag&unix.ISIG, "and ^C as a signal")
 	})
 
 	t.Run("prints-one-ctrl-c-at-the-prompt", func(t *testing.T) {
