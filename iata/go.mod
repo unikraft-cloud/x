@@ -1,3 +1,3 @@
 module unikraft.com/x/iata
 
-go 1.26.6
+go 1.27.1
