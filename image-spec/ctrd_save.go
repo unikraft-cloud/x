@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"os"
 	"slices"
 	"strings"
 
@@ -303,78 +302,51 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		}
 	}()
 
-	digester := digest.Canonical.Digester()
-
-	var reader io.Reader
-
-	if path == "" {
-		_, err = io.Copy(digester.Hash(), r)
-		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
+	// write streams the layer: the bare file, or a tar holding it at path.
+	write := func(w io.Writer) error {
+		if path == "" {
+			_, err := io.Copy(w, r)
+			return err
 		}
-		if seeker, ok := r.(io.Seeker); ok {
-			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-				return ocispec.Descriptor{}, fmt.Errorf("failed to rewind layer content: %w", err)
-			}
-		} else {
-			if err := r.Close(); err != nil {
-				return ocispec.Descriptor{}, err
-			}
-			r = nil
-			r, _, err = file.Open(ctx)
-			if err != nil {
-				return ocispec.Descriptor{}, err
-			}
-		}
-		reader = r
-	} else {
-		tmp, err := os.CreateTemp("", "imagespec-layer-*")
-		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to create temp layer file: %w", err)
-		}
-		defer func() {
-			tmp.Close()
-			os.Remove(tmp.Name())
-		}()
-
-		mw := io.MultiWriter(tmp, digester.Hash())
-		tw := tar.NewWriter(mw)
-		err = tw.WriteHeader(&tar.Header{
+		tw := tar.NewWriter(w)
+		err := tw.WriteHeader(&tar.Header{
 			Name: strings.TrimPrefix(path, "/"),
 			Mode: 0o644,
 			Size: size,
 		})
 		if err != nil {
-			tw.Close()
-			return ocispec.Descriptor{}, fmt.Errorf("failed to write layer tar header: %w", err)
+			return fmt.Errorf("failed to write layer tar header: %w", err)
 		}
-		_, err = io.Copy(tw, r)
-		if err != nil {
-			tw.Close()
-			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
+		if _, err := io.Copy(tw, r); err != nil {
+			return err
 		}
-		if err := tw.Close(); err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to finalize layer tar: %w", err)
-		}
-		if err := tmp.Sync(); err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to sync layer tar: %w", err)
-		}
-		if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return tw.Close()
+	}
+
+	// A registry pusher needs the digest and size up front, so read the file twice.
+	digester := digest.Canonical.Digester()
+	var counter countingWriter
+	if err := write(io.MultiWriter(digester.Hash(), &counter)); err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to digest layer content: %w", err)
+	}
+	if seeker, ok := r.(io.Seeker); ok {
+		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
 			return ocispec.Descriptor{}, fmt.Errorf("failed to rewind layer content: %w", err)
 		}
-
-		stat, err := tmp.Stat()
-		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to stat layer tar: %w", err)
+	} else {
+		if err := r.Close(); err != nil {
+			return ocispec.Descriptor{}, err
 		}
-		size = stat.Size()
-
-		reader = tmp
+		r = nil
+		r, _, err = file.Open(ctx)
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
 	}
 
 	desc := ocispec.Descriptor{
 		MediaType: mediaType,
-		Size:      size,
+		Size:      int64(counter),
 		Digest:    digester.Digest(),
 	}
 	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(desc))
@@ -394,9 +366,8 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		}
 	}()
 
-	_, err = io.Copy(w, reader)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
+	if err := write(w); err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to write layer content: %w", err)
 	}
 
 	err = w.Commit(ctx, desc.Size, desc.Digest)
@@ -436,4 +407,11 @@ type defaultIngester struct {
 func (r defaultIngester) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
 	allOpts := append(slices.Clone(r.opts), opts...)
 	return r.Ingester.Writer(ctx, allOpts...)
+}
+
+type countingWriter int64
+
+func (c *countingWriter) Write(p []byte) (int, error) {
+	*c += countingWriter(len(p))
+	return len(p), nil
 }

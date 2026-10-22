@@ -78,6 +78,19 @@ func TestBuildImage(t *testing.T) {
 				return store, desc
 			},
 		},
+		{
+			name: "oci-layout-os-files",
+			export: func(t *testing.T) (content.Provider, ocispec.Descriptor) {
+				t.Helper()
+				contentDir := t.TempDir()
+				desc, err := SaveOCILayout(ctx, contentDir, "test-image", osTestImage(t))
+				require.NoError(t, err)
+
+				store, err := local.NewStore(contentDir)
+				require.NoError(t, err)
+				return store, desc
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -293,6 +306,26 @@ func TestDeleteImage(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found")
 	})
+}
+
+// osTestImage is testImage with its files on disk, which packageLayer rewinds
+// instead of reopening.
+func osTestImage(t *testing.T) *Image {
+	t.Helper()
+	create := func(name string, data []byte) File {
+		f, err := os.Create(filepath.Join(t.TempDir(), name))
+		require.NoError(t, err)
+		_, err = f.Write(data)
+		require.NoError(t, err)
+		t.Cleanup(func() { f.Close() })
+		return NewOSFile(f)
+	}
+	return NewImage(
+		WithKernel(create("kernel.img", []byte("kernel data"))),
+		WithInitrd(create("initrd.img", []byte("initrd data"))),
+		WithRom(create("rom.img", []byte("rom data"))),
+		WithImageConfig(ocispec.ImageConfig{Cmd: []string{"example", "--flag"}}),
+	)
 }
 
 func requireTarPayload(t *testing.T, blob []byte, target string, expected []byte) {
