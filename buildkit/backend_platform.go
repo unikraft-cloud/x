@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -156,44 +157,34 @@ func (p *Platform) Check(ctx context.Context, key Key) error {
 	return p.conflict(ctx, name, inst, key)
 }
 
-// conflict returns ErrConflict if inst, if any, or the cache volume of name is not at key's sizes.
+// conflict returns ErrConflict if inst, if any, or its cache volume is not at key's sizes.
 func (p *Platform) conflict(ctx context.Context, name string, inst *platform.Instance, key Key) error {
-	if inst != nil {
-		switch {
-		case key.VCPUs != 0 && int64(inst.Vcpus) != int64(key.VCPUs):
-			return fmt.Errorf("%w: builder %s has %d vcpus, not %d", ErrConflict, name, inst.Vcpus, key.VCPUs)
-		case key.MemoryMB != 0 && inst.MemoryMb != uint64(key.MemoryMB):
-			return fmt.Errorf("%w: builder %s has %d MiB of memory, not %d", ErrConflict, name, inst.MemoryMb, key.MemoryMB)
-		case key.Image != "" && !sameImage(inst.Image, key.Image):
-			return fmt.Errorf("%w: builder %s runs %s, not %s", ErrConflict, name, inst.Image, key.Image)
-		}
-	}
-	if key.CacheMB == 0 {
+	if inst == nil {
 		return nil
 	}
-	_, err := p.cache(ctx, name, key)
-	return err
-}
-
-// cache returns the size of the cache volume of name, 0 without one, and
-// ErrConflict if key sizes it otherwise.
-func (p *Platform) cache(ctx context.Context, name string, key Key) (uint64, error) {
-	vol := name + "-cache"
-	resp, err := p.c.GetVolumes(ctx, []platform.NameOrUUID{{Name: &vol}}, platform.GetVolumesOpts{})
-	if platform.ErrorContainsOnly(err, platform.APIHTTPErrorNotFound) {
-		return 0, nil
+	switch {
+	case key.VCPUs != 0 && int64(inst.Vcpus) != int64(key.VCPUs):
+		return fmt.Errorf("%w: builder %s has %d vcpus, not %d", ErrConflict, name, inst.Vcpus, key.VCPUs)
+	case key.MemoryMB != 0 && inst.MemoryMb != uint64(key.MemoryMB):
+		return fmt.Errorf("%w: builder %s has %d MiB of memory, not %d", ErrConflict, name, inst.MemoryMb, key.MemoryMB)
+	case key.Image != "" && !sameImage(inst.Image, key.Image):
+		return fmt.Errorf("%w: builder %s runs %s, not %s", ErrConflict, name, inst.Image, key.Image)
 	}
+	i := slices.IndexFunc(inst.Volumes, func(v platform.InstanceVolume) bool { return v.At == cacheDir })
+	if key.CacheMB == 0 || i < 0 {
+		return nil
+	}
+	resp, err := p.c.GetVolumes(ctx, []platform.NameOrUUID{{Uuid: &inst.Volumes[i].Uuid}}, platform.GetVolumesOpts{})
 	if err != nil {
-		return 0, fmt.Errorf("getting cache volume %s: %w", vol, err)
+		return fmt.Errorf("getting the cache volume of builder %s: %w", name, err)
 	}
 	if resp.Data == nil || len(resp.Data.Volumes) == 0 {
-		return 0, nil
+		return nil
 	}
-	size := resp.Data.Volumes[0].SizeMb
-	if key.CacheMB != 0 && size != key.CacheMB {
-		return size, fmt.Errorf("%w: cache volume %s is %d MiB, not %d", ErrConflict, vol, size, key.CacheMB)
+	if size := resp.Data.Volumes[0].SizeMb; size != key.CacheMB {
+		return fmt.Errorf("%w: builder %s has a cache of %d MiB, not %d", ErrConflict, name, size, key.CacheMB)
 	}
-	return size, nil
+	return nil
 }
 
 // sameImage reports whether have and want name the same image, comparing the
@@ -296,22 +287,7 @@ func (p *Platform) get(ctx context.Context, name string) (*platform.Instance, er
 // create creates the named builder instance and its cache volume, with
 // newly generated mTLS certificates and keys in its env.
 func (p *Platform) create(ctx context.Context, name string, key Key) error {
-	vol := name + "-cache"
 	cacheMB := cmp.Or(key.CacheMB, p.cacheMB)
-	_, err := p.c.CreateVolume(ctx, platform.CreateVolumeRequest{Name: &vol, SizeMb: new(cacheMB), Filesystem: new("ext4")})
-	newVolume := err == nil
-	switch {
-	case platform.ErrorContainsOnly(err, platform.APIHTTPErrorAlreadyExists):
-		// Left behind by a failed create: the gc limits must fit its size.
-		size, err := p.cache(ctx, name, key)
-		if err != nil {
-			return err
-		}
-		cacheMB = cmp.Or(size, cacheMB)
-	case err != nil:
-		return fmt.Errorf("creating cache volume %s: %w", vol, quota(err))
-	}
-
 	env, err := generateCerts()
 	if err != nil {
 		return fmt.Errorf("generating certificates: %w", err)
@@ -324,7 +300,7 @@ func (p *Platform) create(ctx context.Context, name string, key Key) error {
 		MemoryMb:  new(cmp.Or(key.MemoryMB, p.memoryMB)),
 		Autostart: new(true),
 		Env:       env,
-		Volumes:   []platform.CreateInstanceRequestVolume{{Name: &vol, At: cacheDir}},
+		Volumes:   []platform.CreateInstanceRequestVolume{{SizeMb: new(cacheMB), Filesystem: new("ext4"), At: cacheDir}},
 		ServiceGroup: &platform.CreateInstanceRequestServiceGroup{
 			Services: []platform.Service{{
 				Port:            port,
@@ -337,16 +313,10 @@ func (p *Platform) create(ctx context.Context, name string, key Key) error {
 			Stateful:       new(true),
 			CooldownTimeMs: new(int32(p.cooldown.Milliseconds())),
 		},
+		Autokill: &platform.CreateInstanceRequestAutokill{TimeMs: new(key.AutokillMs)},
 	})
 	if err != nil {
-		err = quota(err)
-		// Only a refusal for quota surely left the new volume unused.
-		if newVolume && errors.Is(err, ErrQuota) {
-			if _, derr := p.c.DeleteVolumes(ctx, []platform.NameOrUUID{{Name: &vol}}); derr != nil {
-				err = errors.Join(err, fmt.Errorf("deleting cache volume %s: %w", vol, derr))
-			}
-		}
-		return fmt.Errorf("creating builder %s: %w", name, err)
+		return fmt.Errorf("creating builder %s: %w", name, quota(err))
 	}
 	return nil
 }

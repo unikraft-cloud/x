@@ -42,15 +42,17 @@ func (f Fallback) Acquire(ctx context.Context, key Key) (*Daemon, error) {
 	return nil, cmp.Or(errors.Join(errs...), ErrUnavailable)
 }
 
-// Key identifies a builder and sizes a new one, zero taking the Platform's option.
+// Key identifies a builder and sizes a new one, zero taking the Platform's
+// option, but for AutokillMs, the stopped time that deletes it, where zero never does.
 type Key struct {
 	// Name is the builder's name, "default" when empty.
 	Name string
 
-	Image    string
-	VCPUs    int32
-	MemoryMB int64
-	CacheMB  uint64
+	Image      string
+	VCPUs      int32
+	MemoryMB   int64
+	CacheMB    uint64
+	AutokillMs uint64
 }
 
 // Daemon is a builder with a connected client.

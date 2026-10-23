@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -75,24 +74,27 @@ func TestPlatformCreate(t *testing.T) {
 func TestPlatformCreateSized(t *testing.T) {
 	c, created := fakePlatform(t)
 	p := NewPlatform(c, WithImage("official/utils/buildkit:v1"), WithVCPUs(2), WithMemory(4096))
-	require.NoError(t, p.create(t.Context(), "buildkit-ci", Key{Name: "ci", VCPUs: 8}))
+	require.NoError(t, p.create(t.Context(), "buildkit-ci", Key{Name: "ci", VCPUs: 8, AutokillMs: 60000}))
 
 	// The key's sizes make the builder, and the options fill the rest.
 	req := <-created
 	assert.Equal(t, platform.ImageReference("official/utils/buildkit:v1"), req.Image)
 	assert.Equal(t, int32(8), *req.Vcpus)
 	assert.Equal(t, int64(4096), *req.MemoryMb)
+	assert.Equal(t, uint64(60000), *req.Autokill.TimeMs)
+	require.Len(t, req.Volumes, 1)
+	assert.Equal(t, uint64(20480), *req.Volumes[0].SizeMb)
 }
 
 func TestPlatformCheck(t *testing.T) {
 	// builder answers a request for the builder ci, running image.
 	builder := func(image string) string {
-		return fmt.Sprintf(`{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "buildkit-ci", "state": "running", "image": %q, "vcpus": 2, "memory_mb": 4096}]}}`, image)
+		return fmt.Sprintf(`{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "buildkit-ci", "state": "running", "image": %q, "vcpus": 2, "memory_mb": 4096, "volumes": [{"uuid": "v1", "name": "vol-abc", "at": "/var/lib/buildkit"}]}]}}`, image)
 	}
 	const (
 		digest   = "official/utils/buildkit@sha256:3b4c6b2c2c7ab4a5e2a2d4b8b5ba4bb9a6a7e5a9d4d0d2c1a4f0b2c3d4e5f6a7"
 		notFound = `{"status": "error", "data": {"instances": [{"status": "error", "message": "not found", "error": 8}]}}`
-		cache    = `{"status": "success", "data": {"volumes": [{"status": "success", "uuid": "v1", "name": "buildkit-ci-cache", "size_mb": 10240}]}}`
+		cache    = `{"status": "success", "data": {"volumes": [{"status": "success", "uuid": "v1", "name": "vol-abc", "size_mb": 10240}]}}`
 	)
 
 	t.Run("a key without sizes asks the platform nothing", func(t *testing.T) {
@@ -119,12 +121,6 @@ func TestPlatformCheck(t *testing.T) {
 			answers: map[string]string{"GET /v1/instances": notFound},
 		},
 		{
-			name:    "a cache volume of another size is a conflict without its builder",
-			key:     Key{Name: "ci", CacheMB: 20480},
-			answers: map[string]string{"GET /v1/instances": notFound, "GET /v1/volumes": cache},
-			want:    "cache volume buildkit-ci-cache is 10240 MiB, not 20480",
-		},
-		{
 			name:    "a builder of the key's sizes is no conflict",
 			key:     Key{Name: "ci", Image: digest, VCPUs: 2, MemoryMB: 4096, CacheMB: 10240},
 			answers: map[string]string{"GET /v1/instances": builder(digest), "GET /v1/volumes": cache},
@@ -145,7 +141,7 @@ func TestPlatformCheck(t *testing.T) {
 			name:    "a cache volume of another size is a conflict",
 			key:     Key{Name: "ci", CacheMB: 20480},
 			answers: map[string]string{"GET /v1/instances": builder(digest), "GET /v1/volumes": cache},
-			want:    "cache volume buildkit-ci-cache is 10240 MiB, not 20480",
+			want:    "has a cache of 10240 MiB, not 20480",
 		},
 		{
 			name:    "a tag against the resolved digest of the same image is no conflict",
@@ -196,48 +192,28 @@ func TestPlatformCheck(t *testing.T) {
 }
 
 func TestPlatformAcquireQuota(t *testing.T) {
-	// quotaError is the answer to a request over the quota, for a list of kind.
-	const quotaError = `{"status": "error", "data": {"%s": [{"status": "error", "message": "Quota exceeded", "error": 19}]}}`
+	// quotaError is the answer to a request over the quota, for a list of instances.
+	const quotaError = `{"status": "error", "data": {"instances": [{"status": "error", "message": "Quota exceeded", "error": 19}]}}`
 
 	for _, tc := range []struct {
 		name string
 		// answers holds the body for each "METHOD /path", else success.
 		answers map[string]string
-		// deleted is the volumes it deletes.
-		deleted []platform.NameOrUUID
 	}{
 		{
-			name: "a new builder over the quota is refused",
-			answers: map[string]string{
-				"POST /v1/volumes": fmt.Sprintf(quotaError, "volumes"),
-			},
-		},
-		{
-			name: "a new builder over the quota is refused and leaves no cache volume",
-			answers: map[string]string{
-				"POST /v1/instances": fmt.Sprintf(quotaError, "instances"),
-			},
-			deleted: []platform.NameOrUUID{{Name: new("buildkit-default-cache")}},
+			name:    "a new builder over the quota is refused",
+			answers: map[string]string{"POST /v1/instances": quotaError},
 		},
 		{
 			name: "a builder in standby over the quota is refused",
 			answers: map[string]string{
 				"GET /v1/instances":          `{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "buildkit-default", "state": "standby"}]}}`,
-				"PUT /v1/instances/u1/start": fmt.Sprintf(quotaError, "instances"),
+				"PUT /v1/instances/u1/start": quotaError,
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			var (
-				mu      sync.Mutex
-				deleted []platform.NameOrUUID
-			)
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodDelete && r.URL.Path == "/v1/volumes" {
-					mu.Lock()
-					defer mu.Unlock()
-					assert.NoError(t, json.NewDecoder(r.Body).Decode(&deleted))
-				}
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(cmp.Or(tc.answers[r.Method+" "+r.URL.Path], `{"status": "success"}`)))
 			}))
@@ -246,9 +222,6 @@ func TestPlatformAcquireQuota(t *testing.T) {
 
 			_, err := NewPlatform(c).Acquire(t.Context(), Key{})
 			require.ErrorIs(t, err, ErrQuota)
-			mu.Lock()
-			defer mu.Unlock()
-			assert.Equal(t, tc.deleted, deleted)
 		})
 	}
 }
@@ -268,40 +241,4 @@ func TestPlatformAcquireConflict(t *testing.T) {
 	// The builder Acquire finds must be at the key's sizes, as for Check.
 	_, err := NewPlatform(c).Acquire(t.Context(), Key{Name: "ci", VCPUs: 4})
 	require.ErrorIs(t, err, ErrConflict)
-}
-
-func TestPlatformCreateExistingCache(t *testing.T) {
-	answers := map[string]string{
-		"POST /v1/volumes": fmt.Sprintf(`{"status": "error", "data": {"volumes": [{"status": "error", "message": "already exists", "error": %d}]}}`, platform.APIHTTPErrorAlreadyExists),
-		"GET /v1/volumes":  `{"status": "success", "data": {"volumes": [{"status": "success", "uuid": "v1", "name": "buildkit-ci-cache", "size_mb": 10240}]}}`,
-	}
-	newPlatform := func(t *testing.T) (*Platform, <-chan platform.CreateInstanceRequest) {
-		created := make(chan platform.CreateInstanceRequest, 1)
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodPost && r.URL.Path == "/v1/instances" {
-				var req platform.CreateInstanceRequest
-				assert.NoError(t, json.NewDecoder(r.Body).Decode(&req))
-				created <- req
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(cmp.Or(answers[r.Method+" "+r.URL.Path], `{"status": "success"}`)))
-		}))
-		t.Cleanup(srv.Close)
-		return NewPlatform(platform.NewClient(platform.WithDefaultEndpoint(srv.URL), platform.WithToken("token"))), created
-	}
-
-	t.Run("a cache volume left behind sets the gc limits from its size", func(t *testing.T) {
-		p, created := newPlatform(t)
-		require.NoError(t, p.create(t.Context(), "buildkit-ci", Key{Name: "ci"}))
-
-		req := <-created
-		assert.Equal(t, "1073,5368,5368", req.Env[EnvOCIWorkerGCKeepStorage])
-	})
-
-	t.Run("a cache volume left behind at another size is a conflict", func(t *testing.T) {
-		p, created := newPlatform(t)
-		err := p.create(t.Context(), "buildkit-ci", Key{Name: "ci", CacheMB: 20480})
-		require.ErrorIs(t, err, ErrConflict)
-		assert.Empty(t, created)
-	})
 }
