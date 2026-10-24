@@ -99,3 +99,13 @@ func WithMaxMultipartMemory(maxMemory int64) RouterOption {
 		return nil
 	}
 }
+
+// WithTrustedProxies sets the IPs or CIDRs of the proxies whose
+// X-Forwarded-For is believed for the client IP, instead of gin's default of
+// trusting every peer. With none, the client IP is always the peer's address.
+func WithTrustedProxies(proxies ...string) RouterOption {
+	return func(router *Router) error {
+		router.trustedProxies = append([]string{}, proxies...)
+		return nil
+	}
+}

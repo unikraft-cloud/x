@@ -48,6 +48,7 @@ type Router struct {
 	shutdownTimeout    time.Duration
 	requestTimeout     time.Duration
 	maxMultipartMemory int64
+	trustedProxies     []string
 }
 
 // New returns a new router, which wraps an http server and gin handler engine.
@@ -85,6 +86,13 @@ func New(ctx context.Context, addr string, opts ...RouterOption) (*Router, error
 	// Create the engine here -- this is the core request routing handler.
 	router.engine.MaxMultipartMemory = router.maxMultipartMemory
 	router.engine.HandleMethodNotAllowed = true
+
+	if router.trustedProxies != nil {
+		router.engine.RemoteIPHeaders = []string{"X-Forwarded-For"}
+		if err := router.engine.SetTrustedProxies(router.trustedProxies); err != nil {
+			return nil, fmt.Errorf("setting trusted proxies: %w", err)
+		}
+	}
 
 	router.server = &http.Server{
 		Addr:              addr,
