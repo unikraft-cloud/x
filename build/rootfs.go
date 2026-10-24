@@ -1003,6 +1003,12 @@ func applyBuildOpts(attrs map[string]string, localDirs map[string]string, inputs
 				return fmt.Errorf("the session source of context %q needs a name", name)
 			}
 			attrs["context:"+name] = "local:" + src.Name
+		case FrontendSource:
+			if src.Ref == "" {
+				return fmt.Errorf("the frontend reference of context %q is empty", name)
+			}
+			attrs["context:"+name] = src.Ref
+			attrs["frontend.caps"] = "moby.buildkit.frontend.contexts+forward"
 		default:
 			return fmt.Errorf("unsupported source %T of context %q", src, name)
 		}
