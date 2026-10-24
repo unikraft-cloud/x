@@ -1,6 +1,6 @@
 module unikraft.com/x/version
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
