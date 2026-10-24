@@ -1,6 +1,6 @@
 module unikraft.com/x/tools/sh
 
-go 1.26.7
+go 1.27.2
 
 replace unikraft.com/x/shell => ../../shell
 
