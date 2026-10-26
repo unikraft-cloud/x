@@ -9,6 +9,22 @@ inputs:
   goprivate:
     description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
     required: false
+  cache-key-prefix:
+    description: Prefix of the Go cache key. When empty, the job ID is used.
+    required: false
+    default: ''
+  cache-key-suffix:
+    description: Suffix of the Go cache key. Use a unique value to save a new cache each run.
+    required: false
+    default: ''
+  cache-save:
+    description: Set to 'false' to restore the Go cache but not save it.
+    required: false
+    default: 'true'
+  cache-paths:
+    description: Newline-separated list of more paths to put in the Go cache.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -60,15 +76,40 @@ runs:
         echo "GOPRIVATE=${{ inputs.goprivate }}" >> "$GITHUB_ENV"
         echo "GONOSUMDB=${{ inputs.goprivate }}" >> "$GITHUB_ENV"
 
+    - name: Set Go cache key
+      id: gocache
+      shell: bash
+      env:
+        PREFIX: ${{ inputs.cache-key-prefix || github.job }}
+        SUFFIX: ${{ inputs.cache-key-suffix }}
+      run: |
+        _BASE="${PREFIX}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-"
+        echo "restore=${_BASE}" >>"$GITHUB_OUTPUT"
+        echo "key=${_BASE}${{ hashFiles(steps.goenv.outputs.mod) }}${SUFFIX:+-${SUFFIX}}" >>"$GITHUB_OUTPUT"
+
     - name: Go caches
+      if: ${{ inputs.cache-save != 'false' }}
       uses: actions/cache@v5
       with:
         path: |
           ${{ steps.goenv.outputs.cache }}
           ${{ steps.goenv.outputs.modcache }}
-        key: ${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-${{ hashFiles(steps.goenv.outputs.mod) }}
+          ${{ inputs.cache-paths }}
+        key: ${{ steps.gocache.outputs.key }}
         restore-keys: |
-          ${{ github.job }}-${{ runner.os }}-${{ steps.goenv.outputs.version }}-
+          ${{ steps.gocache.outputs.restore }}
+
+    - name: Restore Go caches
+      if: ${{ inputs.cache-save == 'false' }}
+      uses: actions/cache/restore@v5
+      with:
+        path: |
+          ${{ steps.goenv.outputs.cache }}
+          ${{ steps.goenv.outputs.modcache }}
+          ${{ inputs.cache-paths }}
+        key: ${{ steps.gocache.outputs.key }}
+        restore-keys: |
+          ${{ steps.gocache.outputs.restore }}
 
     - name: Setup Task
       uses: go-task/setup-task@v2
