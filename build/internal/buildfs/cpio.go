@@ -49,7 +49,7 @@ func CreateCPIO(ctx context.Context, w io.Writer, fsys fs.FS, opts ...CreateOpti
 		if d.Type().IsDir() {
 			header := &cpio.Header{
 				Name:    internal,
-				Mode:    cpio.FileMode(info.Mode().Perm()) | cpio.TypeDir,
+				Mode:    cpioMode(info.Mode()) | cpio.TypeDir,
 				ModTime: info.ModTime(),
 				Size:    0, // Directories have size 0 in cpio
 			}
@@ -77,7 +77,7 @@ func CreateCPIO(ctx context.Context, w io.Writer, fsys fs.FS, opts ...CreateOpti
 
 		header := &cpio.Header{
 			Name:    internal,
-			Mode:    cpio.FileMode(info.Mode().Perm()),
+			Mode:    cpioMode(info.Mode()),
 			ModTime: info.ModTime(),
 			Size:    info.Size(),
 		}
@@ -204,6 +204,22 @@ func applyFileInfoMap(c *createOptions, path string, header *cpio.Header) {
 	header.Uid = info.Uid
 	header.Guid = info.Gid
 	header.Mode = header.Mode&^cpio.ModePerm | cpio.FileMode(info.Mode.Perm())
+}
+
+// cpioMode returns the permission bits of mode, with setuid, setgid and
+// sticky, as cpio mode bits.
+func cpioMode(mode fs.FileMode) cpio.FileMode {
+	m := cpio.FileMode(mode.Perm())
+	if mode&fs.ModeSetuid != 0 {
+		m |= cpio.ModeSetuid
+	}
+	if mode&fs.ModeSetgid != 0 {
+		m |= cpio.ModeSetgid
+	}
+	if mode&fs.ModeSticky != 0 {
+		m |= cpio.ModeSticky
+	}
+	return m
 }
 
 func fileInfoToCPIOHeader(info fs.FileInfo, header *cpio.Header) {
