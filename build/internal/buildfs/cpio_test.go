@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -108,6 +109,23 @@ func newTree(t *testing.T) string {
 		require.NoError(t, os.Chtimes(filepath.Join(root, p), mtime, mtime))
 	}
 	return root
+}
+
+func TestCreateCPIOKeepsSpecialBits(t *testing.T) {
+	headers := readCPIO(t, createCPIO(t, fstest.MapFS{
+		"tmp":      {Mode: fs.ModeDir | fs.ModeSticky | 0o777},
+		"mail":     {Mode: fs.ModeDir | fs.ModeSetgid | 0o775},
+		"bin/sudo": {Data: []byte("sudo"), Mode: fs.ModeSetuid | 0o755},
+	}))
+
+	tmp := headerByName(t, headers, "./tmp")
+	assert.Equal(t, cpio.FileMode(cpio.ModeSticky|0o777), tmp.Mode&^cpio.ModeType)
+	assert.True(t, tmp.Mode.IsDir(), "the type bits must stay")
+	mail := headerByName(t, headers, "./mail")
+	assert.Equal(t, cpio.FileMode(cpio.ModeSetgid|0o775), mail.Mode&^cpio.ModeType)
+	sudo := headerByName(t, headers, "./bin/sudo")
+	assert.Equal(t, cpio.FileMode(cpio.ModeSetuid|0o755), sudo.Mode&^cpio.ModeType)
+	assert.Equal(t, cpio.FileMode(cpio.TypeRegular), sudo.Mode&cpio.ModeType, "the type bits must stay")
 }
 
 func TestCreateCPIOIdenticalTreesAreIdentical(t *testing.T) {

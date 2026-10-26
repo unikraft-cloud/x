@@ -10,6 +10,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -869,6 +870,69 @@ func (b Builder) pack(ctx context.Context, part string, p ocispec.Platform, opts
 	return progress.Step(w, part+" as "+string(format), func() error {
 		return packageFS(ctx, format, destFS, srcFS, opts.Rootfs)
 	})
+}
+
+// Repack returns the rootfs f of platform p in format, packed again when it is
+// in another format. Only an erofs rootfs can be packed again, as cpio.
+func (b Builder) Repack(ctx context.Context, f imagespec.File, p ocispec.Platform, format kraftfile.FsType) (_ imagespec.File, rerr error) {
+	rc, _, err := f.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("opening rootfs: %w", err)
+	}
+	defer rc.Close()
+	src, ok := rc.(io.ReaderAt)
+	if !ok {
+		// The format check and erofs need random access, thus copy a stream to a file.
+		tmp, err := os.CreateTemp(b.TempDir, "unikraft-rootfs-*")
+		if err != nil {
+			return nil, fmt.Errorf("could not create temporary file: %w", err)
+		}
+		defer func() {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}()
+		if _, err := io.Copy(tmp, rc); err != nil {
+			return nil, fmt.Errorf("reading rootfs: %w", err)
+		}
+		src = tmp
+	}
+
+	var from kraftfile.FsType
+	switch {
+	case gocpio.IsValid(io.NewSectionReader(src, 0, 6)):
+		from = kraftfile.FsTypeCpio
+	case goerofs.IsValid(io.NewSectionReader(src, goerofs.SuperBlockOffset, 4)):
+		from = kraftfile.FsTypeErofs
+	default:
+		return nil, errors.New("could not detect rootfs format")
+	}
+	switch {
+	case from == format:
+		return f.Clone()
+	case from != kraftfile.FsTypeErofs || format != kraftfile.FsTypeCpio:
+		return nil, fmt.Errorf("unsupported rootfs conversion from %s to %s", from, format)
+	}
+
+	srcFS, err := goerofs.Open(src)
+	if err != nil {
+		return nil, fmt.Errorf("reading rootfs: %w", err)
+	}
+	dest, err := os.CreateTemp(b.TempDir, "unikraft-rootfs-*."+string(format))
+	if err != nil {
+		return nil, fmt.Errorf("could not create temporary file: %w", err)
+	}
+	defer func() {
+		if rerr != nil {
+			dest.Close()
+			os.Remove(dest.Name())
+		}
+	}()
+
+	if err := b.pack(ctx, "rootfs", p, BuildOpts{}, format, dest, srcFS); err != nil {
+		return nil, err
+	}
+
+	return imagespec.NewTempOSFile(dest), nil
 }
 
 func packageFS(ctx context.Context, format kraftfile.FsType, destFS *os.File, srcFS fs.FS, opts FSOpts) error {
