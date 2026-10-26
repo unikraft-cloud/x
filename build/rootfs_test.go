@@ -675,6 +675,104 @@ func TestRootfsDirectoryIsOwnedByRoot(t *testing.T) {
 	}
 }
 
+func TestRepackErofsAsCpio(t *testing.T) {
+	tarPath := filepath.Join(t.TempDir(), "rootfs.tar")
+	tarFile, err := os.Create(tarPath)
+	require.NoError(t, err)
+	tw := tar.NewWriter(tarFile)
+	data := []byte("owned\n")
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeDir, Name: "owned/", Mode: 0o750, Uid: 1000, Gid: 1000,
+	}))
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeReg, Name: "owned/file.txt", Mode: 0o640,
+		Size: int64(len(data)), Uid: 1000, Gid: 1000,
+	}))
+	_, err = tw.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeSymlink, Name: "link", Linkname: "owned/file.txt", Mode: 0o777,
+	}))
+	require.NoError(t, tw.Close())
+	require.NoError(t, tarFile.Close())
+
+	imgs := runBuildRootfs(t, BuildOpts{
+		Rootfs: FSOpts{
+			Path:   tarPath,
+			Type:   kraftfile.SourceTypeTarball,
+			Format: kraftfile.FsTypeErofs,
+		},
+		Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
+	})
+	require.Len(t, imgs, 1)
+
+	f, err := Builder{TempDir: t.TempDir()}.Repack(t.Context(), imgs[0].Initrd, imgs[0].Image.Platform, kraftfile.FsTypeCpio)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Cleanup() })
+
+	rc, _, err := f.Open(t.Context())
+	require.NoError(t, err)
+	defer rc.Close()
+	headers := map[string]*cpio.Header{}
+	var content []byte
+	cr := cpio.NewReader(rc)
+	for {
+		hdr, err := cr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		headers[strings.TrimPrefix(hdr.Name, "./")] = hdr
+		if hdr.Name == "./owned/file.txt" {
+			content, err = io.ReadAll(cr)
+			require.NoError(t, err)
+		}
+	}
+
+	require.Contains(t, headers, "owned/file.txt")
+	file := headers["owned/file.txt"]
+	require.Equal(t, owner{1000, 1000}, owner{file.Uid, file.Guid})
+	require.Equal(t, cpio.FileMode(0o640), file.Mode.Perm())
+	require.Equal(t, "owned\n", string(content))
+	require.Contains(t, headers, "link")
+	require.Equal(t, "owned/file.txt", headers["link"].Linkname)
+}
+
+func TestRepackSameFormat(t *testing.T) {
+	imgs := runBuildRootfs(t, BuildOpts{
+		Rootfs: FSOpts{
+			Path:   writeTestDirectory(t),
+			Type:   kraftfile.SourceTypeDirectory,
+			Format: kraftfile.FsTypeCpio,
+		},
+		Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
+	})
+	require.Len(t, imgs, 1)
+
+	f, err := Builder{TempDir: t.TempDir()}.Repack(t.Context(), imgs[0].Initrd, imgs[0].Image.Platform, kraftfile.FsTypeCpio)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Cleanup() })
+
+	files := readCpioInitrd(t, &imagespec.Image{Initrd: f})
+	require.Equal(t, "hello\n", files["./hello.txt"])
+	require.Equal(t, "nested\n", files["./subdir/nested.txt"])
+}
+
+func TestRepackStream(t *testing.T) {
+	data, err := os.ReadFile(writeTestErofsFile(t))
+	require.NoError(t, err)
+
+	// A static file opens as a stream, without random access.
+	f, err := Builder{TempDir: t.TempDir()}.Repack(t.Context(), imagespec.NewStaticFile("rootfs.erofs", data),
+		ocispec.Platform{OS: "fc", Architecture: "x86_64"}, kraftfile.FsTypeCpio)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Cleanup() })
+
+	files := readCpioInitrd(t, &imagespec.Image{Initrd: f})
+	require.Equal(t, "hello\n", files["./hello.txt"])
+	require.Equal(t, "nested\n", files["./subdir/nested.txt"])
+}
+
 // owner is the uid and gid of an entry in a built root filesystem.
 type owner struct{ uid, gid int }
 
