@@ -95,6 +95,13 @@ func encode(typ string, der []byte) string {
 	return string(pem.EncodeToMemory(&pem.Block{Type: typ, Bytes: der}))
 }
 
+// TLS holds the PEM-encoded CA, client certificate and client key for a
+// builder's mTLS.
+type TLS struct {
+	ServerName    string
+	CA, Cert, Key []byte
+}
+
 // clientTLS reads the CA and the client certificate and key back from a
 // builder's env.
 func clientTLS(env map[string]string) (TLS, error) {

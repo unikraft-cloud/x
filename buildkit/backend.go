@@ -3,6 +3,8 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
+//go:build !js
+
 // Package buildkit connects a buildkit client to a buildkitd: one on the
 // host, docker's, or one it finds or creates on Unikraft Cloud.
 package buildkit
@@ -42,19 +44,6 @@ func (f Fallback) Acquire(ctx context.Context, key Key) (*Daemon, error) {
 	return nil, cmp.Or(errors.Join(errs...), ErrUnavailable)
 }
 
-// Key identifies a builder and sizes a new one, zero taking the Platform's
-// option, but for AutokillMs, the stopped time that deletes it, where zero never does.
-type Key struct {
-	// Name is the builder's name, "default" when empty.
-	Name string
-
-	Image      string
-	VCPUs      int32
-	MemoryMB   int64
-	CacheMB    uint64
-	AutokillMs uint64
-}
-
 // Daemon is a builder with a connected client.
 type Daemon struct {
 	Client *client.Client
@@ -73,13 +62,6 @@ type Daemon struct {
 	// edge, if set, opens a connection to the builder through the TLS that the
 	// platform's edge terminates.
 	edge func(ctx context.Context) (net.Conn, error)
-}
-
-// TLS holds the PEM-encoded CA, client certificate and client key for a
-// builder's mTLS.
-type TLS struct {
-	ServerName    string
-	CA, Cert, Key []byte
 }
 
 // Release closes the daemon's client.
