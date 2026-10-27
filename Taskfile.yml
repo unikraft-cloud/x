@@ -80,6 +80,7 @@ tasks:
       # daemon, a terminal or a syscall the js runtime does not have.
       # This list is alphabetical and should not be reordered.
       modules:
+      - ./buildkit
       - ./colors
       - ./filters
       - ./fingerprint

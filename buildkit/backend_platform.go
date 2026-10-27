@@ -8,19 +8,12 @@ package buildkit
 import (
 	"cmp"
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
 	"slices"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/distribution/reference"
-	"github.com/moby/buildkit/client"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"unikraft.com/cloud/sdk/platform"
 )
 
@@ -43,6 +36,19 @@ var (
 	// ErrConflict is returned by Check and Acquire when the builder exists with other sizes.
 	ErrConflict = errors.New("builder conflict")
 )
+
+// Key identifies a builder and sizes a new one, zero taking the Platform's
+// option, but for AutokillMs, the stopped time that deletes it, where zero never does.
+type Key struct {
+	// Name is the builder's name, "default" when empty.
+	Name string
+
+	Image      string
+	VCPUs      int32
+	MemoryMB   int64
+	CacheMB    uint64
+	AutokillMs uint64
+}
 
 // Platform runs builders as instances in the caller's Unikraft Cloud account.
 type Platform struct {
@@ -105,43 +111,6 @@ func NewPlatform(c platform.Client, opts ...Option) *Platform {
 		opt(p)
 	}
 	return p
-}
-
-// Acquire implements Backend. It creates the builder for key with a cache
-// volume if there is none, and starts it if it was stopped or in standby.
-func (p *Platform) Acquire(ctx context.Context, key Key) (*Daemon, error) {
-	name := "buildkit-" + cmp.Or(key.Name, "default")
-	// The builder may be booting, waking from standby or shutting down.
-	wctx, cancel := context.WithTimeout(ctx, readyTimeout)
-	defer cancel()
-
-	inst, err := p.instance(wctx, name, key)
-	if err != nil {
-		return nil, err
-	}
-
-	if inst.ServiceGroup == nil || len(inst.ServiceGroup.Domains) == 0 {
-		return nil, fmt.Errorf("builder %s has no domain, delete it to recreate it", name)
-	}
-	t, err := clientTLS(inst.Env)
-	if err != nil {
-		return nil, fmt.Errorf("builder %s: %w, delete it to recreate it", name, err)
-	}
-	addr := net.JoinHostPort(strings.TrimSuffix(inst.ServiceGroup.Domains[0].Fqdn, "."), strconv.Itoa(port))
-	edge, err := edgeDialer(addr, p.insecure)
-	if err != nil {
-		return nil, fmt.Errorf("connecting to builder %s: %w", name, err)
-	}
-	c, err := dial(ctx, addr, t, edge)
-	if err != nil {
-		return nil, fmt.Errorf("connecting to builder %s: %w", name, err)
-	}
-
-	if err := c.Wait(wctx); err != nil {
-		c.Close()
-		return nil, fmt.Errorf("waiting for builder %s: %w", name, err)
-	}
-	return &Daemon{Client: c, Addr: addr, TLS: t, edge: edge}, nil
 }
 
 // Check returns ErrConflict if the builder for key exists, but not at key's sizes.
@@ -336,33 +305,4 @@ func quota(err error) error {
 func gcKeepStorage(cacheMiB uint64) string {
 	mb := cacheMiB * (1 << 20) / 1_000_000
 	return fmt.Sprintf("%d,%d,%d", mb/10, mb/2, mb/2)
-}
-
-// dial connects to buildkitd at addr with buildkit's mTLS inside the TLS that
-// the platform's edge terminates.
-func dial(ctx context.Context, addr string, t TLS, edge func(context.Context) (net.Conn, error)) (*client.Client, error) {
-	inner, err := t.config()
-	if err != nil {
-		return nil, err
-	}
-	return client.New(ctx, "tcp://"+addr,
-		client.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return edge(ctx)
-		}),
-		client.WithGRPCDialOption(grpc.WithTransportCredentials(credentials.NewTLS(inner))),
-		client.WithGRPCDialOption(grpc.WithAuthority(t.ServerName)),
-	)
-}
-
-// edgeDialer returns a function that opens a connection to addr through the
-// TLS that the platform's edge terminates.
-func edgeDialer(addr string, insecure bool) (func(context.Context) (net.Conn, error), error) {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		return nil, err
-	}
-	d := &tls.Dialer{Config: &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure}}
-	return func(ctx context.Context) (net.Conn, error) {
-		return d.DialContext(ctx, "tcp", addr)
-	}, nil
 }
