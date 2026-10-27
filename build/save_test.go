@@ -94,6 +94,20 @@ func registryBuilder(creds registryauth.Credentials) build.Builder {
 // its digest.
 func registryDigest(t *testing.T, host, repo, tag string) digest.Digest {
 	t.Helper()
+	return digest.FromBytes(registryManifest(t, host, repo, tag))
+}
+
+// registryIndex fetches the index that host serves for repo:tag.
+func registryIndex(t *testing.T, host, repo, tag string) ocispec.Index {
+	t.Helper()
+	var idx ocispec.Index
+	require.NoError(t, json.Unmarshal(registryManifest(t, host, repo, tag), &idx))
+	return idx
+}
+
+// registryManifest fetches the bytes of the index that host serves for repo:tag.
+func registryManifest(t *testing.T, host, repo, tag string) []byte {
+	t.Helper()
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+host+"/v2/"+repo+"/manifests/"+tag, nil)
 	require.NoError(t, err)
@@ -107,7 +121,7 @@ func registryDigest(t *testing.T, host, repo, tag string) digest.Digest {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	return digest.FromBytes(body)
+	return body
 }
 
 // layoutDigest returns the digest that the OCI layout at dir lists for tag.
