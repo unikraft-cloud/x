@@ -113,6 +113,12 @@ func NewPlatform(c platform.Client, opts ...Option) *Platform {
 	return p
 }
 
+// Create creates the builder for key, which starts and then scales to zero,
+// without waiting for it or connecting to it.
+func (p *Platform) Create(ctx context.Context, key Key) error {
+	return p.create(ctx, "buildkit-"+cmp.Or(key.Name, "default"), key)
+}
+
 // Check returns ErrConflict if the builder for key exists, but not at key's sizes.
 func (p *Platform) Check(ctx context.Context, key Key) error {
 	if key.Image == "" && key.VCPUs == 0 && key.MemoryMB == 0 && key.CacheMB == 0 {

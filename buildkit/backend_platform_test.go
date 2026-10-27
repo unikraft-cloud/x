@@ -63,7 +63,7 @@ func TestPlatformCreate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, created := fakePlatform(t)
-			require.NoError(t, NewPlatform(c, tc.opts...).create(t.Context(), "buildkit-default", tc.key))
+			require.NoError(t, NewPlatform(c, tc.opts...).Create(t.Context(), tc.key))
 
 			req := <-created
 			assert.Equal(t, tc.want, req.Env[EnvOCIWorkerGCKeepStorage])
@@ -74,10 +74,11 @@ func TestPlatformCreate(t *testing.T) {
 func TestPlatformCreateSized(t *testing.T) {
 	c, created := fakePlatform(t)
 	p := NewPlatform(c, WithImage("official/utils/buildkit:v1"), WithVCPUs(2), WithMemory(4096))
-	require.NoError(t, p.create(t.Context(), "buildkit-ci", Key{Name: "ci", VCPUs: 8, AutokillMs: 60000}))
+	require.NoError(t, p.Create(t.Context(), Key{Name: "ci", VCPUs: 8, AutokillMs: 60000}))
 
 	// The key's sizes make the builder, and the options fill the rest.
 	req := <-created
+	assert.Equal(t, "buildkit-ci", *req.Name)
 	assert.Equal(t, platform.ImageReference("official/utils/buildkit:v1"), req.Image)
 	assert.Equal(t, int32(8), *req.Vcpus)
 	assert.Equal(t, int64(4096), *req.MemoryMb)
