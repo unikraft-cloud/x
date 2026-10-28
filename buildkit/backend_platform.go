@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/distribution/reference"
@@ -24,6 +25,10 @@ const DefaultImage = "official/utils/buildkit:latest"
 const (
 	port     = 1234
 	cacheDir = "/var/lib/buildkit"
+
+	// The platform's registry shows its official images without the namespace.
+	platformRegistry  = "index.unikraft.io"
+	officialNamespace = "official/"
 
 	readyTimeout = 2 * time.Minute
 )
@@ -184,11 +189,16 @@ func sameImage(have, want string) bool {
 }
 
 // imageParts returns the repository of ref, and the registry, tag and digest
-// it names, empty for those it leaves out.
+// it names, empty for those it leaves out. A repository in the platform's
+// registry has no official namespace.
 func imageParts(ref reference.Named) (repo string, named [3]string) {
 	domain := reference.Domain(ref)
 	if domain == "docker.io" {
 		domain = "" // what a bare name implies
+	}
+	repo = reference.Path(ref)
+	if domain == "" || domain == platformRegistry {
+		repo = strings.TrimPrefix(repo, officialNamespace)
 	}
 	tag, digest := "", ""
 	if t, ok := ref.(reference.Tagged); ok {
@@ -197,7 +207,7 @@ func imageParts(ref reference.Named) (repo string, named [3]string) {
 	if d, ok := ref.(reference.Digested); ok {
 		digest = d.Digest().String()
 	}
-	return reference.Path(ref), [3]string{domain, tag, digest}
+	return repo, [3]string{domain, tag, digest}
 }
 
 // instance returns the named builder instance, creating it if there is none
