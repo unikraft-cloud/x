@@ -96,6 +96,32 @@ func TestRootfsOCIUnikraftImageFormatMismatch(t *testing.T) {
 	require.ErrorContains(t, err, "rootfs format mismatch")
 }
 
+// TestRootfsOCIUnikraftImageTooLarge asserts that an initrd past
+// MaxRootfsSize fails the build, and one at the limit does not.
+func TestRootfsOCIUnikraftImageTooLarge(t *testing.T) {
+	srcDir := writeTestDirectory(t)
+	archivePath := writeUnikraftOCIArchive(t, srcDir)
+	opts := BuildOpts{
+		Rootfs:   FSOpts{Path: "oci-archive://" + archivePath, Type: kraftfile.SourceTypeOCI},
+		Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
+	}
+
+	imgs := runBuildRootfs(t, opts)
+	require.Len(t, imgs, 1)
+	rc, size, err := imgs[0].Initrd.Open(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, rc.Close())
+
+	_, err = Builder{TempDir: t.TempDir(), MaxRootfsSize: size - 1}.BuildRootfs(t.Context(), opts)
+	require.ErrorIs(t, err, ErrTooLarge)
+
+	imgs, err = Builder{TempDir: t.TempDir(), MaxRootfsSize: size}.BuildRootfs(t.Context(), opts)
+	require.NoError(t, err)
+	for _, img := range imgs {
+		require.NoError(t, img.Close())
+	}
+}
+
 // TestRootfsOCIUnikraftImageConfig asserts that the source image's config
 // survives, and that the build options still override it.
 func TestRootfsOCIUnikraftImageConfig(t *testing.T) {

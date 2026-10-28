@@ -595,7 +595,7 @@ func (b Builder) buildRootfsOCI(ctx context.Context, opts BuildOpts, part string
 
 			w := progress.WithPrefix(b.progressWriter(), partPrefix(part, p))
 			if err := progress.Step(w, "copy initrd of "+opts.Rootfs.Path, func() error {
-				return copyInitrd(ctx, f, src.Initrd, opts)
+				return copyInitrd(ctx, f, src.Initrd, opts, b.MaxRootfsSize)
 			}); err != nil {
 				return nil, err
 			}
@@ -673,13 +673,14 @@ func (b Builder) buildRootfsOCI(ctx context.Context, opts BuildOpts, part string
 }
 
 // copyInitrd writes the initrd of a Unikraft image to f as it is, padded as
-// opts asks, and checks that its format is the one opts asks for.
-func copyInitrd(ctx context.Context, f *os.File, initrd imagespec.File, opts BuildOpts) error {
+// opts asks, and checks that its format is the one opts asks for. An initrd
+// of more than limit bytes fails with ErrTooLarge.
+func copyInitrd(ctx context.Context, f *os.File, initrd imagespec.File, opts BuildOpts, limit int64) error {
 	rc, _, err := initrd.Open(ctx)
 	if err != nil {
 		return fmt.Errorf("opening rootfs layer: %w", err)
 	}
-	if _, err := io.Copy(f, rc); err != nil {
+	if _, err := io.Copy(&limitWriter{w: f, max: limit}, rc); err != nil {
 		rc.Close()
 		return fmt.Errorf("reading rootfs layer: %w", err)
 	}
