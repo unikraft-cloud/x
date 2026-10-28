@@ -30,6 +30,14 @@ const (
 	headerSessionMethod    = "X-Docker-Expose-Session-Grpc-Method"
 )
 
+// The limits of the session server: a stream holds at most one window and one
+// header list, so a daemon that floods the session gets no more memory than that.
+const (
+	sessionStreams    = 64
+	sessionWindow     = 1 << 20 // fixed, which also turns off the growth of windows
+	sessionHeaderList = 1 << 20 // filesync puts the dockerignore patterns in headers
+)
+
 // serveSession serves attachables to the daemon of c until stop. Unlike
 // session.Session, gRPC's own transport only opens a stream's window as it is read.
 func serveSession(ctx context.Context, c *client.Client, sharedKey string, attachables []session.Attachable) (_ *session.Session, stop func(), _ error) {
@@ -42,6 +50,10 @@ func serveSession(ctx context.Context, c *client.Client, sharedKey string, attac
 	srv := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcerrors.UnaryServerInterceptor),
 		grpc.StreamInterceptor(grpcerrors.StreamServerInterceptor),
+		grpc.MaxConcurrentStreams(sessionStreams),
+		grpc.InitialWindowSize(sessionWindow),
+		grpc.InitialConnWindowSize(sessionWindow),
+		grpc.MaxHeaderListSize(sessionHeaderList),
 	)
 	grpc_health_v1.RegisterHealthServer(srv, health.NewServer())
 	for _, a := range attachables {
@@ -67,13 +79,26 @@ func serveSession(ctx context.Context, c *client.Client, sharedKey string, attac
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = srv.Serve(newConnListener(conn))
+		_ = srv.Serve(newConnListener(cancelConn{Conn: conn, cancel: cancel}))
 	}()
+	// The cancel comes first: it ends the reads of the conn, which Stop waits for.
 	return s, func() {
-		srv.Stop()
 		cancel()
+		srv.Stop()
 		<-done
 	}, nil
+}
+
+// cancelConn cancels the context of its stream before it closes. Else Close
+// reads all that the daemon still sends, until the daemon ends the stream.
+type cancelConn struct {
+	net.Conn
+	cancel context.CancelFunc
+}
+
+func (c cancelConn) Close() error {
+	c.cancel()
+	return c.Conn.Close()
 }
 
 // syncedDirs returns mounts with the owners that the solve gives to its
