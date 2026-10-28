@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	gopath "path"
 
 	"github.com/unikraft/go-archivefs"
@@ -121,13 +122,17 @@ func CreateCPIO(ctx context.Context, w io.Writer, fsys fs.FS, opts ...CreateOpti
 			return nil
 		}
 
+		// The newc header has 8 hex digits for the size, which cut larger ones.
+		if header.Size > math.MaxUint32 {
+			return fmt.Errorf("%s has %d bytes, more than CPIO holds", internal, header.Size)
+		}
 		if err := cw.WriteHeader(header); err != nil {
 			return fmt.Errorf("writing cpio header for %q: %w", internal, err)
 		}
 
 		if content {
 			if err := copyFile(cw, fsys, path, header.Size); err != nil {
-				return fmt.Errorf("could not write CPIO data for %s: %w", internal, err)
+				return fmt.Errorf("could not copy %s into the CPIO archive: %w", internal, err)
 			}
 		}
 		if len(data) > 0 {
@@ -243,7 +248,7 @@ func copyFile(w io.Writer, fsys fs.FS, path string, size int64) error {
 		return err
 	}
 	if n != size {
-		return fmt.Errorf("read %d bytes, not %d", n, size)
+		return fmt.Errorf("the file changed while it was packed: read %d of %d bytes", n, size)
 	}
 	return nil
 }

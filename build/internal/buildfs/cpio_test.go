@@ -132,6 +132,21 @@ func TestCreateCPIOStreamsFiles(t *testing.T) {
 	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(size/4))
 }
 
+// TestCreateCPIORefusesFilesOf4GiB asserts that a file that the size field
+// of a newc header cannot hold is refused, rather than packed with a cut size.
+func TestCreateCPIORefusesFilesOf4GiB(t *testing.T) {
+	dir := t.TempDir()
+	f, err := os.Create(filepath.Join(dir, "huge"))
+	require.NoError(t, err)
+	require.NoError(t, f.Truncate(1<<32))
+	require.NoError(t, f.Close())
+
+	var archive countingWriter
+	err = CreateCPIO(t.Context(), &archive, os.DirFS(dir))
+	require.ErrorContains(t, err, "more than CPIO holds")
+	assert.Less(t, int64(archive), int64(1<<20))
+}
+
 // countingWriter counts the bytes written to it, and keeps none.
 type countingWriter int64
 
