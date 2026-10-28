@@ -12,6 +12,7 @@ import (
 	"encoding/base32"
 	"encoding/binary"
 	"io"
+	"regexp"
 	"sync"
 	"time"
 
@@ -69,13 +70,17 @@ func WithRequestID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, requestIDContextKey{}, id)
 }
 
+// clientRequestIDRe is the form of a request ID that the middleware keeps
+// from the client. It replaces any other, which could forge log lines.
+var clientRequestIDRe = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,64}$`)
+
 // AddRequestID returns a gin middleware which adds a unique ID to each request
 // (both response header and context).
 func AddRequestID(header string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Have we found anything?
 		id := c.GetHeader(header)
-		if id == "" {
+		if !clientRequestIDRe.MatchString(id) {
 			// Generate new ID.
 			id = NewRequestID()
 

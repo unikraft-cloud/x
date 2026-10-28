@@ -30,6 +30,7 @@ type solver struct {
 	session   []session.Attachable
 	sharedKey string
 	progress  progress.Writer
+	maxSize   int64 // of each tarball, 0 for no limit
 }
 
 func (b Builder) newSolver(ctx context.Context) (*solver, error) {
@@ -63,6 +64,7 @@ func (b Builder) newSolver(ctx context.Context) (*solver, error) {
 		session:   slices.Clone(attachables),
 		sharedKey: b.SharedKey,
 		progress:  b.progressWriter(),
+		maxSize:   b.MaxRootfsSize,
 	}, nil
 }
 
@@ -74,15 +76,16 @@ func (s *solver) close() {
 
 // solveToTar runs build, exporting an uncompressed tarball of the result to
 // dst, which is left synced and rewound. The progress of the solve is
-// reported under prefix.
+// reported under prefix. A tarball past the size limit fails with ErrTooLarge.
 func (s *solver) solveToTar(ctx context.Context, dst *os.File, prefix string, solveOpt client.SolveOpt, build gateway.BuildFunc) error {
 	solveOpt.Ref = identity.NewID()
 	solveOpt.Session = s.session
 	solveOpt.SharedKey = s.sharedKey
+	out := &limitWriter{w: dst, max: s.maxSize}
 	solveOpt.Exports = []client.ExportEntry{{
 		Type: client.ExporterTar,
 		Output: func(map[string]string) (io.WriteCloser, error) {
-			return ukio.NopWriteCloser(dst), nil
+			return ukio.NopWriteCloser(out), nil
 		},
 	}}
 
@@ -93,7 +96,7 @@ func (s *solver) solveToTar(ctx context.Context, dst *os.File, prefix string, so
 	_, err := s.client.Build(ctx, solveOpt, "buildctl", build, statuses)
 	<-done
 	if err != nil {
-		return err
+		return out.wrap(err)
 	}
 
 	if err := dst.Sync(); err != nil {

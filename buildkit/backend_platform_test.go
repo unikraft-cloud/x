@@ -94,6 +94,7 @@ func TestPlatformCheck(t *testing.T) {
 	}
 	const (
 		digest   = "official/utils/buildkit@sha256:3b4c6b2c2c7ab4a5e2a2d4b8b5ba4bb9a6a7e5a9d4d0d2c1a4f0b2c3d4e5f6a7"
+		shown    = "utils/buildkit@sha256:3b4c6b2c2c7ab4a5e2a2d4b8b5ba4bb9a6a7e5a9d4d0d2c1a4f0b2c3d4e5f6a7" // as the platform shows it
 		notFound = `{"status": "error", "data": {"instances": [{"status": "error", "message": "not found", "error": 8}]}}`
 		cache    = `{"status": "success", "data": {"volumes": [{"status": "success", "uuid": "v1", "name": "vol-abc", "size_mb": 10240}]}}`
 	)
@@ -171,6 +172,17 @@ func TestPlatformCheck(t *testing.T) {
 			name:    "the platform's own registry left out is no conflict",
 			key:     Key{Name: "ci", Image: "index.unikraft.io/official/utils/buildkit:latest"},
 			answers: map[string]string{"GET /v1/instances": builder(digest)},
+		},
+		{
+			name:    "the official namespace left out is no conflict",
+			key:     Key{Name: "ci", Image: "official/utils/buildkit:latest"},
+			answers: map[string]string{"GET /v1/instances": builder(shown)},
+		},
+		{
+			name:    "a namespace other than official is a conflict",
+			key:     Key{Name: "ci", Image: "team/utils/buildkit:latest"},
+			answers: map[string]string{"GET /v1/instances": builder(shown)},
+			want:    "not team/utils/buildkit:latest",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
