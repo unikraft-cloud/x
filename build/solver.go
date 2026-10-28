@@ -17,6 +17,7 @@ import (
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/identity"
 	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/filesync"
 
 	ukio "unikraft.com/x/io"
 
@@ -78,22 +79,34 @@ func (s *solver) close() {
 // dst, which is left synced and rewound. The progress of the solve is
 // reported under prefix. A tarball past the size limit fails with ErrTooLarge.
 func (s *solver) solveToTar(ctx context.Context, dst *os.File, prefix string, solveOpt client.SolveOpt, build gateway.BuildFunc) error {
-	solveOpt.Ref = identity.NewID()
-	solveOpt.Session = s.session
-	solveOpt.SharedKey = s.sharedKey
 	out := &limitWriter{w: dst, max: s.maxSize}
-	solveOpt.Exports = []client.ExportEntry{{
-		Type: client.ExporterTar,
-		Output: func(map[string]string) (io.WriteCloser, error) {
-			return ukio.NopWriteCloser(out), nil
-		},
-	}}
+	attachables := slices.Clone(s.session)
+	if len(solveOpt.LocalMounts) > 0 {
+		dirs, err := syncedDirs(solveOpt.LocalMounts)
+		if err != nil {
+			return err
+		}
+		attachables = append(attachables, filesync.NewFSSyncProvider(dirs))
+	}
+	// The tar exporter sends to the target with the ID of its export.
+	attachables = append(attachables, filesync.NewFSSyncTarget(filesync.WithFSSync(0,
+		func(map[string]string) (io.WriteCloser, error) { return ukio.NopWriteCloser(out), nil })))
+	sess, stop, err := serveSession(ctx, s.client, s.sharedKey, attachables)
+	if err != nil {
+		return err
+	}
+	defer stop()
+
+	solveOpt.Ref = identity.NewID()
+	solveOpt.SharedSession = sess
+	solveOpt.SessionPreInitialized = true
+	solveOpt.Exports = []client.ExportEntry{{Type: client.ExporterTar}}
 
 	// Build closes the status channel when it returns, however it went, and
 	// the last statuses on it are what say how, so they are forwarded before
 	// the error is looked at.
 	statuses, done := progress.NewChannel(progress.WithPrefix(s.progress, prefix))
-	_, err := s.client.Build(ctx, solveOpt, "buildctl", build, statuses)
+	_, err = s.client.Build(ctx, solveOpt, "buildctl", build, statuses)
 	<-done
 	if err != nil {
 		return out.wrap(err)

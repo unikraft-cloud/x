@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -109,6 +110,49 @@ func newTree(t *testing.T) string {
 		require.NoError(t, os.Chtimes(filepath.Join(root, p), mtime, mtime))
 	}
 	return root
+}
+
+// TestCreateCPIOStreamsFiles asserts that a file goes into the archive in
+// pieces, so that a large file of a rootfs is never whole in memory.
+func TestCreateCPIOStreamsFiles(t *testing.T) {
+	const size = 64 << 20
+	dir := t.TempDir()
+	f, err := os.Create(filepath.Join(dir, "big"))
+	require.NoError(t, err)
+	require.NoError(t, f.Truncate(size))
+	require.NoError(t, f.Close())
+
+	var archive countingWriter
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	require.NoError(t, CreateCPIO(t.Context(), &archive, os.DirFS(dir)))
+	runtime.ReadMemStats(&after)
+
+	assert.Greater(t, int64(archive), int64(size))
+	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(size/4))
+}
+
+// TestCreateCPIORefusesFilesOf4GiB asserts that a file that the size field
+// of a newc header cannot hold is refused, rather than packed with a cut size.
+func TestCreateCPIORefusesFilesOf4GiB(t *testing.T) {
+	dir := t.TempDir()
+	f, err := os.Create(filepath.Join(dir, "huge"))
+	require.NoError(t, err)
+	require.NoError(t, f.Truncate(1<<32))
+	require.NoError(t, f.Close())
+
+	var archive countingWriter
+	err = CreateCPIO(t.Context(), &archive, os.DirFS(dir))
+	require.ErrorContains(t, err, "more than CPIO holds")
+	assert.Less(t, int64(archive), int64(1<<20))
+}
+
+// countingWriter counts the bytes written to it, and keeps none.
+type countingWriter int64
+
+func (w *countingWriter) Write(p []byte) (int, error) {
+	*w += countingWriter(len(p))
+	return len(p), nil
 }
 
 func TestCreateCPIOKeepsSpecialBits(t *testing.T) {

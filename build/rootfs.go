@@ -869,6 +869,9 @@ func partPrefix(part string, p ocispec.Platform) string {
 func (b Builder) pack(ctx context.Context, part string, p ocispec.Platform, opts BuildOpts, format kraftfile.FsType, destFS *os.File, srcFS fs.FS) error {
 	w := progress.WithPrefix(b.progressWriter(), partPrefix("pack", p))
 	return progress.Step(w, part+" as "+string(format), func() error {
+		if err := checkDataSize(srcFS, b.MaxRootfsSize); err != nil {
+			return err
+		}
 		return packageFS(ctx, format, destFS, srcFS, opts.Rootfs)
 	})
 }

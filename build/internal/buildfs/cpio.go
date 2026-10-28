@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	gopath "path"
 
 	"github.com/unikraft/go-archivefs"
@@ -93,6 +94,7 @@ func CreateCPIO(ctx context.Context, w io.Writer, fsys fs.FS, opts ...CreateOpti
 		}
 
 		var data []byte
+		var content bool // of a regular file, copied after the header
 		switch {
 		case info.Mode().IsRegular():
 			header.Mode |= cpio.TypeRegular
@@ -103,12 +105,7 @@ func CreateCPIO(ctx context.Context, w io.Writer, fsys fs.FS, opts ...CreateOpti
 				}
 				hardlinks[source] = internal
 			}
-
-			data, err = fs.ReadFile(fsys, path)
-			if err != nil {
-				return fmt.Errorf("could not read file: %w", err)
-			}
-			header.Size = int64(len(data))
+			content = true
 
 		case info.Mode()&fs.ModeSymlink != 0:
 			targetLink, err := fs.ReadLink(fsys, path)
@@ -125,10 +122,19 @@ func CreateCPIO(ctx context.Context, w io.Writer, fsys fs.FS, opts ...CreateOpti
 			return nil
 		}
 
+		// The newc header has 8 hex digits for the size, which cut larger ones.
+		if header.Size > math.MaxUint32 {
+			return fmt.Errorf("%s has %d bytes, more than CPIO holds", internal, header.Size)
+		}
 		if err := cw.WriteHeader(header); err != nil {
 			return fmt.Errorf("writing cpio header for %q: %w", internal, err)
 		}
 
+		if content {
+			if err := copyFile(cw, fsys, path, header.Size); err != nil {
+				return fmt.Errorf("could not copy %s into the CPIO archive: %w", internal, err)
+			}
+		}
 		if len(data) > 0 {
 			if _, err := cw.Write(data); err != nil {
 				return fmt.Errorf("could not write CPIO data for %s: %w", internal, err)
@@ -228,4 +234,21 @@ func fileInfoToCPIOHeader(info fs.FileInfo, header *cpio.Header) {
 	header.Guid = archivefs.GetGID(sys)
 	header.Inode = int64(archivefs.GetIno(sys))
 	header.Links = int(archivefs.GetNlink(sys))
+}
+
+// copyFile copies the size bytes of the file at path in fsys to w.
+func copyFile(w io.Writer, fsys fs.FS, path string, size int64) error {
+	f, err := fsys.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	n, err := io.Copy(w, io.LimitReader(f, size))
+	if err != nil {
+		return err
+	}
+	if n != size {
+		return fmt.Errorf("the file changed while it was packed: read %d of %d bytes", n, size)
+	}
+	return nil
 }

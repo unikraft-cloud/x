@@ -9,6 +9,7 @@ import (
 	"archive/tar"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -141,6 +142,63 @@ func TestRootfsTarball(t *testing.T) {
 				require.Equal(t, "hello\n", files["hello.txt"])
 				require.Contains(t, files, "subdir/nested.txt")
 				require.Equal(t, "nested\n", files["subdir/nested.txt"])
+			}
+		})
+	}
+}
+
+// writeLinkedTarball writes a tarball of a file of size bytes and links more
+// hardlinks to it, and returns its path.
+func writeLinkedTarball(t *testing.T, size, links int) string {
+	t.Helper()
+
+	tarPath := filepath.Join(t.TempDir(), "linked.tar")
+	f, err := os.Create(tarPath)
+	require.NoError(t, err)
+	defer f.Close()
+	tw := tar.NewWriter(f)
+	defer tw.Close()
+
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "file", Mode: 0o644, Size: int64(size), Typeflag: tar.TypeReg}))
+	_, err = tw.Write(make([]byte, size))
+	require.NoError(t, err)
+	for i := range links {
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: fmt.Sprintf("link%d", i), Mode: 0o644, Typeflag: tar.TypeLink, Linkname: "file"}))
+	}
+
+	return tarPath
+}
+
+// TestRootfsTooMuchData asserts that a rootfs whose files hold more than
+// MaxRootfsSize is refused before it is packed, each file with hardlinks once.
+func TestRootfsTooMuchData(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		links int
+		limit int64
+		want  error
+	}{
+		{"more data than the limit is too large", 0, 1000, ErrTooLarge},
+		{"a file and its hardlinks count once", 3, 1500, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := BuildOpts{
+				Rootfs: FSOpts{
+					Path:   writeLinkedTarball(t, 1024, tc.links),
+					Type:   kraftfile.SourceTypeTarball,
+					Format: kraftfile.FsTypeCpio,
+				},
+				Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
+			}
+
+			imgs, err := Builder{TempDir: t.TempDir(), MaxRootfsSize: tc.limit}.BuildRootfs(t.Context(), opts)
+			for _, img := range imgs {
+				require.NoError(t, img.Close())
+			}
+			if tc.want != nil {
+				require.ErrorIs(t, err, tc.want)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
