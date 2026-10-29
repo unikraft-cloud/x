@@ -7,7 +7,6 @@ package build
 
 import (
 	"cmp"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -39,7 +38,6 @@ import (
 	gotar "github.com/unikraft/go-archivefs/tarfs"
 	gocpio "github.com/unikraft/go-cpio"
 	"unikraft.com/x/kraftfile"
-	"unikraft.com/x/log"
 
 	"unikraft.com/x/build/buildflags"
 	"unikraft.com/x/build/internal/buildfs"
@@ -699,7 +697,7 @@ func copyInitrd(ctx context.Context, f *os.File, initrd imagespec.File, opts Bui
 		return fmt.Errorf("unsupported rootfs format mismatch: source is %s but requested format is %s", format, opts.Rootfs.Format)
 	}
 
-	if err := padFile(f, opts.Rootfs.Pad); err != nil {
+	if err := buildfs.PadFile(f, opts.Rootfs.Pad); err != nil {
 		return err
 	}
 	if err := f.Sync(); err != nil {
@@ -869,10 +867,18 @@ func partPrefix(part string, p ocispec.Platform) string {
 func (b Builder) pack(ctx context.Context, part string, p ocispec.Platform, opts BuildOpts, format kraftfile.FsType, destFS *os.File, srcFS fs.FS) error {
 	w := progress.WithPrefix(b.progressWriter(), partPrefix("pack", p))
 	return progress.Step(w, part+" as "+string(format), func() error {
-		if err := checkDataSize(srcFS, b.MaxRootfsSize); err != nil {
+		if err := buildfs.CheckSize(srcFS, b.MaxRootfsSize); err != nil {
 			return err
 		}
-		return packageFS(ctx, format, destFS, srcFS, opts.Rootfs)
+		// Owners of a host directory apply only to the host, so set them to root.
+		// Keep the owners from all other sources, as Docker does.
+		_, fromState := opts.Rootfs.Source.(StateSource)
+		allRoot := opts.Rootfs.Type == kraftfile.SourceTypeDirectory && !fromState
+		return buildfs.Package(ctx, format, destFS, srcFS,
+			buildfs.WithAllRoot(allRoot),
+			buildfs.WithPad(opts.Rootfs.Pad),
+			buildfs.WithCompress(opts.Rootfs.Compress),
+		)
 	})
 }
 
@@ -937,82 +943,6 @@ func (b Builder) Repack(ctx context.Context, f imagespec.File, p ocispec.Platfor
 	}
 
 	return imagespec.NewTempOSFile(dest), nil
-}
-
-func packageFS(ctx context.Context, format kraftfile.FsType, destFS *os.File, srcFS fs.FS, opts FSOpts) error {
-	log.G(ctx).
-		Debug().
-		Str("format", string(format)).
-		Msg("packaging rootfs")
-
-	// Owners of a host directory apply only to the host, so set them to root.
-	// Keep the owners from all other sources, as Docker does.
-	_, fromState := opts.Source.(StateSource)
-	allRoot := opts.Type == kraftfile.SourceTypeDirectory && !fromState
-
-	switch format {
-	case kraftfile.FsTypeCpio:
-		var gw *gzip.Writer
-		var w io.Writer = destFS
-		if opts.Compress {
-			gw = gzip.NewWriter(w)
-			w = gw
-		}
-
-		if err := buildfs.CreateCPIO(ctx, w, srcFS,
-			buildfs.WithAllRoot(allRoot),
-		); err != nil {
-			return fmt.Errorf("could not create CPIO archive: %w", err)
-		}
-
-		if gw != nil {
-			if err := gw.Close(); err != nil {
-				return fmt.Errorf("could not close gzip writer: %w", err)
-			}
-		}
-	case kraftfile.FsTypeErofs:
-		if opts.Compress {
-			log.G(ctx).Warn().Msg("compression is not supported for EROFS, ignoring compress option")
-		}
-
-		if err := buildfs.CreateEROFS(destFS, srcFS,
-			buildfs.WithAllRoot(allRoot),
-		); err != nil {
-			return fmt.Errorf("could not create EroFS archive: %w", err)
-		}
-	default:
-		return fmt.Errorf("unknown filesystem type %q", format)
-	}
-
-	if err := padFile(destFS, opts.Pad); err != nil {
-		return err
-	}
-
-	if err := destFS.Sync(); err != nil {
-		return fmt.Errorf("could not sync file: %w", err)
-	}
-
-	return nil
-}
-
-// padFile pads f up to a multiple of pad bytes.
-func padFile(f *os.File, pad int64) error {
-	if pad <= 0 {
-		return nil
-	}
-
-	pos, err := f.Seek(0, io.SeekEnd)
-	if err != nil {
-		return fmt.Errorf("could not seek to end of file: %w", err)
-	}
-	if rem := pos % pad; rem != 0 {
-		padding := make([]byte, pad-rem)
-		if _, err := f.Write(padding); err != nil {
-			return fmt.Errorf("could not pad file to page alignment: %w", err)
-		}
-	}
-
-	return nil
 }
 
 func applyBuildOpts(attrs map[string]string, localDirs map[string]string, inputs map[string]llb.State, sessions *[]session.Attachable, opts BuildOpts) error {

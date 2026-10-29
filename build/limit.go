@@ -9,14 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 
-	"github.com/unikraft/go-archivefs"
+	"unikraft.com/x/build/internal/buildfs"
 )
 
 // ErrTooLarge tells that a rootfs or a rom is larger than
 // Builder.MaxRootfsSize.
-var ErrTooLarge = errors.New("rootfs is too large")
+var ErrTooLarge = buildfs.ErrTooLarge
 
 // limitWriter writes to w until max bytes, then refuses each write with
 // ErrTooLarge. A max of 0 is no limit.
@@ -48,35 +47,4 @@ func (l *limitWriter) wrap(err error) error {
 
 func (l *limitWriter) tooLarge() error {
 	return fmt.Errorf("%w: more than %d bytes", ErrTooLarge, l.max)
-}
-
-// checkDataSize returns ErrTooLarge if the regular files of fsys, each file
-// with hardlinks once, hold more than limit. A tarball can claim more than it holds.
-func checkDataSize(fsys fs.FS, limit int64) error {
-	if limit <= 0 {
-		return nil
-	}
-
-	var total int64
-	linked := map[uint64]bool{}
-	return fs.WalkDir(fsys, ".", func(_ string, d fs.DirEntry, err error) error {
-		if err != nil || !d.Type().IsRegular() {
-			return err
-		}
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		if sys := info.Sys(); archivefs.GetNlink(sys) > 1 {
-			ino := archivefs.GetIno(sys)
-			if linked[ino] {
-				return nil
-			}
-			linked[ino] = true
-		}
-		if total += info.Size(); total > limit {
-			return fmt.Errorf("%w: more than %d bytes", ErrTooLarge, limit)
-		}
-		return nil
-	})
 }
