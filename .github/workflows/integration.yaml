@@ -1,0 +1,48 @@
+name: integration
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [prod-staging]
+    paths:
+      - '**'
+      - '!.github/**'
+      - .github/workflows/integration.yaml
+
+# A cancelled run would skip the test cleanup and leave its builder behind.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request_target' && github.head_ref || github.ref }}
+
+jobs:
+  go:
+    # Pull requests from forks get no secrets.
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    # The internal metros are reachable from the ARC runners only.
+    runs-on: arc-ubuntu24.04-standard
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [STAGING, STABLE, PROD]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup go
+        uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
+
+      - name: Run integration tests
+        shell: bash
+        run: |
+          # The tests skip themselves without a token.
+          test -n "$UKC_TOKEN"
+          test -n "$UKC_METRO"
+          task ci/integration
+        env:
+          UKC_TOKEN: ${{ secrets.UNIKRAFT_TOKEN }}
+          UKC_METRO: >-
+            ${{ matrix.target == 'STAGING' && secrets.UNIKRAFT_ENDPOINT_STAGING
+            || matrix.target == 'STABLE' && secrets.UNIKRAFT_ENDPOINT_STABLE
+            || matrix.target == 'PROD' && secrets.UNIKRAFT_ENDPOINT_PROD || '' }}
+          UKC_INSECURE: ${{ matrix.target != 'PROD' }}
+          # A cached pass would not reach the metro.
+          GOFLAGS: -count=1
