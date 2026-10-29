@@ -13,6 +13,7 @@ use (
 	./guesstermwidth
 	./iata
 	./image-spec
+	./integration
 	./io
 	./joinerrgroup
 	./kingkong
