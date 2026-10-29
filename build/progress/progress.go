@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/moby/buildkit/client"
+	resourcestypes "github.com/moby/buildkit/executor/resources/types"
 	"github.com/moby/buildkit/identity"
 	"github.com/moby/buildkit/solver/pb"
 	"github.com/opencontainers/go-digest"
@@ -33,51 +34,79 @@ func (f WriterFunc) Write(ss *client.SolveStatus) { f(ss) }
 // Discard drops every status.
 var Discard Writer = WriterFunc(func(*client.SolveStatus) {})
 
+// Usage is what the steps of a solve used, by vertex digest.
+type Usage map[digest.Digest]*resourcestypes.Samples
+
+// UsageWriter is a Writer that also takes the usage of a solve's steps once it is done.
+type UsageWriter interface {
+	Writer
+	WriteUsage(Usage)
+}
+
 // WithPrefix reports to w with prefix in the name and the digest of every
 // vertex, so that the same vertex in two solves is drawn twice.
-func WithPrefix(w Writer, prefix string) Writer {
-	under := func(d digest.Digest) digest.Digest {
-		if d == "" {
-			return d
-		}
-		return digest.FromString(prefix + " " + d.String())
-	}
+func WithPrefix(w Writer, prefix string) UsageWriter {
+	return &prefixed{w: w, prefix: prefix}
+}
 
-	return WriterFunc(func(ss *client.SolveStatus) {
-		var prefixed client.SolveStatus
-		for _, v := range ss.Vertexes {
-			pv := *v
-			pv.Digest = under(v.Digest)
-			pv.Inputs = make([]digest.Digest, len(v.Inputs))
-			for i, in := range v.Inputs {
-				pv.Inputs[i] = under(in)
-			}
-			pv.Name = "[" + prefix + "] " + v.Name
-			if rest, ok := strings.CutPrefix(v.Name, "["); ok {
-				pv.Name = "[" + prefix + " " + rest
-			}
-			if pg := v.ProgressGroup; pg != nil {
-				pv.ProgressGroup = &pb.ProgressGroup{Id: prefix + " " + pg.Id, Name: pg.Name, Weak: pg.Weak}
-			}
-			prefixed.Vertexes = append(prefixed.Vertexes, &pv)
+type prefixed struct {
+	w      Writer
+	prefix string
+}
+
+func (p *prefixed) under(d digest.Digest) digest.Digest {
+	if d == "" {
+		return d
+	}
+	return digest.FromString(p.prefix + " " + d.String())
+}
+
+func (p *prefixed) Write(ss *client.SolveStatus) {
+	var out client.SolveStatus
+	for _, v := range ss.Vertexes {
+		pv := *v
+		pv.Digest = p.under(v.Digest)
+		pv.Inputs = make([]digest.Digest, len(v.Inputs))
+		for i, in := range v.Inputs {
+			pv.Inputs[i] = p.under(in)
 		}
-		for _, s := range ss.Statuses {
-			ps := *s
-			ps.Vertex = under(s.Vertex)
-			prefixed.Statuses = append(prefixed.Statuses, &ps)
+		pv.Name = "[" + p.prefix + "] " + v.Name
+		if rest, ok := strings.CutPrefix(v.Name, "["); ok {
+			pv.Name = "[" + p.prefix + " " + rest
 		}
-		for _, l := range ss.Logs {
-			pl := *l
-			pl.Vertex = under(l.Vertex)
-			prefixed.Logs = append(prefixed.Logs, &pl)
+		if pg := v.ProgressGroup; pg != nil {
+			pv.ProgressGroup = &pb.ProgressGroup{Id: p.prefix + " " + pg.Id, Name: pg.Name, Weak: pg.Weak}
 		}
-		for _, wn := range ss.Warnings {
-			pw := *wn
-			pw.Vertex = under(wn.Vertex)
-			prefixed.Warnings = append(prefixed.Warnings, &pw)
-		}
-		w.Write(&prefixed)
-	})
+		out.Vertexes = append(out.Vertexes, &pv)
+	}
+	for _, s := range ss.Statuses {
+		ps := *s
+		ps.Vertex = p.under(s.Vertex)
+		out.Statuses = append(out.Statuses, &ps)
+	}
+	for _, l := range ss.Logs {
+		pl := *l
+		pl.Vertex = p.under(l.Vertex)
+		out.Logs = append(out.Logs, &pl)
+	}
+	for _, wn := range ss.Warnings {
+		pw := *wn
+		pw.Vertex = p.under(wn.Vertex)
+		out.Warnings = append(out.Warnings, &pw)
+	}
+	p.w.Write(&out)
+}
+
+func (p *prefixed) WriteUsage(u Usage) {
+	uw, ok := p.w.(UsageWriter)
+	if !ok || len(u) == 0 {
+		return
+	}
+	under := make(Usage, len(u))
+	for d, s := range u {
+		under[p.under(d)] = s
+	}
+	uw.WriteUsage(under)
 }
 
 // Step runs fn and reports it to w as a vertex of its own

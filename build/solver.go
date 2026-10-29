@@ -20,6 +20,7 @@ import (
 	"github.com/moby/buildkit/session/filesync"
 
 	ukio "unikraft.com/x/io"
+	"unikraft.com/x/log"
 
 	"unikraft.com/x/build/progress"
 )
@@ -105,11 +106,19 @@ func (s *solver) solveToTar(ctx context.Context, dst *os.File, prefix string, so
 	// Build closes the status channel when it returns, however it went, and
 	// the last statuses on it are what say how, so they are forwarded before
 	// the error is looked at.
-	statuses, done := progress.NewChannel(progress.WithPrefix(s.progress, prefix))
+	pw := progress.WithPrefix(s.progress, prefix)
+	statuses, done := progress.NewChannel(pw)
 	_, err = s.client.Build(ctx, solveOpt, "buildctl", build, statuses)
 	<-done
 	if err != nil {
 		return out.wrap(err)
+	}
+
+	// What the steps used is in buildkit's history once the solve is done.
+	if usage, err := stepUsage(ctx, s.client, solveOpt.Ref); err != nil {
+		log.G(ctx).Warn().Err(err).Msg("reading what the build steps used")
+	} else {
+		pw.WriteUsage(usage)
 	}
 
 	if err := dst.Sync(); err != nil {
