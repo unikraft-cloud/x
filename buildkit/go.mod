@@ -9,6 +9,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	google.golang.org/grpc v1.81.1
 	unikraft.com/cloud/sdk v0.3.1-0.20260928125536-cabf4afa223a
+	unikraft.com/x/integration v0.0.0-20261029085248-b41bded82886
 	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1
 )
 
@@ -75,5 +76,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace unikraft.com/x/integration => ../integration
 
 replace unikraft.com/x/log => ../log
