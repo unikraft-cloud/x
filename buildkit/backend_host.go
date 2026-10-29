@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/util/appdefaults"
@@ -24,6 +25,10 @@ import (
 	_ "github.com/moby/buildkit/client/connhelper/podmancontainer"
 	_ "github.com/moby/buildkit/client/connhelper/ssh"
 )
+
+// probeTimeout bounds the Info probe, which grpc hangs on a proxy that never
+// answers its CONNECT.
+const probeTimeout = 10 * time.Second
 
 // Host is the buildkitd at Addr, else at BUILDKIT_HOST, else on buildkit's
 // default socket, which is unavailable when nothing answers there and on
@@ -47,7 +52,9 @@ func (h Host) Acquire(ctx context.Context, _ Key) (*Daemon, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connecting to buildkit at %s: %w", addr, err)
 	}
-	if _, err := c.Info(ctx); err != nil {
+	pctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	if _, err := c.Info(pctx); err != nil {
 		c.Close()
 		if !explicit {
 			return nil, fmt.Errorf("%w at %s: %w", ErrUnavailable, addr, err)
