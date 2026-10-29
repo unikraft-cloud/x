@@ -24,7 +24,7 @@ import (
 // Acquire implements Backend. It creates the builder for key with a cache
 // volume if there is none, and starts it if it was stopped or in standby.
 func (p *Platform) Acquire(ctx context.Context, key Key) (*Daemon, error) {
-	name := "buildkit-" + cmp.Or(key.Name, "default")
+	name := "remote-builder-" + cmp.Or(key.Name, "default")
 	// The builder may be booting, waking from standby or shutting down.
 	wctx, cancel := context.WithTimeout(ctx, readyTimeout)
 	defer cancel()

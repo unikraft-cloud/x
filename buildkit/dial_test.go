@@ -33,7 +33,7 @@ func TestPlatformAcquireQuota(t *testing.T) {
 		{
 			name: "a builder in standby over the quota is refused",
 			answers: map[string]string{
-				"GET /v1/instances":          `{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "buildkit-default", "state": "standby"}]}}`,
+				"GET /v1/instances":          `{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "remote-builder-default", "state": "standby"}]}}`,
 				"PUT /v1/instances/u1/start": quotaError,
 			},
 		},
@@ -56,7 +56,7 @@ func TestPlatformAcquireConflict(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet && r.URL.Path == "/v1/instances" {
-			_, _ = w.Write([]byte(`{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "buildkit-ci", "state": "running", "vcpus": 2, "memory_mb": 4096}]}}`))
+			_, _ = w.Write([]byte(`{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "remote-builder-ci", "state": "running", "vcpus": 2, "memory_mb": 4096}]}}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"status": "success"}`))
