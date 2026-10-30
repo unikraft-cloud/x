@@ -78,7 +78,7 @@ func TestPlatformCreateSized(t *testing.T) {
 
 	// The key's sizes make the builder, and the options fill the rest.
 	req := <-created
-	assert.Equal(t, "buildkit-ci", *req.Name)
+	assert.Equal(t, "remote-builder-ci", *req.Name)
 	assert.Equal(t, platform.ImageReference("official/utils/buildkit:v1"), req.Image)
 	assert.Equal(t, int32(8), *req.Vcpus)
 	assert.Equal(t, int64(4096), *req.MemoryMb)
@@ -90,7 +90,7 @@ func TestPlatformCreateSized(t *testing.T) {
 func TestPlatformCheck(t *testing.T) {
 	// builder answers a request for the builder ci, running image.
 	builder := func(image string) string {
-		return fmt.Sprintf(`{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "buildkit-ci", "state": "running", "image": %q, "vcpus": 2, "memory_mb": 4096, "volumes": [{"uuid": "v1", "name": "vol-abc", "at": "/var/lib/buildkit"}]}]}}`, image)
+		return fmt.Sprintf(`{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "remote-builder-ci", "state": "running", "image": %q, "vcpus": 2, "memory_mb": 4096, "volumes": [{"uuid": "v1", "name": "vol-abc", "at": "/var/lib/buildkit"}]}]}}`, image)
 	}
 	const (
 		digest   = "official/utils/buildkit@sha256:3b4c6b2c2c7ab4a5e2a2d4b8b5ba4bb9a6a7e5a9d4d0d2c1a4f0b2c3d4e5f6a7"
