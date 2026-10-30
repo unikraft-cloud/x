@@ -138,6 +138,9 @@ tasks:
         ref: .goos | default ""
       goarch:
         ref: .goarch | default ""
+      # ".exe" is needed for a Windows target and "" for all other targets
+      goexe:
+        sh: '{{ with .goos }}GOOS={{.}} {{ end }}{{.go_bin}} env GOEXE'
 
       go_gcflags: >-
         {{- ternary "-N -l" "" .go_debug }}
@@ -161,7 +164,7 @@ tasks:
       -gcflags=all='{{.go_gcflags}}'
       -ldflags='{{.go_ldflags}}'
       -tags='{{.go_tags}}'
-      -o './dist/{{.bin}}'
+      -o './dist/{{.bin}}{{.goexe}}'
       {{.package}}
 
   snapshot:

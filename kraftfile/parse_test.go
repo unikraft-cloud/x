@@ -6,6 +6,7 @@
 package kraftfile
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -173,7 +174,6 @@ func TestParseRootfsSourceTypes(t *testing.T) {
 	}{
 		{"oci", "oci", SourceTypeOCI, ""},
 		{"dir", "dir", SourceTypeDirectory, ""},
-		{"file", "file", SourceTypeFile, ""},
 		{"tarball", "tarball", SourceTypeTarball, ""},
 		{"cpio", "cpio", SourceTypeCpio, ""},
 		{"erofs", "erofs", SourceTypeErofs, ""},
@@ -295,7 +295,7 @@ rootfs:
 
 func TestParseComponentsAndLibraries(t *testing.T) {
 	input := `spec: v0.7
-unikraft: stable
+unikraft: https://github.com/unikraft/unikraft.git
 template:
   source: https://github.com/unikraft/app-elfloader.git
   version: staging
@@ -309,9 +309,10 @@ libraries:
 	requireValidSchema(t, input)
 	doc, err := ParseBytes([]byte(input))
 	require.NoError(t, err)
-	require.NotNil(t, doc.Unikraft)
-	require.Empty(t, doc.Unikraft.Source)
-	require.Equal(t, "stable", doc.Unikraft.Version)
+	require.NotNil(t, doc.Kernel)
+	require.Equal(t, "https://github.com/unikraft/unikraft.git", doc.Kernel.Source)
+	require.Empty(t, doc.Kernel.Version)
+	require.Empty(t, doc.Kernel.Type)
 	require.NotNil(t, doc.Template)
 	require.Equal(t, "https://github.com/unikraft/app-elfloader.git", doc.Template.Source)
 	require.Equal(t, "staging", doc.Template.Version)
@@ -321,6 +322,75 @@ libraries:
 	value, ok := doc.Libraries["lwip"].KConfig.Lookup("CONFIG_LWIP_TCP")
 	require.True(t, ok)
 	require.Equal(t, "y", value)
+}
+
+func TestParseUnikraftAliasKernelType(t *testing.T) {
+	input := `spec: v0.7
+targets:
+- kraftcloud/x86_64
+unikraft:
+  type: kernel
+  source: ./build/helloworld_kraftcloud-x86_64
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Kernel)
+	require.Equal(t, KernelTypeKernel, doc.Kernel.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Kernel.Source)
+	require.Empty(t, doc.Kernel.Version)
+}
+
+func TestParseKernelInvalidType(t *testing.T) {
+	input := `spec: v0.7
+unikraft:
+  type: bananas
+  source: ./kernel
+`
+	_, err := ParseBytes([]byte(input))
+	require.ErrorContains(t, err, `invalid kernel type "bananas"`)
+}
+
+func TestParseKernelString(t *testing.T) {
+	input := `spec: v0.7
+targets:
+- kraftcloud/x86_64
+kernel: ./build/helloworld_kraftcloud-x86_64
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Kernel)
+	require.Empty(t, doc.Kernel.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Kernel.Source)
+}
+
+func TestParseKernelMap(t *testing.T) {
+	input := `spec: v0.7
+kernel:
+  type: kernel
+  source: ./build/helloworld_kraftcloud-x86_64
+  kconfig:
+    CONFIG_LIBUKFS_EROFS: 'y'
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Kernel)
+	require.Equal(t, KernelTypeKernel, doc.Kernel.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", doc.Kernel.Source)
+	value, ok := doc.Kernel.KConfig.Lookup("CONFIG_LIBUKFS_EROFS")
+	require.True(t, ok)
+	require.Equal(t, "y", value)
+}
+
+func TestParseKernelAndUnikraftConflict(t *testing.T) {
+	input := `spec: v0.7
+kernel: ./build/helloworld_kraftcloud-x86_64
+unikraft: https://github.com/unikraft/unikraft.git
+`
+	_, err := ParseBytes([]byte(input))
+	require.ErrorContains(t, err, "'kernel' and 'unikraft' cannot both be specified")
 }
 
 func TestParseTargetsMapFields(t *testing.T) {
@@ -342,7 +412,7 @@ func TestParseTargetsWithKConfigMap(t *testing.T) {
 
 name: helloworld
 
-unikraft: stable
+unikraft: https://github.com/unikraft/unikraft.git
 
 targets:
 - name: helloworld-qemu-x86_64-9pfs
@@ -406,6 +476,76 @@ cmd: [1, 2]
 	_, err := ParseBytes([]byte(input))
 	require.Error(t, err)
 	require.ErrorContains(t, err, "cmd array entries must be strings")
+}
+
+func TestJSONRoundTrip(t *testing.T) {
+	input := `spec: v0.7
+name: helloworld
+template: https://github.com/unikraft/app-elfloader.git
+runtime: base:latest
+cmd: ["/server", "-v"]
+env:
+- DEBUG
+- HOME=/
+labels:
+  key: value
+unikraft:
+  version: stable
+  kconfig:
+    CONFIG_LIBUKDEBUG: true
+    CONFIG_STACK_SIZE: 16
+libraries:
+  lwip:
+    version: staging
+    kconfig:
+    - CONFIG_LWIP_TCP=y
+rootfs:
+  source:
+    path: .
+    dockerfile: Dockerfile
+  format: erofs
+roms:
+- ./rom
+volumes:
+- ./data:/data:ro
+targets:
+- plat: qemu
+  arch: x86_64
+  kconfig:
+    CONFIG_LIBVFSCORE_ROOTFS: 9pfs
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+
+	data, err := json.Marshal(doc)
+	require.NoError(t, err)
+
+	var got Kraftfile
+	require.NoError(t, json.Unmarshal(data, &got))
+	got.Spec = doc.Spec
+	require.Equal(t, doc, &got)
+}
+
+func TestMapMarshalJSON(t *testing.T) {
+	data, err := json.Marshal(Map{
+		{Key: "HOME", Value: "/"},
+		{Key: "DEBUG", Value: nil},
+		{Key: "SIZE", Value: 16.0},
+		{Key: "HOME", Value: "/root"},
+	})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"DEBUG":null,"HOME":"/root","SIZE":16}`, string(data))
+
+	data, err = json.Marshal(Map(nil))
+	require.NoError(t, err)
+	require.Equal(t, "null", string(data))
+}
+
+func TestMapUnmarshalJSONNull(t *testing.T) {
+	kf := Kraftfile{Env: Map{{Key: "HOME", Value: "/"}}}
+	require.NoError(t, json.Unmarshal([]byte(`{"env":null}`), &kf))
+	require.Nil(t, kf.Env)
 }
 
 func requireValidSchema(t *testing.T, input string) {

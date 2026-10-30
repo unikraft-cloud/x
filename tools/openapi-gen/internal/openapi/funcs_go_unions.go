@@ -8,6 +8,7 @@ package openapi
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -51,6 +52,12 @@ type GoUnionVariant struct {
 	// shape, so a nullable branch is dispatched on the kinds it takes when it is
 	// present, and the union as a whole decodes `null` to its nil interface.
 	Kinds []string
+	// Keys are the members whose presence marks an object of this variant.
+	// They are set only when more than one variant is an object, and so shares
+	// the kind `'{'`: the decoder then picks the variant whose keys the object
+	// has, and gives an object with none of them to the one object variant
+	// without keys.
+	Keys []string
 }
 
 // GoUnion describes the closed union generated for an `anyOf` property: a
@@ -98,6 +105,10 @@ var goUnionTypeKinds = map[string][]string{
 	"array":   {`'['`},
 	"object":  {`'{'`},
 }
+
+// goUnionObjectKind is the JSON kind of an object, which several variants may
+// share when their keys tell them apart.
+const goUnionObjectKind = `'{'`
 
 // goUnionNullType is the type of a branch that permits JSON null, which 3.1
 // lists among the others and 3.0 spells `nullable: true`.  It is not a shape a
@@ -299,6 +310,10 @@ type goUnionBranch struct {
 	// through to the variant so templates can qualify it.
 	Package   string
 	Namespace string
+	// Keys are the members that mark an object branch, see GoUnionVariant.
+	Keys []string
+	// schema is the schema that describes the branch, which Keys come from.
+	schema *openapi3.Schema
 }
 
 // goUnionSchema is a named schema of the document together with the metadata a
@@ -404,7 +419,9 @@ func (tf *templateFuncs) components() *openapi3.Components {
 // otherwise, and degrading it to `interface{}` leaves callers to hand-roll the
 // encoding.
 //
-// Unions are named after their first named branch with a trailing "Spec"
+// A property that references a named schema which is itself such an `anyOf`
+// gets a union named after that schema.  Otherwise unions are named after
+// their first named branch with a trailing "Spec"
 // dropped, e.g. a "string or ImageSpec" property becomes an `ImageUnion`.  A
 // name already taken by a schema or by another union falls back to one derived
 // from the declaring property.  The optional overrides map replaces the derived
@@ -436,16 +453,39 @@ func (tf *templateFuncs) goUnions(overrides ...map[string]any) *GoUnions {
 	// a base name yet list different branches, e.g. `anyOf: [FooSpec, string]`
 	// next to `anyOf: [FooSpec, boolean]`.
 	byKey := map[string]string{}
+	namedSeen := map[string]bool{}
 
 	for _, model := range *tf.models {
 		for _, propName := range tf.propertyNamesOrdered(model.SchemaName, model.Schema) {
 			prop := tf.getProperty(model.Schema, propName)
-			if prop == nil || len(prop.AnyOf) < 2 {
+			if prop == nil {
 				continue
+			}
+
+			named := ""
+			if len(prop.AnyOf) < 2 {
+				named = goUnionRefName(&openapi3.SchemaRef{Value: prop})
+				schema, ok := schemas[named]
+				if named == "" || !ok || len(schema.schema.AnyOf) < 2 ||
+					!schema.selected || tf.goUnionForeign(schema) {
+					continue
+				}
+				prop = schema.schema
 			}
 
 			branches, ok := tf.goUnionBranches(schemas, prop)
 			if !ok {
+				continue
+			}
+
+			if named != "" {
+				// The schema's own name is already this union's, whatever
+				// other properties reference it.
+				if !namedSeen[named] {
+					namedSeen[named] = true
+					unions.Unions = append(unions.Unions, goUnionOf(named, named, branches, reserved))
+				}
+				unions.Fields[model.SchemaName+"."+propName] = named
 				continue
 			}
 
@@ -580,11 +620,12 @@ func (tf *templateFuncs) goUnionBranches(schemas map[string]goUnionSchema, prop 
 			Foreign:      foreign,
 			Package:      pkg,
 			Namespace:    namespace,
+			schema:       resolved,
 		})
 	}
 
 	branches = goUnionCollapsed(branches)
-	if goUnionAmbiguous(branches) {
+	if goUnionAmbiguous(branches) || !goUnionKeyed(branches) {
 		return nil, false
 	}
 
@@ -616,12 +657,15 @@ func goUnionCollapsed(branches []goUnionBranch) []goUnionBranch {
 // fields nor reject unknown ones, so a `BarSpec` object decodes into `FooSpec`
 // just as happily, and two scalars of the same kind are indistinguishable
 // outright.  Such a property is better left as it was than silently decoded to
-// the wrong variant.
+// the wrong variant.  Objects are the exception, left to goUnionKeyed.
 func goUnionAmbiguous(branches []goUnionBranch) bool {
 	seen := map[string]bool{}
 
 	for _, branch := range branches {
 		for _, kind := range branch.Kinds {
+			if kind == goUnionObjectKind {
+				continue
+			}
 			if seen[kind] {
 				return true
 			}
@@ -629,6 +673,89 @@ func goUnionAmbiguous(branches []goUnionBranch) bool {
 		}
 	}
 
+	return false
+}
+
+// goUnionKeyed gives each object branch the keys that mark it when more than
+// one branch is an object, and reports whether the decoder can tell them apart
+// by those keys: every object branch but one has keys of its own, and that one,
+// which takes any object without them, declares no properties that could be
+// mistaken for theirs.
+func goUnionKeyed(branches []goUnionBranch) bool {
+	var objects []int
+	for i, branch := range branches {
+		if slices.Contains(branch.Kinds, goUnionObjectKind) {
+			objects = append(objects, i)
+		}
+	}
+	if len(objects) < 2 {
+		return true
+	}
+
+	fallbacks := 0
+	owned := map[string]bool{}
+	for _, i := range objects {
+		schema := branches[i].schema
+		if schema == nil {
+			return false
+		}
+
+		keys := goUnionKeys(schema)
+		if len(keys) == 0 {
+			if goUnionHasProperties(schema, 0) {
+				return false
+			}
+			fallbacks++
+			continue
+		}
+		for _, key := range keys {
+			if owned[key] {
+				return false
+			}
+			owned[key] = true
+		}
+		branches[i].Keys = keys
+	}
+
+	return fallbacks == 1
+}
+
+// goUnionKeys returns the members an object of the schema always has, alone or
+// as one of its oneOf or anyOf alternatives: `oneOf: [{required: [git]},
+// {required: [url]}]` is marked by `git` or `url`.  An alternative that
+// requires nothing admits an object with no key at all, so unless the schema
+// itself requires some, there are none.
+func goUnionKeys(schema *openapi3.Schema) []string {
+	keys := slices.Clone(schema.Required)
+	for _, member := range slices.Concat(schema.OneOf, schema.AnyOf) {
+		value := goUnionValueOf(member)
+		if value == nil || len(value.Required) == 0 {
+			if len(schema.Required) == 0 {
+				return nil
+			}
+			continue
+		}
+		keys = append(keys, value.Required...)
+	}
+
+	slices.Sort(keys)
+	return slices.Compact(keys)
+}
+
+// goUnionHasProperties reports whether the schema declares members, itself or
+// through the schemas it composes.
+func goUnionHasProperties(schema *openapi3.Schema, depth int) bool {
+	if schema == nil || depth > goUnionMaxDepth {
+		return false
+	}
+	if len(schema.Properties) > 0 {
+		return true
+	}
+	for _, member := range slices.Concat(schema.AllOf, schema.OneOf, schema.AnyOf) {
+		if goUnionHasProperties(goUnionValueOf(member), depth+1) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -811,7 +938,8 @@ func goUnionSharedBase(branches []goUnionBranch) string {
 func goUnionKey(branches []goUnionBranch) string {
 	tokens := make([]string, 0, len(branches))
 	for _, branch := range branches {
-		tokens = append(tokens, fmt.Sprintf("%s:%s", branch.GoType, strings.Join(branch.OpenAPITypes, ",")))
+		tokens = append(tokens, fmt.Sprintf("%s:%s:%s",
+			branch.GoType, strings.Join(branch.OpenAPITypes, ","), strings.Join(branch.Keys, ",")))
 	}
 	sort.Strings(tokens)
 	return strings.Join(tokens, "|")
@@ -900,6 +1028,7 @@ func goUnionOf(name, base string, branches []goUnionBranch, reserved map[string]
 			Package:    branch.Package,
 			Namespace:  branch.Namespace,
 			Kinds:      branch.Kinds,
+			Keys:       branch.Keys,
 		})
 	}
 

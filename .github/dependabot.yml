@@ -19,6 +19,9 @@ updates:
     # Intra-repo modules resolve through the workspace, so the tree is the
     # source of truth for their pseudo-versions.
     - dependency-name: unikraft.com/x/*
+    # The CLI holds buildkit at v0.31.1 through image-spec and build.  Bump it
+    # by hand, together with the CLI.
+    - dependency-name: github.com/moby/buildkit
   groups:
     go-deps:
       applies-to: version-updates

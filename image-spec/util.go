@@ -24,45 +24,84 @@ import (
 // The manifests are ordered by how well they match the given platform, best
 // first.
 func Manifests(ctx context.Context, provider content.Provider, image ocispec.Descriptor, platform platforms.MatchComparer) ([]ocispec.Manifest, error) {
+	descs, err := ManifestDescriptors(ctx, provider, image, platform)
+	if err != nil {
+		return nil, err
+	}
+	m := make([]ocispec.Manifest, 0, len(descs))
+	for _, desc := range descs {
+		manifest, err := readManifest(ctx, provider, desc)
+		if err != nil {
+			return nil, err
+		}
+		m = append(m, manifest)
+	}
+	return m, nil
+}
+
+func readManifest(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) (ocispec.Manifest, error) {
+	p, err := readVerifiedBlob(ctx, provider, desc)
+	if err != nil {
+		return ocispec.Manifest{}, err
+	}
+	var manifest ocispec.Manifest
+	if err := json.Unmarshal(p, &manifest); err != nil {
+		return ocispec.Manifest{}, err
+	}
+	return manifest, nil
+}
+
+// ConfigPlatform is a forked version of images.ConfigPlatform that checks the
+// config against its digest.
+func ConfigPlatform(ctx context.Context, provider content.Provider, configDesc ocispec.Descriptor) (ocispec.Platform, error) {
+	p, err := readVerifiedBlob(ctx, provider, configDesc)
+	if err != nil {
+		return ocispec.Platform{}, err
+	}
+
+	var imagePlatform ocispec.Platform
+	if err := json.Unmarshal(p, &imagePlatform); err != nil {
+		return ocispec.Platform{}, err
+	}
+
+	return platforms.Normalize(imagePlatform), nil
+}
+
+// ManifestDescriptors is like Manifests, but returns the descriptors of the
+// matching manifests instead of the manifests themselves.
+func ManifestDescriptors(ctx context.Context, provider content.Provider, image ocispec.Descriptor, platform platforms.MatchComparer) ([]ocispec.Descriptor, error) {
 	var (
-		m        []ocispec.Manifest
+		m        []ocispec.Descriptor
 		wasIndex bool
 	)
 
 	if err := images.Walk(ctx, images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 		if images.IsManifestType(desc.MediaType) {
-			p, err := content.ReadBlob(ctx, provider, desc)
-			if err != nil {
-				return nil, err
-			}
-
-			var manifest ocispec.Manifest
-			if err := json.Unmarshal(p, &manifest); err != nil {
-				return nil, err
-			}
-
 			if desc.Digest != image.Digest && platform != nil {
 				if desc.Platform != nil && !platform.Match(*desc.Platform) {
 					return nil, nil
 				}
 
 				if desc.Platform == nil {
-					imagePlatform, err := images.ConfigPlatform(ctx, provider, manifest.Config)
+					manifest, err := readManifest(ctx, provider, desc)
+					if err != nil {
+						return nil, err
+					}
+					imagePlatform, err := ConfigPlatform(ctx, provider, manifest.Config)
 					if err != nil {
 						return nil, err
 					}
 					if !platform.Match(imagePlatform) {
 						return nil, nil
 					}
-
 				}
 			}
 
-			m = append(m, manifest)
+			m = append(m, desc)
 
 			return nil, nil
 		} else if images.IsIndexType(desc.MediaType) {
-			p, err := content.ReadBlob(ctx, provider, desc)
+			p, err := readVerifiedBlob(ctx, provider, desc)
 			if err != nil {
 				return nil, err
 			}

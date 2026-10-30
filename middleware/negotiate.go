@@ -154,7 +154,7 @@ func NegotiateFormat(c *gin.Context, offered ...string) string {
 			// allowed in headers, therefore we can just iterate over the string
 			// without casting it into []rune
 			i := 0
-			for ; i < len(accepted); i++ {
+			for ; i < len(accepted) && i < len(offer); i++ {
 				if accepted[i] == '*' || offer[i] == '*' {
 					return offer
 				}

@@ -105,7 +105,7 @@ func (s *state) runRemote(ctx context.Context, args []string) error {
 // capturing is the interpreter keeping a command's output in memory, as it does
 // for $(...) and nowhere else: a pipe or a file answers for its own size.
 func capturing(w io.Writer, stop context.CancelFunc) (io.Writer, *cappedCapture) {
-	held, ok := w.(*strings.Builder)
+	held, ok := w.(captureWriter)
 	if !ok {
 		return w, nil
 	}
@@ -113,10 +113,18 @@ func capturing(w io.Writer, stop context.CancelFunc) (io.Writer, *cappedCapture)
 	return capture, capture
 }
 
+// captureWriter is the interpreter's [strings.Builder] for a command substitution,
+// wrapped to report the expansion's nesting.
+type captureWriter interface {
+	io.Writer
+	Len() int
+	Nesting() int
+}
+
 // cappedCapture holds a command substitution to [maxCapture], however many
 // commands write into it, and stops the one that filled it.
 type cappedCapture struct {
-	held *strings.Builder
+	held captureWriter
 	stop context.CancelFunc
 	full atomic.Bool
 }

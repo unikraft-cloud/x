@@ -266,7 +266,6 @@ The `type` field can be used to explicitly declare what kind of source is being 
 | ------------ | ------------------------------------------------------------------------------------------------------- |
 | `oci`        | An OCI image reference                                                                                  |
 | `dir`        | A directory containing files                                                                            |
-| `file`       | A single file                                                                                           |
 | `tarball`    | A tarball archive                                                                                       |
 | `cpio`       | An existing CPIO archive                                                                                |
 | `erofs`      | An existing EROFS image                                                                                 |
@@ -303,73 +302,80 @@ roms:
 ROMs are architecture-specific, so a build MUST be able to resolve which architectures to build them for.
 A `Kraftfile` that declares `roms` and no `runtime` therefore MUST also declare `targets`, unless the architecture is supplied by the tooling.
 
-## Top-level `unikraft` attribute
+## Top-level `kernel` attribute
 
-The `unikraft` attribute CAN be specified and is used to define the source location of the Unikraft core which contains the main build system and core primitives for building a unikernel "from source".
+The `kernel` attribute CAN be specified and is used to define the kernel of the unikernel: either the Unikraft core, which contains the main build system and core primitives for building a unikernel "from source", or an already-built kernel binary.
 
-If no `unikraft` element is specified, one of either `template` or `runtime` MUST otherwise be specified.
+If no `kernel` element is specified, one of either `template` or `runtime` MUST otherwise be specified.
+
+The `unikraft` attribute is an alias of `kernel`, and `kernel` and `unikraft` MUST NOT both be specified.
 
 There are two forms of syntax: "short-hand" and "long-hand".
 
-### Setting a specific version
+### Short-hand syntax
+
+When specified as a string, the value is treated as the `source`:
 
 ```yaml
 spec: v0.7
 
-# Short-hand syntax
-unikraft: stable
+# A remote fork or mirror (uses HEAD of default branch)
+kernel: https://github.com/unikraft/unikraft.git
 
-# Long-hand syntax
-unikraft:
-  version: stable
+# An SSH-authenticated repository
+kernel: ssh://git@github.com/unikraft/unikraft.git
+
+# A local path to the Unikraft core source code
+kernel: path/to/unikraft
+
+# A local path to an already-built kernel binary
+kernel: ./build/helloworld_kraftcloud-x86_64
 ```
 
-To specify a specific version of Unikraft, including a specific Git commit:
+### Long-hand syntax
+
+The long-hand syntax allows specifying additional attributes:
+
+| Field     | Type        | Description                                                      |
+| --------- | ----------- | ---------------------------------------------------------------- |
+| `type`    | string      | How `source` is to be interpreted (see below)                    |
+| `source`  | string      | Location of the Unikraft core source code, or of a kernel binary |
+| `version` | string      | Version of the Unikraft core, e.g. a Git branch, tag or commit   |
+| `kconfig` | list or map | KConfig options (see below)                                      |
 
 ```yaml
 spec: v0.7
 
-# Short-hand for a specific version
-unikraft: v0.14.0
-
-# Short-hand for a specific commit
-unikraft: 70bc0af
-```
-
-### Setting a specific source location
-
-A remote fork, mirror, or local path can be set as the source:
-
-```yaml
-spec: v0.7
-
-# Short-hand (uses HEAD of default branch)
-unikraft: https://github.com/unikraft/unikraft.git
-
-# With a specific branch or tag
-unikraft: https://github.com/unikraft/unikraft.git@staging
-
-# Long-hand syntax
-unikraft:
+kernel:
   source: https://github.com/unikraft/unikraft.git
   version: staging
 ```
 
-SSH-authenticated repositories are also supported:
+### Setting the source type
+
+The `type` sub-attribute declares how `source` is to be interpreted:
+
+| Type     | Description                                                            |
+| -------- | ---------------------------------------------------------------------- |
+| `source` | `source` locates the Unikraft core source code, to be built            |
+| `kernel` | `source` is a path to an already-built kernel binary, to be used as-is |
+
+When `type` is not specified, it is inferred from `source`.
+
+With `type: kernel`, no build of the Unikraft core is performed, and `version` MUST NOT be set:
 
 ```yaml
 spec: v0.7
 
-unikraft: ssh://git@github.com/unikraft/unikraft.git
+targets:
+  - kraftcloud/x86_64
+
+kernel:
+  type: kernel
+  source: ./build/helloworld_kraftcloud-x86_64
 ```
 
-A local path can be used:
-
-```yaml
-spec: v0.7
-
-unikraft: path/to/unikraft
-```
+A kernel binary carries no architecture or platform metadata of its own, so a `Kraftfile` which uses a kernel binary MUST also declare `targets`, unless the target is supplied by the tooling.
 
 ### Specifying KConfig configuration
 
@@ -380,24 +386,24 @@ KConfig values can be specified in list format or map format:
 spec: v0.7
 
 # Using list-style formatting
-unikraft:
+kernel:
   kconfig:
   - CONFIG_EXAMPLE=y
 
 # Using map-style formatting
-unikraft:
+kernel:
   kconfig:
     CONFIG_EXAMPLE: "y"
 ```
 
 ### A more complex example
 
-All three sub-attributes — `source`, `version` and `kconfig` — can be combined:
+The `source`, `version` and `kconfig` sub-attributes can be combined:
 
 ```yaml
 spec: v0.7
 
-unikraft:
+kernel:
   source: https://github.com/unikraft/unikraft.git
   version: stable
   kconfig:
@@ -415,7 +421,7 @@ spec: v0.7
 runtime: unikraft.org/python3:latest
 ```
 
-If no `runtime` element is specified, one of either `template` or `unikraft` MUST otherwise be specified.
+If no `runtime` element is specified, one of either `template` or `kernel` MUST otherwise be specified.
 
 The `runtime` element is useful when you do not need to build a unikernel from source — for example, when using an existing application runtime like NGINX, Redis, or a language runtime like Python3.
 
@@ -437,7 +443,7 @@ cmd: ["/src/main.py"]
 The `template` attribute CAN be specified to reference an external repository which contains an application based on another `Kraftfile`.
 This offers a convenient mechanism for customizing or re-using configuration across multiple applications.
 
-If no `template` element is specified, one of either `runtime` or `unikraft` MUST otherwise be specified.
+If no `template` element is specified, one of either `runtime` or `kernel` MUST otherwise be specified.
 
 ### Short-hand syntax
 
@@ -476,7 +482,7 @@ spec: v0.7
 
 name: template
 
-unikraft:
+kernel:
   version: stable
   kconfig:
     - CONFIG_LIBVFSCORE=y
@@ -492,7 +498,7 @@ spec: v0.7
 
 template: app/template:stable
 
-unikraft:
+kernel:
   version: staging
 ```
 
@@ -503,7 +509,7 @@ spec: v0.7
 
 name: template
 
-unikraft:
+kernel:
   version: staging
 
 targets:
@@ -514,21 +520,21 @@ The merge behavior for each field is:
 
 - **`name`**, **`targets`**, **`cmd`**, **`runtime`**, **`rootfs`**, **`roms`**, **`volumes`**: the overlay value completely replaces the template value when specified
 - **`env`**, **`labels`**: maps are merged, with overlay values taking precedence for duplicate keys
-- **`unikraft`**: `source` and `version` are replaced individually when specified; `kconfig` entries are merged with overlay values taking precedence
+- **`kernel`**: `type`, `source` and `version` are replaced individually when specified; `kconfig` entries are merged with overlay values taking precedence
 - **`libraries`**: merged by library name, with overlay entries replacing template entries for the same name
 - **`template`**: not merged (avoids recursive templates)
 
 ## Top-level `libraries` attribute
 
 Additional third-party libraries CAN be specified as part of the build and are listed in map format.
-Similar to the `unikraft` attribute, each library can specify a `source`, `version` and a set of `kconfig` options:
+Similar to the `kernel` attribute, each library can specify a `source`, `version` and a set of `kconfig` options:
 
 ```yaml
 spec: v0.7
 
 name: helloworld
 
-unikraft: stable
+kernel: https://github.com/unikraft/unikraft.git
 
 libraries:
   # Short-hand syntax
@@ -594,7 +600,7 @@ Each target can include its own `kconfig` options:
 ```yaml
 spec: v0.7
 
-unikraft: stable
+kernel: https://github.com/unikraft/unikraft.git
 
 targets:
   - plat: qemu

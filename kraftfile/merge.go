@@ -32,7 +32,7 @@ func (kf *Kraftfile) Merge(other *Kraftfile) {
 	// Env: Merge maps with other taking precedence
 	if len(other.Env) > 0 {
 		if kf.Env == nil {
-			kf.Env = make(Map, len(other.Env))
+			kf.Env = make(Map, 0, len(other.Env))
 		}
 		kf.Env.Merge(other.Env)
 	}
@@ -50,25 +50,28 @@ func (kf *Kraftfile) Merge(other *Kraftfile) {
 		kf.Runtime = other.Runtime
 	}
 
-	// Unikraft: Merge unikraft configuration with other taking precedence
-	if other.Unikraft != nil {
-		if kf.Unikraft == nil {
-			// Use other entirely if current has no unikraft config
-			unikraftCopy := *other.Unikraft
-			kf.Unikraft = &unikraftCopy
-			if len(other.Unikraft.KConfig) > 0 {
-				kf.Unikraft.KConfig = slices.Clone(other.Unikraft.KConfig)
+	// Kernel: Merge kernel configuration with other taking precedence
+	if other.Kernel != nil {
+		if kf.Kernel == nil {
+			// Use other entirely if current has no kernel config
+			kernelCopy := *other.Kernel
+			kf.Kernel = &kernelCopy
+			if len(other.Kernel.KConfig) > 0 {
+				kf.Kernel.KConfig = slices.Clone(other.Kernel.KConfig)
 			}
 		} else {
 			// Merge fields: other always takes precedence
-			if other.Unikraft.Source != "" {
-				kf.Unikraft.Source = other.Unikraft.Source
+			if other.Kernel.Type != "" {
+				kf.Kernel.Type = other.Kernel.Type
 			}
-			if other.Unikraft.Version != "" {
-				kf.Unikraft.Version = other.Unikraft.Version
+			if other.Kernel.Source != "" {
+				kf.Kernel.Source = other.Kernel.Source
+			}
+			if other.Kernel.Version != "" {
+				kf.Kernel.Version = other.Kernel.Version
 			}
 			// Merge KConfig with other taking precedence
-			kf.Unikraft.KConfig.Merge(other.Unikraft.KConfig)
+			kf.Kernel.KConfig.Merge(other.Kernel.KConfig)
 		}
 	}
 

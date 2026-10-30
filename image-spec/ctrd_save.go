@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -20,11 +21,10 @@ import (
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/pkg/labels"
 	"github.com/containerd/errdefs"
-	"github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
-	ocispecs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
+
 	"unikraft.com/x/log"
 )
 
@@ -137,13 +137,11 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 		}
 
 		mfst := ocispec.Manifest{
-			Versioned: ocispecs.Versioned{
-				SchemaVersion: 2,
-			},
-			MediaType:   ocispec.MediaTypeImageManifest,
-			Config:      imgDesc,
-			Layers:      layers,
-			Annotations: image.Annotations,
+			SchemaVersion: 2,
+			MediaType:     ocispec.MediaTypeImageManifest,
+			Config:        imgDesc,
+			Layers:        layers,
+			Annotations:   image.Annotations,
 		}
 		mfstDesc, err := packageJSON(ctx, store, mfst.MediaType, mfst)
 		if err != nil {
@@ -161,11 +159,9 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 	}
 
 	idx := ocispec.Index{
-		Versioned: ocispecs.Versioned{
-			SchemaVersion: 2,
-		},
-		MediaType: ocispec.MediaTypeImageIndex,
-		Manifests: mfstDescs,
+		SchemaVersion: 2,
+		MediaType:     ocispec.MediaTypeImageIndex,
+		Manifests:     mfstDescs,
 	}
 	idxDesc, err := packageJSON(ctx, store, idx.MediaType, idx)
 	if err != nil {
@@ -224,17 +220,15 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 		Str("digest", desc.Digest.String()).
 		Msg("copying layer")
 
-	// if the image source has a name, add a cross-repo mount
+	// if the image came from a registry, add a cross-repo mount
 	wdesc := desc
-	if image.Name != nil {
+	if source := image.source(); !source.IsZero() {
 		if wdesc.Annotations == nil {
 			wdesc.Annotations = make(map[string]string)
 		} else {
 			wdesc.Annotations = maps.Clone(wdesc.Annotations)
 		}
-		source := reference.Domain(image.Name)
-		repo := reference.Path(image.Name)
-		wdesc.Annotations[labels.LabelDistributionSource+"."+source] = repo
+		wdesc.Annotations[labels.LabelDistributionSource+"."+source.Domain()] = source.Path()
 	}
 
 	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(wdesc))
@@ -257,8 +251,16 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to get reader for descriptor: %w", err)
 	}
+	// NOTE: an ingester need not check what it commits: a pusher leaves that
+	// to the registry it pushes to.
+	vr, err := newVerifiedReader(r, desc)
+	if err != nil {
+		r.Close()
+		return ocispec.Descriptor{}, err
+	}
+	defer vr.Close()
 
-	err = content.Copy(ctx, w, content.NewReader(r), desc.Size, desc.Digest)
+	err = content.Copy(ctx, w, vr, desc.Size, desc.Digest)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to copy content: %w", err)
 	}
@@ -274,6 +276,9 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 
 	return desc, nil
 }
+
+// maxResets bounds the writes again after a reset: containerd re-sends at most that often.
+const maxResets = 4
 
 func packageLayer(ctx context.Context, store content.Ingester, image *Image, file File, mediaType string, path string) (_ ocispec.Descriptor, rerr error) {
 	if desc, provider := file.Source(); desc.Digest != "" && store != nil {
@@ -301,26 +306,33 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 
 	var reader io.Reader
 
+	// rewind takes reader back to its start for another write.
+	rewind := func() error {
+		if seeker, ok := reader.(io.Seeker); ok {
+			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+				return fmt.Errorf("failed to rewind layer content: %w", err)
+			}
+			return nil
+		}
+		if err := r.Close(); err != nil {
+			return err
+		}
+		r = nil
+		var err error
+		r, _, err = file.Open(ctx)
+		reader = r
+		return err
+	}
+
 	if path == "" {
 		_, err = io.Copy(digester.Hash(), r)
 		if err != nil {
 			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
 		}
-		if seeker, ok := r.(io.Seeker); ok {
-			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-				return ocispec.Descriptor{}, fmt.Errorf("failed to rewind layer content: %w", err)
-			}
-		} else {
-			if err := r.Close(); err != nil {
-				return ocispec.Descriptor{}, err
-			}
-			r = nil
-			r, _, err = file.Open(ctx)
-			if err != nil {
-				return ocispec.Descriptor{}, err
-			}
-		}
 		reader = r
+		if err := rewind(); err != nil {
+			return ocispec.Descriptor{}, err
+		}
 	} else {
 		tmp, err := os.CreateTemp("", "imagespec-layer-*")
 		if err != nil {
@@ -388,12 +400,26 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		}
 	}()
 
-	_, err = io.Copy(w, reader)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
+	// A registry pusher resets its writer when it re-sends the upload, so
+	// start over, as content.Copy does.
+	for attempt := 0; ; attempt++ {
+		if attempt > 0 {
+			if err := rewind(); err != nil {
+				return ocispec.Descriptor{}, err
+			}
+		}
+		_, err = io.Copy(w, reader)
+		if errors.Is(err, content.ErrReset) && attempt < maxResets {
+			continue
+		}
+		if err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
+		}
+		err = w.Commit(ctx, desc.Size, desc.Digest)
+		if !errors.Is(err, content.ErrReset) || attempt == maxResets {
+			break
+		}
 	}
-
-	err = w.Commit(ctx, desc.Size, desc.Digest)
 	if err == nil {
 		log.G(ctx).Debug().
 			Str("mediaType", mediaType).

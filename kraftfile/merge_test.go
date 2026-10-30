@@ -91,6 +91,15 @@ func TestMergeEnv(t *testing.T) {
 	require.Equal(t, "root", current.Env.Get("USER"))
 }
 
+func TestMergeEnvIntoEmpty(t *testing.T) {
+	current := &Kraftfile{}
+	current.Merge(&Kraftfile{
+		Env: Map{{Key: "HOME", Value: "/"}},
+	})
+
+	require.Equal(t, Map{{Key: "HOME", Value: "/"}}, current.Env)
+}
+
 func TestMergeLabels(t *testing.T) {
 	base := &Kraftfile{
 		Labels: map[string]string{
@@ -113,9 +122,9 @@ func TestMergeLabels(t *testing.T) {
 	require.Equal(t, "1.0", current.Labels["version"])
 }
 
-func TestMergeUnikraft(t *testing.T) {
+func TestMergeKernel(t *testing.T) {
 	base := &Kraftfile{
-		Unikraft: &Unikraft{
+		Kernel: &Kernel{
 			Version: "stable",
 			KConfig: Map{
 				{Key: "CONFIG_LIBVFSCORE", Value: "y"},
@@ -123,22 +132,40 @@ func TestMergeUnikraft(t *testing.T) {
 		},
 	}
 
-	// Current with no unikraft should inherit from base
+	// Current with no kernel should inherit from base
 	current := &Kraftfile{}
 	current.Merge(base)
-	require.NotNil(t, current.Unikraft)
-	require.Equal(t, "stable", current.Unikraft.Version)
-	require.Equal(t, "y", current.Unikraft.KConfig.Get("CONFIG_LIBVFSCORE"))
+	require.NotNil(t, current.Kernel)
+	require.Equal(t, "stable", current.Kernel.Version)
+	require.Equal(t, "y", current.Kernel.KConfig.Get("CONFIG_LIBVFSCORE"))
 
-	// Current with partial unikraft should be overridden by base (other takes precedence)
+	// Current with partial kernel should be overridden by base (other takes precedence)
 	current = &Kraftfile{
-		Unikraft: &Unikraft{
+		Kernel: &Kernel{
 			Version: "staging",
 		},
 	}
 	current.Merge(base)
-	require.Equal(t, "stable", current.Unikraft.Version) // base takes precedence
-	require.Equal(t, "y", current.Unikraft.KConfig.Get("CONFIG_LIBVFSCORE"))
+	require.Equal(t, "stable", current.Kernel.Version) // base takes precedence
+	require.Equal(t, "y", current.Kernel.KConfig.Get("CONFIG_LIBVFSCORE"))
+}
+
+func TestMergeKernelType(t *testing.T) {
+	base := &Kraftfile{
+		Kernel: &Kernel{
+			Type:   KernelTypeKernel,
+			Source: "./build/helloworld_kraftcloud-x86_64",
+		},
+	}
+
+	current := &Kraftfile{
+		Kernel: &Kernel{
+			Source: "https://github.com/unikraft/unikraft.git",
+		},
+	}
+	current.Merge(base)
+	require.Equal(t, KernelTypeKernel, current.Kernel.Type)
+	require.Equal(t, "./build/helloworld_kraftcloud-x86_64", current.Kernel.Source)
 }
 
 func TestMergeLibraries(t *testing.T) {
@@ -203,7 +230,7 @@ func TestMergeComplexExample(t *testing.T) {
 	// This test mirrors the example from the v0.6 documentation
 	base := &Kraftfile{
 		Name: "template",
-		Unikraft: &Unikraft{
+		Kernel: &Kernel{
 			Version: "stable",
 			KConfig: Map{
 				{Key: "CONFIG_LIBVFSCORE", Value: "y"},
@@ -215,7 +242,7 @@ func TestMergeComplexExample(t *testing.T) {
 	}
 
 	current := &Kraftfile{
-		Unikraft: &Unikraft{
+		Kernel: &Kernel{
 			Version: "staging",
 		},
 	}
@@ -223,8 +250,8 @@ func TestMergeComplexExample(t *testing.T) {
 
 	// With new precedence: other (base) always wins
 	require.Equal(t, "template", current.Name)
-	require.Equal(t, "stable", current.Unikraft.Version) // base takes precedence
+	require.Equal(t, "stable", current.Kernel.Version) // base takes precedence
 	require.Len(t, current.Targets, 1)
 	require.Equal(t, "qemu", current.Targets[0].Plat)
-	require.Equal(t, "y", current.Unikraft.KConfig.Get("CONFIG_LIBVFSCORE"))
+	require.Equal(t, "y", current.Kernel.KConfig.Get("CONFIG_LIBVFSCORE"))
 }

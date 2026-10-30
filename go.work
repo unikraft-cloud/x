@@ -1,10 +1,12 @@
-go 1.27.0
+go 1.27.3
 
 use .
 
 // Common modules.
 // This list is alphabetical and should not be reordered.
 use (
+	./build
+	./buildkit
 	./colors
 	./filters
 	./fingerprint

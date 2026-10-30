@@ -16,7 +16,7 @@ import (
 
 // New reports what a js host can know about itself.  The runtime exposes no
 // machine characteristics, so only the build's own identity is filled in.
-func New() (*Fingerprint, error) {
+func New(...Option) (*Fingerprint, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = runtime.GOOS

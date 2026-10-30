@@ -1,10 +1,9 @@
 module unikraft.com/x/shell
 
-go 1.26.6
+go 1.27.3
 
 require (
 	charm.land/lipgloss/v2 v2.0.6
-	github.com/alecthomas/kong v1.16.1
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/creack/pty v1.1.24
@@ -14,7 +13,7 @@ require (
 	mvdan.cc/sh/v3 v3.14.1
 	unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1
 	unikraft.com/x/io v0.0.0-20260917091642-9e44538566da
-	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1
+	unikraft.com/x/log v0.0.0-20261001175239-9a0204088d3c
 	unikraft.com/x/stdio v0.0.0-20260828231716-926f8701e2a7
 )
 
@@ -44,7 +43,14 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20260603202125-055de637280b // indirect
 	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/term v0.47.0 // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1 // indirect
 )
+
+// Use the fork with charmbracelet/lipgloss#746 until a release has it.
+replace charm.land/lipgloss/v2 => github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507
+
+// Use master with mvdan/sh#1433 until a release has it.
+// It resolves the instance's Unix paths as such on Windows.
+replace mvdan.cc/sh/v3 => mvdan.cc/sh/v3 v3.14.1-0.20261019164542-27edea01b10f

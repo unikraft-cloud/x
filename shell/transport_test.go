@@ -51,11 +51,11 @@ func TestExitStatus(t *testing.T) {
 		assert.Equal(t, 7, status)
 	})
 
-	t.Run("a transport that names no status", func(t *testing.T) {
-		status, err := ExitStatus(&pluginExit{code: -1})
+	t.Run("a transport that reports a signal", func(t *testing.T) {
+		status, err := ExitStatus(&pluginExit{code: -int(syscall.SIGKILL)})
 
 		require.NoError(t, err)
-		assert.Equal(t, StatusInterrupted, status, "-1 is a signal it did not name")
+		assert.Equal(t, -int(syscall.SIGKILL), status, "a signal is its number negated")
 	})
 
 	t.Run("a transport that failed", func(t *testing.T) {

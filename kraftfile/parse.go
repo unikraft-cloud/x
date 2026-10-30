@@ -114,6 +114,16 @@ func (cmd *Command) UnmarshalJSON(data []byte) error {
 	}
 }
 
+// MarshalJSON encodes m in the map form, which keeps the type of each value.
+// As when the map form is parsed, the keys are sorted, and a key that is
+// repeated keeps its last value.
+func (m Map) MarshalJSON() ([]byte, error) {
+	if m == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(m.AsMap())
+}
+
 func (m *Map) UnmarshalJSON(data []byte) error {
 	var raw any
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -122,6 +132,7 @@ func (m *Map) UnmarshalJSON(data []byte) error {
 
 	switch value := raw.(type) {
 	case nil:
+		*m = nil
 		return nil
 	case []any:
 		items := make([]MapPair, 0, len(value))
@@ -183,7 +194,34 @@ func (ref *Runtime) UnmarshalJSON(data []byte) error {
 	}
 }
 
-func (ref *Unikraft) UnmarshalJSON(data []byte) error {
+func (kf *Kraftfile) UnmarshalJSON(data []byte) error {
+	type alias Kraftfile
+	if err := json.Unmarshal(data, (*alias)(kf)); err != nil {
+		return err
+	}
+
+	var aliased struct {
+		Unikraft json.RawMessage `json:"unikraft,omitempty"`
+	}
+	if err := json.Unmarshal(data, &aliased); err != nil {
+		return err
+	}
+	if len(aliased.Unikraft) == 0 {
+		return nil
+	}
+	if kf.Kernel != nil {
+		return fmt.Errorf("'kernel' and 'unikraft' cannot both be specified")
+	}
+
+	var kernel Kernel
+	if err := json.Unmarshal(aliased.Unikraft, &kernel); err != nil {
+		return err
+	}
+	kf.Kernel = &kernel
+	return nil
+}
+
+func (ref *Kernel) UnmarshalJSON(data []byte) error {
 	var raw any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -193,14 +231,24 @@ func (ref *Unikraft) UnmarshalJSON(data []byte) error {
 	case nil:
 		return nil
 	case string:
-		ref.Version = fmt.Sprint(value)
+		ref.Source = value
 		return nil
 	case map[string]any:
-		type alias Unikraft
-		return json.Unmarshal(data, (*alias)(ref))
+		type alias Kernel
+		if err := json.Unmarshal(data, (*alias)(ref)); err != nil {
+			return err
+		}
+		return ref.Type.validate()
 	default:
-		return fmt.Errorf("invalid unikraft value type %T", raw)
+		return fmt.Errorf("invalid kernel value type %T", raw)
 	}
+}
+
+func (kernelType KernelType) validate() error {
+	if kernelType == "" || slices.Contains(KernelTypes, kernelType) {
+		return nil
+	}
+	return fmt.Errorf("invalid kernel type %q", kernelType)
 }
 
 func (ref *Library) UnmarshalJSON(data []byte) error {
