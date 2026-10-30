@@ -86,6 +86,25 @@ func TestWithTrustedProxies(t *testing.T) {
 	}
 }
 
+func TestClientIPWithoutTrustedProxies(t *testing.T) {
+	var got string
+	r, err := New(context.Background(), "",
+		WithRoutes(func(_ context.Context, engine *gin.Engine) error {
+			engine.GET("/", func(c *gin.Context) { got = c.ClientIP() })
+			return nil
+		}),
+	)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "203.0.113.7:1234"
+	req.Header.Set("X-Forwarded-For", "198.51.100.1")
+
+	r.engine.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.Equal(t, "198.51.100.1", got)
+}
+
 func TestWithTrustedProxiesRejectsInvalid(t *testing.T) {
 	_, err := New(context.Background(), "", WithTrustedProxies("not-a-cidr"))
 	assert.Error(t, err)
