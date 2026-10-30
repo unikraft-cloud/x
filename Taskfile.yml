@@ -11,7 +11,7 @@ tasks:
     # NOTE: this is a hack to work around the fact that go-task doesn't
     # allow passing the 'dir' setting to child tasks:
     # https://github.com/go-task/task/issues/585
-    cmd: task -d {{.module}} -t Taskfile.go.yml -s {{.gotask}} {{with .package}}package={{.}}{{end}}
+    cmd: task -d {{.module}} -t Taskfile.go.yml -s {{.gotask}} {{with .package}}package={{.}}{{end}} {{with .go_tags}}go_tags={{.}}{{end}}
 
   forall:
     requires: { vars: [gotask] }
@@ -138,6 +138,21 @@ tasks:
   ci/test:
   - task: forall
     vars: { gotask: test }
+
+  ci/integration:
+    desc: "Run the integration tests against the metro in UKC_METRO"
+    vars:
+      # Modules with integration tests.
+      # This list is alphabetical and should not be reordered.
+      modules:
+      - ./buildkit
+    cmds:
+    - for: { var: modules }
+      task: forone
+      vars:
+        module: '{{.ITEM}}'
+        gotask: test
+        go_tags: integration
 
   ci/build:
   - task: tools
