@@ -45,6 +45,7 @@ runs:
         --verbose \
         --from ${{ github.event.pull_request.base.sha }} \
         --to ${{ github.event.pull_request.head.sha }} \
+        --git-log-args=--no-merges \
         --config "${GITHUB_WORKSPACE}/${{ steps.stage.outputs.dir }}/commitlint.config.mjs"
 
   - name: Validate PR
