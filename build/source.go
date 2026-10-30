@@ -36,6 +36,12 @@ type StateSource struct {
 	State llb.State
 }
 
+// FrontendSource is a reference resolved by the Dockerfile frontend.
+// It is intended for named build contexts, not rootfs or ROM filesystem paths.
+type FrontendSource struct {
+	Ref string
+}
+
 // SessionSource is a directory with root owners that the session serves by Name.
 // A main Dockerfile context uses .dockerignore only at the root of "context".
 type SessionSource struct {
@@ -47,6 +53,8 @@ func (LocalSource) isSource() {}
 func (StateSource) isSource() {}
 
 func (SessionSource) isSource() {}
+
+func (FrontendSource) isSource() {}
 
 // fromLLB reports whether BuildKit gets src as LLB, and not from the host.
 func fromLLB(src Source) bool {
