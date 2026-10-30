@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/moby/buildkit/client"
+	resourcestypes "github.com/moby/buildkit/executor/resources/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,10 +20,15 @@ import (
 // recorder keeps every status written to it.
 type recorder struct {
 	statuses []*client.SolveStatus
+	usage    []progress.Usage
 }
 
 func (r *recorder) Write(ss *client.SolveStatus) {
 	r.statuses = append(r.statuses, ss)
+}
+
+func (r *recorder) WriteUsage(u progress.Usage) {
+	r.usage = append(r.usage, u)
 }
 
 // vertices returns the vertices of every status, in order.
@@ -140,6 +146,19 @@ func TestWithPrefix(t *testing.T) {
 		assert.NotEqual(t, fc.Digest, qemu.Digest)
 		assert.Equal(t, fc.Digest, rec.statuses[1].Logs[0].Vertex)
 		assert.Equal(t, qemu.Digest, rec.statuses[3].Logs[0].Vertex)
+	})
+
+	t.Run("usage is keyed by the digest the vertex got", func(t *testing.T) {
+		var rec recorder
+		w := progress.WithPrefix(&rec, "rootfs")
+		samples := &resourcestypes.Samples{Samples: []*resourcestypes.Sample{{PIDsStat: &resourcestypes.PIDsStat{Current: new(uint64(3))}}}}
+
+		w.Write(vertex("[2/4] RUN npm ci"))
+		w.WriteUsage(progress.Usage{"sha256:a1": samples})
+		progress.WithPrefix(progress.Discard, "rootfs").WriteUsage(progress.Usage{"sha256:a1": samples})
+
+		require.Len(t, rec.usage, 1)
+		assert.Equal(t, progress.Usage{rec.vertices()[0].Digest: samples}, rec.usage[0])
 	})
 }
 
