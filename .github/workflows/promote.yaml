@@ -1,0 +1,50 @@
+name: promote
+
+on:
+  push:
+    branches: [prod-staging]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      from:
+        description: Branch to promote from
+        type: string
+        default: prod-staging
+      to:
+        description: Branch to promote to
+        type: string
+        default: prod-stable
+    secrets:
+      gh_pat:
+        description: GitHub PAT used to open the PR, so that its checks run
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: promote-${{ inputs.to || 'prod-stable' }}
+
+    steps:
+      - name: Open promotion PR
+        env:
+          GH_TOKEN: ${{ secrets.gh_pat }}
+          GH_REPO: ${{ github.repository }}
+          FROM: ${{ inputs.from || 'prod-staging' }}
+          TO: ${{ inputs.to || 'prod-stable' }}
+        run: |
+          if [ "$(gh api "repos/$GH_REPO/compare/$TO...$FROM" -q .ahead_by)" = 0 ]; then
+            echo "$FROM has nothing new for $TO"
+            exit 0
+          fi
+          if [ -n "$(gh pr list --base "$TO" --head "$FROM" --state open --json number -q '.[0].number')" ]; then
+            echo "A PR from $FROM to $TO is already open"
+            exit 0
+          fi
+          gh pr create --base "$TO" --head "$FROM" \
+            --title "promote: Merge latest $FROM changes to $TO" \
+            --body "Opened automatically by the \`promote\` workflow."
