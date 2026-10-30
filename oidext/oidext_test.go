@@ -49,7 +49,7 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 		When:        time.Date(2026, 1, 4, 12, 0, 0, 0, time.UTC),
 		Inner:       Inner{Role: "worker"},
 		Optional:    &opt,
-		Embedded:    Embedded{Region: "eu-west"},
+		Region:      "eu-west",
 		SkipMe:      "should not appear",
 	}
 
