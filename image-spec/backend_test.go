@@ -338,7 +338,7 @@ func TestLoadIgnoresDescriptorOSFeatures(t *testing.T) {
 	ctx := t.Context()
 
 	img := *testImage
-	img.Image = &ocispec.Image{Platform: ocispec.Platform{Architecture: "x86_64", OS: "fc"}}
+	img.Image = &ocispec.Image{Architecture: "x86_64", OS: "fc"}
 
 	store, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)

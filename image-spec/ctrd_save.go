@@ -22,7 +22,6 @@ import (
 	"github.com/containerd/containerd/v2/pkg/labels"
 	"github.com/containerd/errdefs"
 	"github.com/opencontainers/go-digest"
-	ocispecs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 
@@ -138,13 +137,11 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 		}
 
 		mfst := ocispec.Manifest{
-			Versioned: ocispecs.Versioned{
-				SchemaVersion: 2,
-			},
-			MediaType:   ocispec.MediaTypeImageManifest,
-			Config:      imgDesc,
-			Layers:      layers,
-			Annotations: image.Annotations,
+			SchemaVersion: 2,
+			MediaType:     ocispec.MediaTypeImageManifest,
+			Config:        imgDesc,
+			Layers:        layers,
+			Annotations:   image.Annotations,
 		}
 		mfstDesc, err := packageJSON(ctx, store, mfst.MediaType, mfst)
 		if err != nil {
@@ -162,11 +159,9 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 	}
 
 	idx := ocispec.Index{
-		Versioned: ocispecs.Versioned{
-			SchemaVersion: 2,
-		},
-		MediaType: ocispec.MediaTypeImageIndex,
-		Manifests: mfstDescs,
+		SchemaVersion: 2,
+		MediaType:     ocispec.MediaTypeImageIndex,
+		Manifests:     mfstDescs,
 	}
 	idxDesc, err := packageJSON(ctx, store, idx.MediaType, idx)
 	if err != nil {
