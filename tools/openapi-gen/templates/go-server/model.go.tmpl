@@ -4,8 +4,6 @@
 {{template "header" .}}
 package {{$.Var "package" ""}}
 
-{{- $currentPkg := $.Var "x-package" "" -}}
-{{- $basePkg := $.Var "base_package" "api" -}}
 {{- $extPkgs := dict}}
 {{- range $model := .Models}}
 {{- /* Check each property for external type references */}}
@@ -13,8 +11,8 @@ package {{$.Var "package" ""}}
 {{- $prop := getProperty $model.Schema $propName}}
 {{- if $prop}}
 {{- $typePkg := getTypePackage $prop}}
-{{- if and $typePkg (ne $typePkg $currentPkg)}}
-{{- $_ := set $extPkgs $typePkg true}}
+{{- if $typePkg}}
+{{- $_ := set $extPkgs $typePkg (getTypeImportPath $prop)}}
 {{- end}}
 {{- end}}
 {{- end}}
@@ -26,8 +24,8 @@ import (
 	"time"
 {{- if $extPkgs}}
 
-{{- range $pkg, $_ := $extPkgs}}
-	{{$pkg}}v1 "{{$basePkg}}/{{$pkg}}/v1"
+{{- range $pkg, $importPath := $extPkgs}}
+	{{$pkg}} "{{$importPath}}"
 {{- end}}
 {{- end}}
 )
