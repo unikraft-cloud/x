@@ -1,0 +1,308 @@
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026, Unikraft GmbH.
+// Licensed under the BSD-3-Clause License (the "License").
+// You may not use this file except in compliance with the License.
+
+package mergefs
+
+import (
+	"bytes"
+	"errors"
+	"io"
+	"io/fs"
+	"os"
+	"path"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+)
+
+var (
+	_ fs.FS         = (*FS)(nil)
+	_ fs.ReadDirFS  = (*FS)(nil)
+	_ fs.StatFS     = (*FS)(nil)
+	_ fs.ReadLinkFS = (*FS)(nil)
+
+	_ fs.FileInfo = (*node)(nil)
+	_ fs.DirEntry = (*node)(nil)
+)
+
+// FS is the merged file system. It is safe for concurrent reads.
+type FS struct {
+	root  *node
+	spool *os.File // temporary file with the data of the regular files
+	own   bool
+	left  bool // the spool is still in its directory
+
+	mu      sync.Mutex
+	lastDir string // the deepest directory of the last lookup that had no symlinks before it, or ""
+	lastN   *node  // the node of lastDir
+}
+
+// Close closes the spool file when Merge created it.
+func (f *FS) Close() error {
+	if f.spool != nil && f.own {
+		return closeSpool(f.spool, f.left)
+	}
+	return nil
+}
+
+// node is a path of the merged tree.
+type node struct {
+	name   string
+	parent *node
+	kids   map[string]*node // during the merge
+	list   []*node          // sorted, after the merge
+	ino    *Inode
+	layer  int32
+	idx    int32 // entry index in the layer that made the node
+	opaque int64 // hide entries with a rank below this rank
+	cut    int64 // ignore own directory headers with a rank below this rank
+	kind   kind
+	last   int32   // one more than the layer that last changed this node or a node below, for purge; 0 when none
+	marked []*node // the kids that the layer of last changed or added
+}
+
+func (n *node) Name() string { return n.name }
+
+func (n *node) Size() int64 {
+	switch n.ino.mode.Type() {
+	case 0:
+		return n.ino.size
+	case fs.ModeSymlink:
+		return int64(len(n.ino.target))
+	}
+	return 0
+}
+
+func (n *node) Mode() fs.FileMode          { return n.ino.mode }
+func (n *node) ModTime() time.Time         { return n.ino.mtime }
+func (n *node) IsDir() bool                { return n.kind == kDir }
+func (n *node) Sys() any                   { return n.ino }
+func (n *node) Type() fs.FileMode          { return n.ino.mode.Type() }
+func (n *node) Info() (fs.FileInfo, error) { return n, nil }
+func (n *node) String() string             { return fs.FormatFileInfo(n) }
+
+func (n *node) child(name string) *node {
+	i, ok := slices.BinarySearchFunc(n.list, name, func(c *node, name string) int { return strings.Compare(c.name, name) })
+	if !ok {
+		return nil
+	}
+	return n.list[i]
+}
+
+// maxSymlinks is the most symlinks that Linux follows in one path, see https://man7.org/linux/man-pages/man7/path_resolution.7.html.
+const maxSymlinks = 40
+
+var errLoop = errors.New("too many levels of symbolic links")
+
+// lookup finds name. It follows symlinks in the path, and it follows a
+// symlink at the end only when follow is true.
+func (f *FS) lookup(op, name string, follow bool) (*node, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrInvalid}
+	}
+	if name == "." {
+		name = ""
+	}
+	cur, rest, hops := f.root, name, 0
+	// A walk of a tree looks up each path after its parent: start from the last directory, so that a deep path costs no more than its last part.
+	f.mu.Lock()
+	dir, dirN := f.lastDir, f.lastN
+	f.mu.Unlock()
+	if after, ok := strings.CutPrefix(name, dir); dir != "" && ok && (after == "" || after[0] == '/') {
+		cur, rest = dirN, strings.TrimPrefix(after, "/")
+	}
+	newDir, newN := "", (*node)(nil)
+	for rest != "" {
+		var comp string
+		comp, rest, _ = strings.Cut(rest, "/")
+		// Like Linux, a path can go on after a file only to the end of a symlink target.
+		if cur.kind != kDir {
+			return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
+		}
+		switch comp {
+		case "", ".":
+			continue
+		case "..":
+			if cur.parent != nil {
+				cur = cur.parent
+			}
+			continue
+		}
+		c := cur.child(comp)
+		if c == nil {
+			return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
+		}
+		if c.ino.mode.Type() == fs.ModeSymlink && (rest != "" || follow) {
+			if hops++; hops > maxSymlinks {
+				return nil, &fs.PathError{Op: op, Path: name, Err: errLoop}
+			}
+			t := c.ino.target
+			if t == "" {
+				return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
+			}
+			// A target with a slash at the end must be a directory.
+			if rest == "" && strings.HasSuffix(t, "/") {
+				t += "."
+			}
+			if strings.HasPrefix(t, "/") {
+				cur, t = f.root, strings.TrimLeft(t, "/")
+			}
+			if rest != "" {
+				t += "/" + rest
+			}
+			rest = t
+			continue
+		}
+		cur = c
+		if hops == 0 && cur.kind == kDir {
+			newDir, newN = name[:len(name)-len(rest)], cur
+			newDir = strings.TrimSuffix(newDir, "/")
+		}
+	}
+	if newN != nil {
+		f.mu.Lock()
+		f.lastDir, f.lastN = newDir, newN
+		f.mu.Unlock()
+	}
+	return cur, nil
+}
+
+// Open opens the named file and follows symlinks.
+func (f *FS) Open(name string) (fs.File, error) {
+	n, err := f.lookup("open", name, true)
+	if err != nil {
+		return nil, err
+	}
+	h := &file{n: n, info: named(n, name)}
+	if n.kind == kOther && n.ino.mode.Type() == 0 {
+		var ra io.ReaderAt
+		if n.ino.data != nil {
+			ra = bytes.NewReader(n.ino.data)
+		} else if f.spool != nil {
+			ra = f.spool
+		}
+		if ra != nil {
+			h.sr = io.NewSectionReader(ra, n.ino.off, n.ino.size)
+		}
+	}
+	return h, nil
+}
+
+// ReadDir returns the entries of the named directory, sorted by name.
+func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
+	n, err := f.lookup("readdir", name, true)
+	if err != nil {
+		return nil, err
+	}
+	if n.kind != kDir {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: errors.New("not a directory")}
+	}
+	out := make([]fs.DirEntry, len(n.list))
+	for i, c := range n.list {
+		out[i] = c
+	}
+	return out, nil
+}
+
+// Stat returns the FileInfo of the named file and follows symlinks.
+func (f *FS) Stat(name string) (fs.FileInfo, error) {
+	n, err := f.lookup("stat", name, true)
+	if err != nil {
+		return nil, err
+	}
+	return named(n, name), nil
+}
+
+// named returns the FileInfo of n with the base name of name, like os.Stat for a symlink.
+func named(n *node, name string) fs.FileInfo {
+	if base := path.Base(name); name != "." && base != n.name {
+		return renamed{n, base}
+	}
+	return n
+}
+
+type renamed struct {
+	*node
+	name string
+}
+
+func (r renamed) Name() string   { return r.name }
+func (r renamed) String() string { return fs.FormatFileInfo(r) }
+
+// Lstat returns the FileInfo of the named file. It does not follow a
+// symlink at the end of the path.
+func (f *FS) Lstat(name string) (fs.FileInfo, error) {
+	return f.lookup("lstat", name, false)
+}
+
+// ReadLink returns the target of the named symlink.
+func (f *FS) ReadLink(name string) (string, error) {
+	n, err := f.lookup("readlink", name, false)
+	if err != nil {
+		return "", err
+	}
+	if n.ino.mode.Type() != fs.ModeSymlink {
+		return "", &fs.PathError{Op: "readlink", Path: name, Err: fs.ErrInvalid}
+	}
+	return n.ino.target, nil
+}
+
+type file struct {
+	n    *node
+	info fs.FileInfo
+	sr   *io.SectionReader
+	pos  int
+}
+
+func (h *file) Stat() (fs.FileInfo, error) { return h.info, nil }
+func (h *file) Close() error               { return nil }
+
+func (h *file) Read(p []byte) (int, error) {
+	if h.n.kind == kDir {
+		return 0, h.isDir()
+	}
+	if h.sr == nil {
+		return 0, io.EOF
+	}
+	return h.sr.Read(p)
+}
+
+func (h *file) ReadAt(p []byte, off int64) (int, error) {
+	if h.sr == nil {
+		return 0, io.EOF
+	}
+	return h.sr.ReadAt(p, off)
+}
+
+func (h *file) Seek(off int64, whence int) (int64, error) {
+	if h.sr == nil {
+		return 0, nil
+	}
+	return h.sr.Seek(off, whence)
+}
+
+func (h *file) isDir() error {
+	return &fs.PathError{Op: "read", Path: h.n.name, Err: errors.New("is a directory")}
+}
+
+func (h *file) ReadDir(count int) ([]fs.DirEntry, error) {
+	if h.n.kind != kDir {
+		return nil, &fs.PathError{Op: "readdir", Path: h.n.name, Err: errors.New("not a directory")}
+	}
+	rest := h.n.list[h.pos:]
+	if count > 0 && len(rest) == 0 {
+		return nil, io.EOF
+	}
+	if count <= 0 || count > len(rest) {
+		count = len(rest)
+	}
+	out := make([]fs.DirEntry, count)
+	for i := range count {
+		out[i] = rest[i]
+	}
+	h.pos += count
+	return out, nil
+}
