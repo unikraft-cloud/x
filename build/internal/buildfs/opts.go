@@ -11,10 +11,26 @@ import "github.com/unikraft/go-archivefs/erofs"
 type createOptions struct {
 	allRoot     bool
 	fileInfoMap map[string]erofs.FileInfo
+	pad         int64
+	compress    bool
 }
 
-// CreateOption is an option for CreateCPIO and CreateEROFS.
+// CreateOption is an option for CreateCPIO, CreateEROFS and Package.
 type CreateOption func(*createOptions)
+
+// WithPad makes Package pad the output to a multiple of pad bytes.
+func WithPad(pad int64) CreateOption {
+	return func(co *createOptions) {
+		co.pad = pad
+	}
+}
+
+// WithCompress makes Package gzip a cpio archive.
+func WithCompress(compress bool) CreateOption {
+	return func(co *createOptions) {
+		co.compress = compress
+	}
+}
 
 // WithAllRoot toggles whether all file ownership should be set to root:root
 // instead of the original file permissions.
