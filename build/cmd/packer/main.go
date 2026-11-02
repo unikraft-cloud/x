@@ -9,6 +9,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -21,6 +22,9 @@ import (
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "packer:", err)
+		if errors.Is(err, buildfs.ErrTooLarge) {
+			os.Exit(buildfs.ExitCodeTooLarge)
+		}
 		os.Exit(1)
 	}
 }
@@ -34,6 +38,7 @@ func run(args []string) error {
 	format := flags.String("format", string(kraftfile.FsTypeErofs), "rootfs format: erofs or cpio")
 	pad := flags.Int64("pad", 0, "pad the output to a multiple of this many bytes")
 	compress := flags.Bool("compress", false, "gzip a cpio rootfs")
+	allRoot := flags.Bool("all-root", false, "give every file to root")
 	maxSize := flags.Int64("max-size", 0, "refuse a source of more than this many bytes")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
@@ -51,8 +56,12 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := buildfs.Package(context.Background(), kraftfile.FsType(*format), out, src,
-		buildfs.WithPad(*pad), buildfs.WithCompress(*compress)); err != nil {
+	err = buildfs.Package(context.Background(), kraftfile.FsType(*format), out, src,
+		buildfs.WithPad(*pad),
+		buildfs.WithCompress(*compress),
+		buildfs.WithAllRoot(*allRoot),
+	)
+	if err != nil {
 		out.Close()
 		return err
 	}

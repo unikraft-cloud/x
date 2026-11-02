@@ -22,6 +22,11 @@ import (
 // ErrTooLarge tells that a rootfs or a rom is larger than its size limit.
 var ErrTooLarge = errors.New("rootfs is too large")
 
+// ExitCodeTooLarge is the exit status of the packer command for ErrTooLarge,
+// as a solve gets only the exit status of a step. 1 is taken by its other
+// errors and 2 by a Go panic.
+const ExitCodeTooLarge = 3
+
 // Package writes src to dst in format, padded as WithPad asks.
 func Package(ctx context.Context, format kraftfile.FsType, dst *os.File, src fs.FS, opts ...CreateOption) error {
 	c := createOptions{}

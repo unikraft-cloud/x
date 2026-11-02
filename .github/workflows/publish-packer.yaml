@@ -1,0 +1,47 @@
+name: publish-packer
+
+# Has unikraft-cloud/catalog publish the packer image from the branch that
+# changed it: prod-staging to official-staging, prod-stable to official.
+
+on:
+  push:
+    branches: [prod-staging, prod-stable]
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-slim
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup go
+        uses: ./.github/actions/setup-go
+
+      - name: Check whether the packer changed
+        id: changed
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          mods=$(cd build && go list -deps -f '{{with .Module}}{{if .Main}}{{.Dir}}{{end}}{{end}}' ./cmd/packer)
+          # Every go.mod counts, as the workspace picks one version of each dependency.
+          gomods=$(go list -m -f '{{.GoMod}}')
+          mapfile -t paths <<<"$mods"$'\n'"$gomods"
+          # A before that git does not have, as after a force push, publishes too.
+          if git diff --quiet "$BEFORE" HEAD -- "${paths[@]}" go.work; then
+            echo "The packer did not change"
+          else
+            echo "publish=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch the catalog workflow
+        if: steps.changed.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.gh_pat }}
+          BRANCH: ${{ github.ref_name }}
+        run: gh workflow run "service-image-packer-${BRANCH#prod-}.yaml" --repo unikraft-cloud/catalog --ref "$BRANCH"

@@ -670,44 +670,6 @@ func TestRootfsTarballKeepsOwners(t *testing.T) {
 	}
 }
 
-// TestRootfsLLBDirectoryOwners asserts that a state keeps its owners, and that
-// a session directory, which is on the caller's host, is owned by root.
-func TestRootfsLLBDirectoryOwners(t *testing.T) {
-	for name, tc := range map[string]struct {
-		src   Source
-		owner owner
-	}{
-		"state":   {StateSource{}, owner{1000, 1000}},
-		"session": {SessionSource{}, owner{0, 0}},
-	} {
-		t.Run(name, func(t *testing.T) {
-			tarFile, err := os.Open(writeOwnedTarball(t, 1000, 1000))
-			require.NoError(t, err)
-			defer tarFile.Close()
-			srcFS, err := buildfs.TarballFS(tarFile)
-			require.NoError(t, err)
-
-			imgs, err := Builder{}.packRootfs(t.Context(), BuildOpts{
-				Rootfs: FSOpts{
-					Source: tc.src,
-					Type:   kraftfile.SourceTypeDirectory,
-					Format: kraftfile.FsTypeCpio,
-				},
-				Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
-			}, "rootfs", srcFS)
-			require.NoError(t, err)
-			t.Cleanup(func() {
-				for _, img := range imgs {
-					_ = img.Close()
-				}
-			})
-
-			owners := readOwners(t, imgs[0].Initrd, kraftfile.FsTypeCpio)
-			require.Equal(t, tc.owner, owners["owned/file.txt"])
-		})
-	}
-}
-
 func TestRootfsDirectoryIsOwnedByRoot(t *testing.T) {
 	srcDir := writeTestDirectory(t)
 
