@@ -9,6 +9,8 @@ package shell
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"time"
 
 	"github.com/reeflective/readline"
@@ -36,7 +38,7 @@ type promptConfig struct {
 	prompt    func(continuation bool) string
 	paint     func(string) string
 	isBuiltin func(string) bool
-	complete  func(line []rune, cursor int) readline.Completions
+	complete  func(line []rune, cursor int) (start int, cands []candidate, err error)
 }
 
 func newPrompt(cfg promptConfig) *prompt {
@@ -46,6 +48,8 @@ func newPrompt(cfg promptConfig) *prompt {
 	_ = rl.Config.Set("output-meta", true)
 	// The session prints its own ^C.
 	_ = rl.Config.Set("echo-control-characters", false)
+	// A Tab offers what it has instead of inserting the first of it.
+	_ = rl.Config.Set("menu-complete-display-prefix", true)
 
 	rl.History.Add("session", cfg.history)
 	rl.Prompt.Primary(func() string { return cfg.prompt(false) })
@@ -56,10 +60,31 @@ func newPrompt(cfg promptConfig) *prompt {
 		return cfg.paint(highlight(string(line), cfg.isBuiltin))
 	}
 	if cfg.complete != nil {
-		rl.Completer = cfg.complete
+		rl.Completer = completer(cfg.complete)
 	}
 
 	return &prompt{rl: rl}
+}
+
+func completer(complete func(line []rune, cursor int) (int, []candidate, error)) func(line []rune, cursor int) readline.Completions {
+	return func(line []rune, cursor int) readline.Completions {
+		start, cands, err := complete(line, cursor)
+		if len(cands) == 0 {
+			// A word that names nothing is not worth a word about.
+			if err == nil || errors.Is(err, fs.ErrNotExist) {
+				return readline.Completions{}
+			}
+			return readline.CompleteMessage("%s", sanitised(err))
+		}
+
+		values := make([]readline.Completion, len(cands))
+		for i, c := range cands {
+			values[i] = readline.Completion{Value: c.Value, Display: c.Display, Tag: c.Tag}
+		}
+		comps := readline.CompleteRaw(values).NoSpace('/')
+		comps.PREFIX = string(line[start:min(cursor, len(line))])
+		return comps
+	}
 }
 
 // readLine reads a line, or fakes a ^C to get readline back when ctx ends first.

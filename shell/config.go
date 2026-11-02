@@ -32,3 +32,8 @@ type SuspendFunc func(sig ...os.Signal) (restore func())
 type Builtin interface {
 	Run(ctx context.Context, streams stdio.Stdio, args []string) (int, error)
 }
+
+// BuiltinCompleter is a Builtin that offers what the last of args, the word under the cursor, could be.
+type BuiltinCompleter interface {
+	Complete(ctx context.Context, args []string) ([]string, error)
+}

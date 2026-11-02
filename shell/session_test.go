@@ -194,6 +194,19 @@ func TestTheKeystrokesAreLentAgainToTheNextCommand(t *testing.T) {
 	}
 }
 
+func TestSessionCompletesFromTheWordStart(t *testing.T) {
+	root := newFixture(t)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "ünicode"), nil, 0o644))
+
+	s, _, _ := newDrivenSession(t, Config{Instance: "fake", Dir: root})
+	line := []rune("cat üni")
+
+	start, matches := s.Complete(t.Context(), line, len(line))
+
+	assert.Equal(t, []string{"ünicode"}, matches)
+	assert.Equal(t, 4, start, "the rune the candidates replace from")
+}
+
 func TestSessionKeepsItsOwnHistory(t *testing.T) {
 	s, _, out := newDrivenSession(t, Config{Instance: "fake", Dir: "/"})
 
