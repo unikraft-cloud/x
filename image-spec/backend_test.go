@@ -334,6 +334,35 @@ func TestOSFeaturesOnlyInConfig(t *testing.T) {
 	require.Equal(t, platform.OSFeatures, loaded[0].Image.OSFeatures)
 }
 
+func TestIndexAnnotations(t *testing.T) {
+	ctx := t.Context()
+
+	annotations := map[string]string{AnnotationBuildID: "0b9c6f1e-6a52-4d1f-9a43-2f0d9b7f5c11"}
+	img := *testImage
+	img.Image = &ocispec.Image{Platform: ocispec.Platform{Architecture: "x86_64", OS: "fc"}}
+	img.IndexAnnotations = annotations
+
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	idxDesc, err := SaveContent(ctx, store, "latest", &img)
+	require.NoError(t, err)
+
+	idxBlob, err := content.ReadBlob(ctx, store, idxDesc)
+	require.NoError(t, err)
+	var idx ocispec.Index
+	require.NoError(t, json.Unmarshal(idxBlob, &idx))
+	require.Equal(t, annotations, idx.Annotations)
+
+	loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.All)
+	require.NoError(t, err)
+	require.Len(t, loaded, 1)
+	require.Equal(t, annotations, loaded[0].IndexAnnotations)
+
+	resaved, err := SaveContent(ctx, store, "latest", loaded...)
+	require.NoError(t, err)
+	require.Equal(t, idxDesc.Digest, resaved.Digest)
+}
+
 func TestLoadIgnoresDescriptorOSFeatures(t *testing.T) {
 	ctx := t.Context()
 
