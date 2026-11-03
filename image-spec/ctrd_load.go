@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"path/filepath"
 
 	"github.com/containerd/containerd/v2/core/content"
@@ -26,13 +27,27 @@ func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descr
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
 	}
-	return loadCtrdImageMfst(ctx, store, desc, mfsts[0])
+	annotations, err := indexAnnotations(ctx, store, desc)
+	if err != nil {
+		return nil, err
+	}
+	img, err := loadCtrdImageMfst(ctx, store, desc, mfsts[0])
+	if err != nil {
+		return nil, err
+	}
+	img.IndexAnnotations = annotations
+	return img, nil
 }
 
 func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
 	mfsts, err := ManifestDescriptors(ctx, store, desc, ignoringOSFeatures(platform))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
+	}
+
+	annotations, err := indexAnnotations(ctx, store, desc)
+	if err != nil {
+		return nil, err
 	}
 
 	imgs := make([]*Image, len(mfsts))
@@ -44,6 +59,7 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 			if err != nil {
 				return fmt.Errorf("failed to load image manifest: %w", err)
 			}
+			img.IndexAnnotations = maps.Clone(annotations)
 			imgs[i] = img
 			return nil
 		})

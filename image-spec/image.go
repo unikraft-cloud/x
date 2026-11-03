@@ -30,8 +30,9 @@ type Image struct {
 	Roms        []File
 
 	// Image configs
-	Image       *ocispec.Image
-	Annotations map[string]string
+	Image            *ocispec.Image
+	Annotations      map[string]string
+	IndexAnnotations map[string]string
 
 	cleanup []func() error
 }
