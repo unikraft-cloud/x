@@ -114,9 +114,11 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 	}
 
 	var mfstDescs []ocispec.Descriptor
+	idxAnnotations := map[string]string{}
 
 	for i, image := range images {
 		layers := imageLayers[i]
+		maps.Copy(idxAnnotations, image.IndexAnnotations)
 
 		// Image
 		ociImage := ocispec.Image{}
@@ -162,6 +164,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 		SchemaVersion: 2,
 		MediaType:     ocispec.MediaTypeImageIndex,
 		Manifests:     mfstDescs,
+		Annotations:   idxAnnotations,
 	}
 	idxDesc, err := packageJSON(ctx, store, idx.MediaType, idx)
 	if err != nil {

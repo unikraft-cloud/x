@@ -51,6 +51,26 @@ func readManifest(ctx context.Context, provider content.Provider, desc ocispec.D
 	return manifest, nil
 }
 
+// indexAnnotations returns the annotations of the image index at desc, if any.
+func indexAnnotations(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) (map[string]string, error) {
+	if !images.IsIndexType(desc.MediaType) {
+		return nil, nil
+	}
+	p, err := readVerifiedBlob(ctx, provider, desc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read image index: %w", err)
+	}
+	var idx ocispec.Index
+	if err := json.Unmarshal(p, &idx); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal image index: %w", err)
+	}
+	// An archive's own index.json lists the image index.
+	if len(idx.Manifests) == 1 && images.IsIndexType(idx.Manifests[0].MediaType) {
+		return indexAnnotations(ctx, provider, idx.Manifests[0])
+	}
+	return idx.Annotations, nil
+}
+
 // ConfigPlatform is a forked version of images.ConfigPlatform that checks the
 // config against its digest.
 func ConfigPlatform(ctx context.Context, provider content.Provider, configDesc ocispec.Descriptor) (ocispec.Platform, error) {
