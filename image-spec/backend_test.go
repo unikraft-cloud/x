@@ -339,7 +339,7 @@ func TestIndexAnnotations(t *testing.T) {
 
 	annotations := map[string]string{AnnotationBuildID: "0b9c6f1e-6a52-4d1f-9a43-2f0d9b7f5c11"}
 	img := *testImage
-	img.Image = &ocispec.Image{Platform: ocispec.Platform{Architecture: "x86_64", OS: "fc"}}
+	img.Image = &ocispec.Image{Architecture: "x86_64", OS: "fc"}
 	img.IndexAnnotations = annotations
 
 	store, err := local.NewStore(t.TempDir())

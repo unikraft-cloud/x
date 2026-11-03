@@ -23,8 +23,9 @@ import (
 const DefaultImage = "official/utils/buildkit:latest"
 
 const (
-	port     = 1234
-	cacheDir = "/var/lib/buildkit"
+	port       = 1234
+	cacheDir   = "/var/lib/buildkit"
+	builderTag = "remote-builder" // on the instance and its cache volume
 
 	// The platform's registry shows its official images without the namespace.
 	platformRegistry  = "index.unikraft.io"
@@ -285,7 +286,8 @@ func (p *Platform) create(ctx context.Context, name string, key Key) error {
 		MemoryMb:  new(cmp.Or(key.MemoryMB, p.memoryMB)),
 		Autostart: new(true),
 		Env:       env,
-		Volumes:   []platform.CreateInstanceRequestVolume{{SizeMb: new(cacheMB), Filesystem: new("ext4"), At: cacheDir}},
+		Tags:      []string{builderTag},
+		Volumes:   []platform.CreateInstanceRequestVolume{{SizeMb: new(cacheMB), Filesystem: new("ext4"), At: cacheDir, Tags: []string{builderTag}}},
 		ServiceGroup: &platform.CreateInstanceRequestServiceGroup{
 			Services: []platform.Service{{
 				Port:            port,
