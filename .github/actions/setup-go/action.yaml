@@ -114,11 +114,6 @@ runs:
     - name: Setup Task
       uses: go-task/setup-task@v2
 
-    - name: Enable remote Taskfiles experiment
-      shell: bash
-      run: |
-        echo TASK_X_REMOTE_TASKFILES=1 >>"$GITHUB_ENV"
-
     # Check that we can resolve remote taskfiles, populate cache and force
     # using that cache instead of the network
     - name: Check Taskfile
