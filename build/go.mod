@@ -20,7 +20,9 @@ require (
 	golang.org/x/crypto v0.57.0
 	golang.org/x/mod v0.41.0
 	google.golang.org/grpc v1.83.2
+	unikraft.com/x/buildkit v0.0.0-20261104124328-5c22d4e1ce0f
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
+	unikraft.com/x/integration v0.0.0-20261029083025-f2d161e6abc8
 	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d
 	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1
@@ -45,6 +47,8 @@ require (
 	github.com/containerd/ttrpc v1.2.9 // indirect
 	github.com/containerd/typeurl/v2 v2.3.0 // indirect
 	github.com/docker/docker-credential-helpers v0.9.8 // indirect
+	github.com/docker/go-connections v0.7.0 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -60,8 +64,11 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.23 // indirect
-	github.com/mattn/go-runewidth v0.0.24 // indirect
+	github.com/mattn/go-runewidth v0.0.27 // indirect
+	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/locker v1.0.1 // indirect
+	github.com/moby/moby/api v1.56.0 // indirect
+	github.com/moby/moby/client v0.6.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/signal v0.7.1 // indirect
 	github.com/morikuni/aec v1.1.0 // indirect
@@ -75,7 +82,7 @@ require (
 	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea // indirect
 	github.com/tonistiigi/vt100 v0.0.0-20240514184818-90bafcd6abab // indirect
-	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	github.com/xo/terminfo v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.69.0 // indirect
@@ -98,12 +105,16 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260825221802-da73d73af1c5 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
-	gotest.tools/v3 v3.5.2 // indirect
 	mvdan.cc/sh/v3 v3.14.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
+	unikraft.com/cloud/sdk v0.3.1-0.20260928125536-cabf4afa223a // indirect
 )
 
+replace unikraft.com/x/buildkit => ../buildkit
+
 replace unikraft.com/x/image-spec => ../image-spec
+
+replace unikraft.com/x/integration => ../integration
 
 replace unikraft.com/x/io => ../io
 

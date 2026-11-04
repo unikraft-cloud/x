@@ -146,6 +146,7 @@ tasks:
       # Modules with integration tests.
       # This list is alphabetical and should not be reordered.
       modules:
+      - ./build
       - ./buildkit
     cmds:
     - for: { var: modules }
