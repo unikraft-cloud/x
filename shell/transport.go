@@ -24,10 +24,22 @@ import (
 // [os/exec.Cmd]'s too: NAME=value entries, and none of them means the
 // environment the instance would have given the command itself.
 type Command struct {
-	Args    []string
-	Dir     string
-	Env     []string
-	Streams stdio.Stdio
+	Args     []string
+	Dir      string
+	Env      []string
+	Streams  stdio.Stdio
+	Terminal *Terminal // the pty to run on; nil is pipes
+}
+
+// Terminal is a command's pty: its size at the start, and each size after.
+type Terminal struct {
+	Size   WinSize
+	Resize <-chan WinSize // the newest size only; one nobody read yet is dropped for it
+}
+
+// WinSize is a terminal's size in cells.
+type WinSize struct {
+	Cols, Rows int
 }
 
 // Transport is how the shell reaches the instance.
