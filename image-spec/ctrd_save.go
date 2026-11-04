@@ -30,6 +30,41 @@ import (
 )
 
 func SaveContent(ctx context.Context, store content.Ingester, ref string, images ...*Image) (ocispec.Descriptor, error) {
+	mfstDescs, err := saveManifests(ctx, store, ref, images...)
+	if err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	store = ingestDefaults(store, content.WithRef(ref))
+
+	idxAnnotations := map[string]string{}
+	for _, image := range images {
+		maps.Copy(idxAnnotations, image.IndexAnnotations)
+	}
+	idx := ocispec.Index{
+		SchemaVersion: 2,
+		MediaType:     ocispec.MediaTypeImageIndex,
+		Manifests:     mfstDescs,
+		Annotations:   idxAnnotations,
+	}
+	idxDesc, err := packageJSON(ctx, store, idx.MediaType, idx)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to package index: %w", err)
+	}
+
+	return idxDesc, nil
+}
+
+// SaveManifest saves image to store as a manifest, without an index, and
+// returns its index entry.
+func SaveManifest(ctx context.Context, store content.Ingester, ref string, image *Image) (ocispec.Descriptor, error) {
+	descs, err := saveManifests(ctx, store, ref, image)
+	if err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	return descs[0], nil
+}
+
+func saveManifests(ctx context.Context, store content.Ingester, ref string, images ...*Image) ([]ocispec.Descriptor, error) {
 	store = ingestDefaults(store, content.WithRef(ref))
 
 	eg, egCtx := errgroup.WithContext(ctx)
@@ -114,18 +149,16 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 	}
 
 	if err := eg.Wait(); err != nil {
-		return ocispec.Descriptor{}, err
+		return nil, err
 	}
 
 	var mfstDescs []ocispec.Descriptor
-	idxAnnotations := map[string]string{}
 
 	for i, image := range images {
 		layers := make([]ocispec.Descriptor, len(imageLayers[i]))
 		for j, layer := range imageLayers[i] {
 			layers[j] = *layer
 		}
-		maps.Copy(idxAnnotations, image.IndexAnnotations)
 
 		// Image
 		ociImage := ocispec.Image{}
@@ -142,7 +175,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 		var err error
 		imgDesc, err := packageJSON(ctx, store, ocispec.MediaTypeImageConfig, &ociImage)
 		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to package image config: %w", err)
+			return nil, fmt.Errorf("failed to package image config: %w", err)
 		}
 
 		mfst := ocispec.Manifest{
@@ -154,7 +187,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 		}
 		mfstDesc, err := packageJSON(ctx, store, mfst.MediaType, mfst)
 		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to package manifest: %w", err)
+			return nil, fmt.Errorf("failed to package manifest: %w", err)
 		}
 		mfstDesc.Annotations = image.Annotations
 		if image.Image != nil {
@@ -167,18 +200,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 		mfstDescs = append(mfstDescs, mfstDesc)
 	}
 
-	idx := ocispec.Index{
-		SchemaVersion: 2,
-		MediaType:     ocispec.MediaTypeImageIndex,
-		Manifests:     mfstDescs,
-		Annotations:   idxAnnotations,
-	}
-	idxDesc, err := packageJSON(ctx, store, idx.MediaType, idx)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to package index: %w", err)
-	}
-
-	return idxDesc, nil
+	return mfstDescs, nil
 }
 
 func packageJSON(ctx context.Context, store content.Ingester, mediaType string, dt any) (ocispec.Descriptor, error) {
