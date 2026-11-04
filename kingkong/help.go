@@ -33,12 +33,17 @@ const (
 var (
 	Underline = lipgloss.NewStyle().Underline(true).Render
 	Bold      = lipgloss.NewStyle().Bold(true).Render
+	Italic    = lipgloss.NewStyle().Italic(true).Render
 
 	EnvVarColor      = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Emerald500, Dark: colors.Emerald200}).Render
 	CommandColor     = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Blue500, Dark: colors.Blue200}).Render
 	DimmedColor      = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Slate500, Dark: colors.Slate300}).Render
 	DimmedMoreColor  = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Slate400, Dark: colors.Slate400}).Render
 	PlaceholderColor = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: colors.Blue400, Dark: colors.Blue300}).Render
+
+	// CodeColor styles an inline code span, which in help text is almost
+	// always a command or a flag.
+	CodeColor = CommandColor
 )
 
 // HelpPrinter returns a function implementation of kong.HelpPrinter.
@@ -277,7 +282,7 @@ func printNodeHelp(w *helpWriter, node *kong.Node) {
 		w.Print("")
 	}
 	if node.Detail != "" {
-		w.Wrap(node.Detail)
+		w.Markdown(node.Detail)
 	} else {
 		w.Wrap(node.Help)
 	}
@@ -390,7 +395,7 @@ func (h *helpWriter) Print(text string) {
 
 // Indent returns a new helpWriter indented by two characters.
 func (h *helpWriter) Indent() *helpWriter {
-	return &helpWriter{indent: h.indent + "  ", lines: h.lines, width: h.width - 2, HelpOptions: h.HelpOptions}
+	return &helpWriter{indent: h.indent + strings.Repeat(" ", IndentWidth), lines: h.lines, width: h.width - IndentWidth, HelpOptions: h.HelpOptions}
 }
 
 func (h *helpWriter) String() string {
@@ -405,6 +410,13 @@ func (h *helpWriter) Write(w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+// Markdown renders text as Markdown, wrapped and indented to fit the writer.
+func (h *helpWriter) Markdown(text string) {
+	for _, line := range renderMarkdown(text, h.width) {
+		h.Print(line)
+	}
 }
 
 func (h *helpWriter) Wrap(text string) {

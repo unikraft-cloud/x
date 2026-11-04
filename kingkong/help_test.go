@@ -125,7 +125,18 @@ func TestHelpDescriptionDetailOverrides(t *testing.T) {
 		&cli,
 		kong.Name("kingkong"),
 		kong.Description("Short description that should be replaced."),
-		DescriptionDetail("Detailed description appears at the top."),
+		DescriptionDetail(strings.Join([]string{
+			"Detailed description appears at the top.",
+			"",
+			"## Request body syntax",
+			"",
+			"Each argument is one of the forms below, and `--verbose` reports them.",
+			"",
+			"```",
+			"key=value    Set a key to a literal string value.",
+			"key\\[sub\\]=value  Literal bracket in a key name.",
+			"```",
+		}, "\n")),
 		kong.Help(HelpPrinter("v0.0.0-test")),
 		kong.HelpOptions{
 			ValueFormatter: helpValueFormatter,
@@ -289,4 +300,30 @@ func TestOptionalEnumChoices(t *testing.T) {
 
 	formatted = ansi.Strip(helpValueFormatter(flagByName("mode").Value))
 	require.Contains(t, formatted, "[default: isolates, choices: isolates, other]")
+}
+
+// A help tag is a plain one-line string, and the command list prints the same
+// string verbatim, so the description block must not read it as Markdown.
+func TestHelpTagIsNotMarkdown(t *testing.T) {
+	t.Setenv("COLUMNS", "120")
+
+	var cli struct {
+		Glob string `help:"Match *.go and *.md files."`
+	}
+	buf := &bytes.Buffer{}
+
+	app, err := kong.New(
+		&cli,
+		kong.Name("kingkong"),
+		kong.Description("Run *.go files with a --a*b flag."),
+		kong.Help(HelpPrinter("v0.0.0-test")),
+		kong.HelpOptions{ValueFormatter: helpValueFormatter, WrapUpperBound: 120},
+		kong.Writers(buf, buf),
+		kong.Exit(func(code int) { panic(exitCode{code: code}) }),
+	)
+	require.NoError(t, err)
+
+	output := ansi.Strip(captureHelpOutput(t, app, buf))
+	require.Contains(t, output, "Run *.go files with a --a*b flag.")
+	require.Contains(t, output, "Match *.go and *.md files.")
 }

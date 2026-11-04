@@ -7,6 +7,7 @@ require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/stretchr/testify v1.12.1
+	github.com/yuin/goldmark v1.8.6
 	gotest.tools/v3 v3.5.2
 	unikraft.com/x/colors v0.0.0-20250930161345-a5384b9cf774
 	unikraft.com/x/guesstermwidth v0.0.0-20250930190923-15fda4a56ffe
