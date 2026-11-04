@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -237,7 +238,9 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 		} else {
 			wdesc.Annotations = maps.Clone(wdesc.Annotations)
 		}
-		wdesc.Annotations[labels.LabelDistributionSource+"."+source.Domain()] = source.Path()
+		// containerd looks the label up by hostname, without the port.
+		host := (&url.URL{Host: source.Domain()}).Hostname()
+		wdesc.Annotations[labels.LabelDistributionSource+"."+host] = source.Path()
 	}
 
 	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(wdesc))
