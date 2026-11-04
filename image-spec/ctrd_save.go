@@ -33,75 +33,78 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	imageLayers := make([][]ocispec.Descriptor, len(images))
+	imageLayers := make([][]*ocispec.Descriptor, len(images))
 
 	for i, image := range images {
-		var layers []ocispec.Descriptor
+		var layers []*ocispec.Descriptor
 
 		// Kernel layer
 		if image.Kernel != nil {
-			idx := len(layers)
-			layers = append(layers, ocispec.Descriptor{})
+			layer := new(ocispec.Descriptor)
+			layers = append(layers, layer)
 			eg.Go(func() error {
 				kernelDesc, err := packageLayer(egCtx, store, image, image.Kernel, ocispec.MediaTypeImageLayer, WellKnownKernelPath)
 				if err != nil {
 					return fmt.Errorf("failed to package kernel: %w", err)
 				}
+				kernelDesc.Annotations = maps.Clone(kernelDesc.Annotations) // a copied layer has its source's map
 				if kernelDesc.Annotations == nil {
 					kernelDesc.Annotations = make(map[string]string)
 				}
 				kernelDesc.Annotations[AnnotationKernelPath] = WellKnownKernelPath
-				layers[idx] = kernelDesc
+				*layer = kernelDesc
 				return nil
 			})
 		}
 
 		// Kernel debug layer
 		if image.KernelDebug != nil {
-			idx := len(layers)
-			layers = append(layers, ocispec.Descriptor{})
+			layer := new(ocispec.Descriptor)
+			layers = append(layers, layer)
 			eg.Go(func() error {
 				kernelDesc, err := packageLayer(egCtx, store, image, image.KernelDebug, ocispec.MediaTypeImageLayer, WellKnownKernelDbgPath)
 				if err != nil {
 					return fmt.Errorf("failed to package kernel: %w", err)
 				}
+				kernelDesc.Annotations = maps.Clone(kernelDesc.Annotations)
 				if kernelDesc.Annotations == nil {
 					kernelDesc.Annotations = make(map[string]string)
 				}
 				kernelDesc.Annotations[AnnotationKernelDbgPath] = WellKnownKernelDbgPath
-				layers[idx] = kernelDesc
+				*layer = kernelDesc
 				return nil
 			})
 		}
 
 		// Initrd layer
 		if image.Initrd != nil {
-			idx := len(layers)
-			layers = append(layers, ocispec.Descriptor{})
+			layer := new(ocispec.Descriptor)
+			layers = append(layers, layer)
 			eg.Go(func() error {
 				initrdDesc, err := packageLayer(egCtx, store, image, image.Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
 				if err != nil {
 					return fmt.Errorf("failed to package initrd: %w", err)
 				}
+				initrdDesc.Annotations = maps.Clone(initrdDesc.Annotations)
 				if initrdDesc.Annotations == nil {
 					initrdDesc.Annotations = make(map[string]string)
 				}
 				initrdDesc.Annotations[AnnotationKernelInitrdPath] = WellKnownInitrdPath
-				layers[idx] = initrdDesc
+				*layer = initrdDesc
 				return nil
 			})
 		}
 
 		// ROM layers
 		for _, rom := range image.Roms {
-			idx := len(layers)
-			layers = append(layers, ocispec.Descriptor{})
+			layer := new(ocispec.Descriptor)
+			layers = append(layers, layer)
 			eg.Go(func() error {
 				romDesc, err := packageLayer(egCtx, store, image, rom, MediaTypeRom, "")
 				if err != nil {
 					return fmt.Errorf("failed to package rom: %w", err)
 				}
-				layers[idx] = romDesc
+				*layer = romDesc
 				return nil
 			})
 		}
@@ -117,7 +120,10 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 	idxAnnotations := map[string]string{}
 
 	for i, image := range images {
-		layers := imageLayers[i]
+		layers := make([]ocispec.Descriptor, len(imageLayers[i]))
+		for j, layer := range imageLayers[i] {
+			layers[j] = *layer
+		}
 		maps.Copy(idxAnnotations, image.IndexAnnotations)
 
 		// Image
