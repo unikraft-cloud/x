@@ -44,4 +44,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.gh_pat }}
           BRANCH: ${{ github.ref_name }}
-        run: gh workflow run "service-image-packer-${BRANCH#prod-}.yaml" --repo unikraft-cloud/catalog --ref "$BRANCH"
+        run: gh workflow run "service-packer-${BRANCH#prod-}.yaml" --repo unikraft-cloud/catalog --ref "$BRANCH"
