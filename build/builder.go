@@ -44,9 +44,16 @@ type Builder struct {
 	// TempDir holds the intermediate files. Empty means os.TempDir.
 	TempDir string
 
-	// MaxRootfsSize is the maximum number of bytes of each rootfs or rom that
-	// the build gets before it packs it. Zero means no limit.
+	// MaxRootfsSize is the maximum number of bytes of each rootfs or rom as the
+	// build gets it: packed from a solve or an image, its files otherwise. Zero
+	// means no limit.
 	MaxRootfsSize int64
+
+	// Packer is the image with the packer command that a solve runs on each
+	// rootfs it builds, pulled with the session's credentials, DefaultPacker
+	// being the published one. When it is empty, the build packs each rootfs
+	// that it gets from a solve itself.
+	Packer string
 }
 
 func (b Builder) images(ctx context.Context) (*imagespec.Accessor, error) {

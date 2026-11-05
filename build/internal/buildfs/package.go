@@ -22,12 +22,18 @@ import (
 // ErrTooLarge tells that a rootfs or a rom is larger than its size limit.
 var ErrTooLarge = errors.New("rootfs is too large")
 
+// ExitCodeTooLarge is the exit status of the packer command for ErrTooLarge,
+// as a solve gets only the exit status of a step. 1 is taken by its other
+// errors and 2 by a Go panic.
+const ExitCodeTooLarge = 3
+
 // Package writes src to dst in format, padded as WithPad asks.
 func Package(ctx context.Context, format kraftfile.FsType, dst *os.File, src fs.FS, opts ...CreateOption) error {
 	c := createOptions{}
 	for _, opt := range opts {
 		opt(&c)
 	}
+	src = contextFS{ctx, src}
 
 	log.G(ctx).
 		Debug().
@@ -73,6 +79,49 @@ func Package(ctx context.Context, format kraftfile.FsType, dst *os.File, src fs.
 	}
 
 	return nil
+}
+
+// contextFS fails each directory listing and file read of fsys once ctx is
+// done, as the archive writers take no context.
+type contextFS struct {
+	ctx context.Context
+	fs.FS
+}
+
+func (c contextFS) Open(name string) (fs.File, error) {
+	f, err := c.FS.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return contextFile{c.ctx, f}, nil
+}
+
+func (c contextFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if err := c.ctx.Err(); err != nil {
+		return nil, err
+	}
+	return fs.ReadDir(c.FS, name)
+}
+
+// Lstat and ReadLink keep fs.ReadLinkFS, which erofs requires.
+func (c contextFS) Lstat(name string) (fs.FileInfo, error) {
+	return fs.Lstat(c.FS, name)
+}
+
+func (c contextFS) ReadLink(name string) (string, error) {
+	return fs.ReadLink(c.FS, name)
+}
+
+type contextFile struct {
+	ctx context.Context
+	fs.File
+}
+
+func (f contextFile) Read(p []byte) (int, error) {
+	if err := f.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return f.File.Read(p)
 }
 
 // PadFile pads f up to a multiple of pad bytes.

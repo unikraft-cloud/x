@@ -388,11 +388,12 @@ func (b Builder) buildRootfsDirectoryState(ctx context.Context, opts BuildOpts, 
 }
 
 // packDirectoryState solves a directory of a StateSource or a SessionSource on
-// the one platform of opts, and packages it, reporting both as steps of part.
+// the one platform of opts, and packs it in the solve, as steps of part.
 func (b Builder) packDirectoryState(ctx context.Context, s *solver, opts BuildOpts, part string) ([]*imagespec.Image, error) {
 	dir := opts.Rootfs.Path
 	st := sourceState(opts.Rootfs.Source, []string{dir})
-	ep := getPlatform(opts.Platform[0])
+	p := opts.Platform[0]
+	ep := getPlatform(p)
 
 	def, err := marshalState(ctx, st, ep.Platform, opts.NoCache)
 	if err != nil {
@@ -403,16 +404,7 @@ func (b Builder) packDirectoryState(ctx context.Context, s *solver, opts BuildOp
 		return nil, fmt.Errorf("marshalling directory %q: %w", dir, err)
 	}
 
-	tarDest, err := os.CreateTemp(b.TempDir, "unikraft-buildkit-*.tar")
-	if err != nil {
-		return nil, fmt.Errorf("could not create temporary file: %w", err)
-	}
-	defer func() {
-		tarDest.Close()
-		os.Remove(tarDest.Name())
-	}()
-
-	err = s.solveToTar(ctx, tarDest, partPrefix(part, opts.Platform[0]), client.SolveOpt{},
+	f, err := b.solveInitrd(ctx, s, opts, part, p, opts.Rootfs.Format, client.SolveOpt{},
 		func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
 			res, err := c.Solve(ctx, gateway.SolveRequest{
 				Definition: def.ToPB(),
@@ -446,11 +438,11 @@ func (b Builder) packDirectoryState(ctx context.Context, s *solver, opts BuildOp
 		return nil, fmt.Errorf("solving directory %q of the source: %w", dir, err)
 	}
 
-	srcFS, err := buildfs.TarballFS(tarDest)
-	if err != nil {
-		return nil, fmt.Errorf("could not open tarball as filesystem: %w", err)
-	}
-	return b.packRootfs(ctx, opts, part, srcFS)
+	return []*imagespec.Image{imagespec.NewImage(
+		imagespec.WithImageConfig(applyConfigOverrides(ocispec.ImageConfig{}, opts)),
+		imagespec.WithPlatform(p),
+		imagespec.WithInitrd(imagespec.NewTempOSFile(f)),
+	)}, nil
 }
 
 // buildRootfsTarball opens the source tarball as an fs.FS and packages it
@@ -554,8 +546,9 @@ func (b Builder) buildRootfsOCI(ctx context.Context, opts BuildOpts, part string
 		byPlatform[platforms.Format(platforms.Normalize(img.Image.Platform))] = img
 	}
 
-	flattened := make(map[*imagespec.Image]fs.FS, len(loaded))
 	var s *solver
+	// The platforms of one source share its pack: format and flags come from opts.
+	packed := map[*imagespec.Image]imagespec.File{}
 
 	var imgs []*imagespec.Image
 	for i, p := range opts.Platform {
@@ -609,60 +602,43 @@ func (b Builder) buildRootfsOCI(ctx context.Context, opts BuildOpts, part string
 
 		format := cmp.Or(opts.Rootfs.Format, defaultRootfsFormat(opts))
 
-		srcFS, ok := flattened[src]
-		if !ok {
-			if uri.Scheme != schemes.OCI {
-				return nil, fmt.Errorf("rootfs image %q must be a registry reference, %q is not supported", uri.Path, uri.Scheme)
-			}
-			if src.Image == nil {
-				return nil, fmt.Errorf("rootfs image %q has no config to take a platform from", uri.Path)
-			}
-			if s == nil {
-				s, err = b.newSolver(ctx)
-				if err != nil {
-					return nil, err
-				}
-				defer s.close()
-			}
-			layers, err := os.CreateTemp(b.TempDir, "unikraft-buildkit-*.tar")
+		if uri.Scheme != schemes.OCI {
+			return nil, fmt.Errorf("rootfs image %q must be a registry reference, %q is not supported", uri.Path, uri.Scheme)
+		}
+		if src.Image == nil {
+			return nil, fmt.Errorf("rootfs image %q has no config to take a platform from", uri.Path)
+		}
+		if s == nil {
+			s, err = b.newSolver(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("could not create temporary file: %w", err)
-			}
-			defer func() {
-				layers.Close()
-				os.Remove(layers.Name())
-			}()
-
-			if err := flattenImageLayers(ctx, s, opts, src, uri, layers, partPrefix(part, p)); err != nil {
 				return nil, err
 			}
-
-			srcFS, err = buildfs.TarballFS(layers)
-			if err != nil {
-				return nil, fmt.Errorf("could not open flattened rootfs image as filesystem: %w", err)
-			}
-			flattened[src] = srcFS
+			defer s.close()
 		}
 
-		f, err := os.CreateTemp(b.TempDir, "unikraft-rootfs-*."+string(format))
-		if err != nil {
-			return nil, fmt.Errorf("could not create temporary file: %w", err)
+		initrd, ok := packed[src]
+		if ok {
+			if initrd, err = initrd.Clone(); err != nil {
+				return nil, err
+			}
+		} else {
+			f, err := b.packImage(ctx, s, opts, src, uri, format, part, p)
+			if err != nil {
+				return nil, err
+			}
+			initrd = imagespec.NewTempOSFile(f)
+			packed[src] = initrd
 		}
 		defer func() {
-			if rerr != nil && f != nil {
-				f.Close()
-				os.Remove(f.Name())
+			if rerr != nil {
+				_ = initrd.Cleanup()
 			}
 		}()
-
-		if err := b.pack(ctx, part, p, opts, format, f, srcFS); err != nil {
-			return nil, err
-		}
 
 		imgs = append(imgs, imagespec.NewImage(
 			imagespec.WithImageConfig(cfg),
 			imagespec.WithPlatform(p),
-			imagespec.WithInitrd(imagespec.NewTempOSFile(f)),
+			imagespec.WithInitrd(initrd),
 			imagespec.WithImageMetadata(created),
 		))
 	}
@@ -707,11 +683,10 @@ func copyInitrd(ctx context.Context, f *os.File, initrd imagespec.File, opts Bui
 	return nil
 }
 
-// flattenImageLayers writes the flattened filesystem of a regular OCI image to
-// dst as an uncompressed tarball, using BuildKit to do the flattening. The
-// image must come from a registry and have a config. The progress of the
-// solve is reported under prefix.
-func flattenImageLayers(ctx context.Context, s *solver, opts BuildOpts, src *imagespec.Image, uri *imagespec.Location, dst *os.File, prefix string) error {
+// packImage flattens a regular OCI image and packs it as format, as part on
+// platform p, and returns the packed rootfs in a temporary file. The image must
+// come from a registry and have a config.
+func (b Builder) packImage(ctx context.Context, s *solver, opts BuildOpts, src *imagespec.Image, uri *imagespec.Location, format kraftfile.FsType, part string, p ocispec.Platform) (*os.File, error) {
 	ref := uri.Path
 	if src.ManifestDescriptor.Digest != "" && !strings.Contains(ref, "@") {
 		ref += "@" + src.ManifestDescriptor.Digest.String()
@@ -728,10 +703,10 @@ func flattenImageLayers(ctx context.Context, s *solver, opts BuildOpts, src *ima
 
 	def, err := llb.Image(ref, imageOpts...).Marshal(ctx, constraints...)
 	if err != nil {
-		return fmt.Errorf("marshalling rootfs image source: %w", err)
+		return nil, fmt.Errorf("marshalling rootfs image source: %w", err)
 	}
 
-	err = s.solveToTar(ctx, dst, prefix, client.SolveOpt{},
+	f, err := b.solveInitrd(ctx, s, opts, part, p, format, client.SolveOpt{},
 		func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
 			return c.Solve(ctx, gateway.SolveRequest{
 				Definition: def.ToPB(),
@@ -739,10 +714,9 @@ func flattenImageLayers(ctx context.Context, s *solver, opts BuildOpts, src *ima
 			})
 		})
 	if err != nil {
-		return fmt.Errorf("flattening rootfs image %q: %w", uri.Path, err)
+		return nil, fmt.Errorf("packing rootfs image %q: %w", uri.Path, err)
 	}
-
-	return nil
+	return f, nil
 }
 
 func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part string) (_ []*imagespec.Image, rerr error) {
@@ -788,15 +762,6 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 			frontendInputs[name] = def.ToPB()
 		}
 
-		tarDest, err := os.CreateTemp(b.TempDir, "unikraft-buildkit-*.tar")
-		if err != nil {
-			return nil, fmt.Errorf("could not create temporary file: %w", err)
-		}
-		defer func() {
-			tarDest.Close()
-			os.Remove(tarDest.Name())
-		}()
-
 		solveOpt := client.SolveOpt{
 			LocalMounts:   localMounts,
 			Frontend:      "dockerfile.v0",
@@ -804,11 +769,12 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 		}
 
 		var config ocispec.Image
-		err = s.solveToTar(ctx, tarDest, partPrefix(part, p), solveOpt, func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
+		f, err := b.solveInitrd(ctx, s, opts, part, p, opts.Rootfs.Format, solveOpt, func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
 			res, err := c.Solve(ctx, gateway.SolveRequest{
 				Frontend:       solveOpt.Frontend,
 				FrontendOpt:    solveOpt.FrontendAttrs,
 				FrontendInputs: frontendInputs,
+				Evaluate:       true,
 			})
 			if err != nil {
 				return nil, err
@@ -825,26 +791,12 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 		if err != nil {
 			return nil, err
 		}
-
-		srcFS, err := buildfs.TarballFS(tarDest)
-		if err != nil {
-			return nil, fmt.Errorf("could not open tarball as filesystem: %w", err)
-		}
-
-		f, err := os.CreateTemp(b.TempDir, "unikraft-rootfs-*."+string(opts.Rootfs.Format))
-		if err != nil {
-			return nil, fmt.Errorf("could not create temporary file: %w", err)
-		}
 		defer func() {
-			if rerr != nil && f != nil {
+			if rerr != nil {
 				f.Close()
 				os.Remove(f.Name())
 			}
 		}()
-
-		if err := b.pack(ctx, part, p, opts, opts.Rootfs.Format, f, srcFS); err != nil {
-			return nil, err
-		}
 
 		imgs = append(imgs, imagespec.NewImage(
 			imagespec.WithImageConfig(applyConfigOverrides(config.Config, opts)),
@@ -860,26 +812,6 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 // builds it for, the way buildkit names the steps of a multi-platform build.
 func partPrefix(part string, p ocispec.Platform) string {
 	return part + " " + platforms.Format(p)
-}
-
-// pack writes srcFS to destFS in format, as the step that packs part for
-// platform p.
-func (b Builder) pack(ctx context.Context, part string, p ocispec.Platform, opts BuildOpts, format kraftfile.FsType, destFS *os.File, srcFS fs.FS) error {
-	w := progress.WithPrefix(b.progressWriter(), partPrefix("pack", p))
-	return progress.Step(w, part+" as "+string(format), func() error {
-		if err := buildfs.CheckSize(srcFS, b.MaxRootfsSize); err != nil {
-			return err
-		}
-		// Owners of a host directory apply only to the host, so set them to root.
-		// Keep the owners from all other sources, as Docker does.
-		_, fromState := opts.Rootfs.Source.(StateSource)
-		allRoot := opts.Rootfs.Type == kraftfile.SourceTypeDirectory && !fromState
-		return buildfs.Package(ctx, format, destFS, srcFS,
-			buildfs.WithAllRoot(allRoot),
-			buildfs.WithPad(opts.Rootfs.Pad),
-			buildfs.WithCompress(opts.Rootfs.Compress),
-		)
-	})
 }
 
 // Repack returns the rootfs f of platform p in format, packed again when it is
