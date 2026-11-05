@@ -13,6 +13,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"unikraft.com/x/kraftfile"
 
@@ -56,7 +58,10 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	err = buildfs.Package(context.Background(), kraftfile.FsType(*format), out, src,
+	// Registered after CheckSize, which reads no context, so a signal still kills it.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	err = buildfs.Package(ctx, kraftfile.FsType(*format), out, src,
 		buildfs.WithPad(*pad),
 		buildfs.WithCompress(*compress),
 		buildfs.WithAllRoot(*allRoot),

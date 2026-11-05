@@ -33,6 +33,7 @@ func Package(ctx context.Context, format kraftfile.FsType, dst *os.File, src fs.
 	for _, opt := range opts {
 		opt(&c)
 	}
+	src = contextFS{ctx, src}
 
 	log.G(ctx).
 		Debug().
@@ -78,6 +79,49 @@ func Package(ctx context.Context, format kraftfile.FsType, dst *os.File, src fs.
 	}
 
 	return nil
+}
+
+// contextFS fails each directory listing and file read of fsys once ctx is
+// done, as the archive writers take no context.
+type contextFS struct {
+	ctx context.Context
+	fs.FS
+}
+
+func (c contextFS) Open(name string) (fs.File, error) {
+	f, err := c.FS.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return contextFile{c.ctx, f}, nil
+}
+
+func (c contextFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if err := c.ctx.Err(); err != nil {
+		return nil, err
+	}
+	return fs.ReadDir(c.FS, name)
+}
+
+// Lstat and ReadLink keep fs.ReadLinkFS, which erofs requires.
+func (c contextFS) Lstat(name string) (fs.FileInfo, error) {
+	return fs.Lstat(c.FS, name)
+}
+
+func (c contextFS) ReadLink(name string) (string, error) {
+	return fs.ReadLink(c.FS, name)
+}
+
+type contextFile struct {
+	ctx context.Context
+	fs.File
+}
+
+func (f contextFile) Read(p []byte) (int, error) {
+	if err := f.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return f.File.Read(p)
 }
 
 // PadFile pads f up to a multiple of pad bytes.
