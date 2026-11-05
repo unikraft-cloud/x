@@ -124,6 +124,17 @@ func (b Builder) startPush(opts *BuildOpts, kernels []*imagespec.Image, now time
 	return stop, nil
 }
 
+// pushedTag returns the temporary tag that the packer pushed img under, or ""
+// for an image that the packer did not push.
+func pushedTag(img *imagespec.Image) string {
+	tag := img.Reference.Tag()
+	if img.Kernel != nil || img.KernelDebug != nil || img.Initrd != nil || len(img.Roms) > 0 ||
+		img.ManifestDescriptor.Digest == "" || !strings.HasPrefix(tag, "tmp-") {
+		return ""
+	}
+	return tag
+}
+
 // tagOf returns the temporary tag of the image of platform p.
 func (push *packerPush) tagOf(p ocispec.Platform) string {
 	return push.tag + "-" + strings.ReplaceAll(platforms.Format(p), "/", "-")

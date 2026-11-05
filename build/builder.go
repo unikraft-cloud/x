@@ -56,8 +56,9 @@ type Builder struct {
 	// that it gets from a solve itself.
 	Packer string
 
-	// Credentials log the packer in to the registries of BuildOpts.Push. When
-	// it is nil, the packer pushes without credentials.
+	// Credentials log the packer in to the registries of BuildOpts.Push, and
+	// Save in to the Harbor API that removes the packer's temporary tags. When
+	// it is nil, both go without credentials.
 	Credentials registryauth.Credentials
 }
 

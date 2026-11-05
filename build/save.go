@@ -8,7 +8,12 @@ package build
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
 
+	"github.com/containerd/containerd/v2/core/remotes/docker"
 	distref "github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -43,6 +48,9 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 	// Only a registry needs the accessor, for its resolver and credentials.
 	access := imagespec.NewAccessor()
 	verb := "save"
+	if dest.Scheme != schemes.OCI && slices.ContainsFunc(images, func(img *imagespec.Image) bool { return pushedTag(img) != "" }) {
+		return Saved{}, fmt.Errorf("images that the packer pushed can only be saved to a registry, not to %s", dest)
+	}
 	if dest.Scheme == schemes.OCI {
 		verb = "push"
 		named, err := reference.ParseNormalizedNamed(dest.Path)
@@ -65,10 +73,60 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 	}
 	saved.Digest = res.Descriptor.Digest
 
+	// The index now holds what the packer pushed under its temporary tags.
+	for _, img := range images {
+		if tag := pushedTag(img); tag != "" {
+			if err := b.untag(ctx, dest, img.ManifestDescriptor.Digest, tag); err != nil {
+				log.G(ctx).Warn().Err(err).Str("tag", tag).Msg("leaving the temporary tag of the packer")
+			}
+		}
+	}
+
 	log.G(ctx).Debug().
 		Str("ref", saved.Ref).
 		Str("digest", saved.Digest.String()).
 		Msg("saved images")
 
 	return saved, nil
+}
+
+// untag removes tag from the manifest dgst in the repository of dest, through
+// the API of Harbor, as the registry API cannot remove only a tag.
+func (b Builder) untag(ctx context.Context, dest *imagespec.Location, dgst digest.Digest, tag string) error {
+	named, err := reference.ParseNormalizedNamed(dest.Path)
+	if err != nil {
+		return err
+	}
+	host := distref.Domain(named)
+	project, repo, ok := strings.Cut(distref.Path(named), "/")
+	if !ok {
+		return fmt.Errorf("%s names no Harbor project", named.Name())
+	}
+	scheme := "https"
+	if local, _ := docker.MatchLocalhost(host); local {
+		scheme = "http"
+	}
+	// Harbor takes a repository with a slash only escaped twice.
+	u := fmt.Sprintf("%s://%s/api/v2.0/projects/%s/repositories/%s/artifacts/%s/tags/%s",
+		scheme, host, url.PathEscape(project), url.PathEscape(url.PathEscape(repo)), dgst, url.PathEscape(tag))
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
+	if err != nil {
+		return err
+	}
+	if b.Credentials != nil {
+		user, secret, err := b.Credentials(host)
+		if err != nil {
+			return err
+		}
+		req.SetBasicAuth(user, secret)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("removing tag %s of %s: %s", tag, named.Name(), resp.Status)
+	}
+	return nil
 }
