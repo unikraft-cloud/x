@@ -7,6 +7,7 @@ package progress
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync/atomic"
 	"time"
@@ -116,32 +117,45 @@ type trackingWriter struct {
 
 func (w *trackingWriter) Write(p []byte) (n int, err error) {
 	n, err = w.Writer.Write(p)
-	w.current.Add(int64(n))
+	if errors.Is(err, content.ErrReset) {
+		w.resync()
+	} else {
+		w.current.Add(int64(n))
+	}
+	w.update(time.Time{})
+	return n, err
+}
 
+func (w *trackingWriter) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) error {
+	err := w.Writer.Commit(ctx, size, expected, opts...)
+	if errors.Is(err, content.ErrReset) {
+		w.resync()
+		w.update(time.Time{})
+		return err
+	}
+	w.update(time.Now())
+	return err
+}
+
+// resync sets the count to the offset of the writer after a reset.
+func (w *trackingWriter) resync() {
+	status, err := w.Status()
+	if err != nil {
+		w.current.Store(0)
+		return
+	}
+	w.current.Store(status.Offset)
+}
+
+func (w *trackingWriter) update(completed time.Time) {
 	w.tracker.Update(Progress{
 		Descriptor: w.desc,
 		Action:     ActionUploading,
 		Current:    w.current.Load(),
 		Total:      w.desc.Size,
 		Started:    w.started,
+		Completed:  completed,
 	})
-	return n, err
-}
-
-func (w *trackingWriter) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) error {
-	err := w.Writer.Commit(ctx, size, expected, opts...)
-
-	// Send final progress update.
-	p := Progress{
-		Descriptor: w.desc,
-		Action:     ActionUploading,
-		Current:    w.current.Load(),
-		Total:      w.desc.Size,
-		Started:    w.started,
-		Completed:  time.Now(),
-	}
-	w.tracker.Update(p)
-	return err
 }
 
 func (w *trackingWriter) Close() error {
