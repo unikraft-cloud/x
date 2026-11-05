@@ -14,7 +14,6 @@ RUN --mount=target=/src,rw \
 
 FROM scratch
 COPY --from=build /pack /pack
-# push needs a CA bundle for HTTPS and a /tmp for image-spec to tar the initrd.
+# push needs a CA bundle for HTTPS.
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /tmp /tmp
 ENTRYPOINT ["/pack"]

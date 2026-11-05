@@ -88,7 +88,7 @@ func parseSecret(value string) (*Secret, error) {
 type SSH struct {
 	ID    string
 	Paths []string
-	// Raw forwards the one socket of Paths as it is, not as an SSH agent.
+	// Raw proxies the one socket in Paths as it is, without the SSH agent protocol.
 	Raw bool
 }
 

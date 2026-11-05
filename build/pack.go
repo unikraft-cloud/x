@@ -226,6 +226,8 @@ func (b Builder) pushState(c gateway.Client, packed llb.State, img ocispec.Image
 	runOpts := []llb.RunOption{
 		llb.AddMount("/initrd", packed, llb.Readonly),
 		llb.AddMount("/config", llb.Scratch().File(llb.Mkfile("/config.json", 0o644, data)), llb.Readonly),
+		// image-spec stages the initrd layer in /tmp.
+		llb.AddMount("/tmp", llb.Scratch()),
 		llb.Platform(native),
 	}
 	if opts.push.socket != "" {
