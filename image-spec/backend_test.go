@@ -404,3 +404,28 @@ func TestLoadIgnoresDescriptorOSFeatures(t *testing.T) {
 		})
 	}
 }
+
+func TestSaveByManifest(t *testing.T) {
+	ctx := t.Context()
+
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	var byManifest []*Image
+	for _, arch := range []string{"x86_64", "arm64"} {
+		img := *testImage
+		img.Image = &ocispec.Image{Architecture: arch, OS: "fc"}
+		desc, err := SaveManifest(ctx, store, "tmp-"+arch, &img)
+		require.NoError(t, err)
+		byManifest = append(byManifest, &Image{ManifestDescriptor: desc})
+	}
+
+	idxDesc, err := SaveContent(ctx, store, "latest", byManifest...)
+	require.NoError(t, err)
+
+	loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.All)
+	require.NoError(t, err)
+	require.Len(t, loaded, 2)
+	for i, img := range loaded {
+		require.Equal(t, byManifest[i].ManifestDescriptor, img.ManifestDescriptor)
+	}
+}

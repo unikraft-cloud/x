@@ -155,6 +155,12 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 	var mfstDescs []ocispec.Descriptor
 
 	for i, image := range images {
+		// An image without parts names a manifest that the store already has.
+		if image.Kernel == nil && image.KernelDebug == nil && image.Initrd == nil && len(image.Roms) == 0 && image.ManifestDescriptor.Digest != "" {
+			mfstDescs = append(mfstDescs, image.ManifestDescriptor)
+			continue
+		}
+
 		layers := make([]ocispec.Descriptor, len(imageLayers[i]))
 		for j, layer := range imageLayers[i] {
 			layers[j] = *layer
