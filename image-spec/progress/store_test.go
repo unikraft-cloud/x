@@ -70,10 +70,11 @@ func (e errNotFound) NotFound()     {}
 // memoryIngester implements content.Ingester with in-memory writers.
 type memoryIngester struct {
 	commitErr error
+	resets    int
 }
 
 func (m *memoryIngester) Writer(_ context.Context, _ ...content.WriterOpt) (content.Writer, error) {
-	return &memoryWriter{commitErr: m.commitErr}, nil
+	return &memoryWriter{commitErr: m.commitErr, resets: m.resets}, nil
 }
 
 // memoryWriter implements content.Writer backed by a bytes buffer.
@@ -82,6 +83,7 @@ type memoryWriter struct {
 	closed    bool
 	committed bool
 	commitErr error
+	resets    int
 }
 
 func (m *memoryWriter) Write(p []byte) (n int, err error) {
@@ -104,6 +106,11 @@ func (m *memoryWriter) Digest() digest.Digest {
 }
 
 func (m *memoryWriter) Commit(_ context.Context, _ int64, _ digest.Digest, _ ...content.Opt) error {
+	if m.resets > 0 {
+		m.resets--
+		m.buf.Reset()
+		return content.ErrReset
+	}
 	m.closed = true
 	if m.commitErr != nil {
 		return m.commitErr
@@ -239,6 +246,40 @@ func TestWrapIngesterEmitsProgress(t *testing.T) {
 	assert.Equal(t, ActionUploading, last.Action)
 	assert.Equal(t, int64(len(data)), last.Current)
 	assert.False(t, last.Completed.IsZero())
+}
+
+func TestWrapIngesterRestartsCountAfterReset(t *testing.T) {
+	ingester := &memoryIngester{resets: 1}
+
+	tracker := &collectingTracker{}
+	ctx := WithTracker(context.Background(), tracker)
+
+	data := []byte("upload that is sent twice")
+	desc := ocispec.Descriptor{
+		MediaType: "application/octet-stream",
+		Size:      int64(len(data)),
+		Digest:    digest.FromBytes(data),
+	}
+
+	w, err := WrapIngester(ingester).Writer(ctx, content.WithDescriptor(desc))
+	require.NoError(t, err)
+
+	_, err = w.Write(data)
+	require.NoError(t, err)
+	require.ErrorIs(t, w.Commit(ctx, desc.Size, desc.Digest), content.ErrReset)
+
+	_, err = w.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, w.Commit(ctx, desc.Size, desc.Digest))
+
+	var completed int
+	for _, u := range tracker.Updates() {
+		assert.LessOrEqual(t, u.Current, u.Total)
+		if !u.Completed.IsZero() {
+			completed++
+		}
+	}
+	assert.Equal(t, 1, completed)
 }
 
 func TestWrapIngesterFailedCommitStillEmitsTerminalUpdateWithLimiter(t *testing.T) {
