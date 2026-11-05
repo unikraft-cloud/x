@@ -404,6 +404,9 @@ func (b Builder) packDirectoryState(ctx context.Context, s *solver, opts BuildOp
 		return nil, fmt.Errorf("marshalling directory %q: %w", dir, err)
 	}
 
+	cfg := applyConfigOverrides(ocispec.ImageConfig{}, opts)
+	config := func() ocispec.Image { return opts.push.image(p, cfg, nil) }
+
 	f, err := b.solveInitrd(ctx, s, opts, part, p, opts.Rootfs.Format, client.SolveOpt{},
 		func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
 			res, err := c.Solve(ctx, gateway.SolveRequest{
@@ -433,13 +436,20 @@ func (b Builder) packDirectoryState(ctx context.Context, s *solver, opts BuildOp
 				Definition: dirDef.ToPB(),
 				Evaluate:   true,
 			})
-		})
+		}, config)
 	if err != nil {
 		return nil, fmt.Errorf("solving directory %q of the source: %w", dir, err)
 	}
 
+	if opts.push != nil {
+		img, err := opts.push.pushedImage(f, config())
+		if err != nil {
+			return nil, err
+		}
+		return []*imagespec.Image{img}, nil
+	}
 	return []*imagespec.Image{imagespec.NewImage(
-		imagespec.WithImageConfig(applyConfigOverrides(ocispec.ImageConfig{}, opts)),
+		imagespec.WithImageConfig(cfg),
 		imagespec.WithPlatform(p),
 		imagespec.WithInitrd(imagespec.NewTempOSFile(f)),
 	)}, nil
@@ -614,6 +624,25 @@ func (b Builder) buildRootfsOCI(ctx context.Context, opts BuildOpts, part string
 				return nil, err
 			}
 			defer s.close()
+			if opts.push != nil {
+				if err := addBuildSessions(&s.session, opts); err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		if opts.push != nil {
+			config := func() ocispec.Image { return opts.push.image(p, cfg, created.Created) }
+			f, err := b.packImage(ctx, s, opts, src, uri, format, part, p, config)
+			if err != nil {
+				return nil, err
+			}
+			img, err := opts.push.pushedImage(f, config())
+			if err != nil {
+				return nil, err
+			}
+			imgs = append(imgs, img)
+			continue
 		}
 
 		initrd, ok := packed[src]
@@ -622,7 +651,7 @@ func (b Builder) buildRootfsOCI(ctx context.Context, opts BuildOpts, part string
 				return nil, err
 			}
 		} else {
-			f, err := b.packImage(ctx, s, opts, src, uri, format, part, p)
+			f, err := b.packImage(ctx, s, opts, src, uri, format, part, p, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -686,7 +715,7 @@ func copyInitrd(ctx context.Context, f *os.File, initrd imagespec.File, opts Bui
 // packImage flattens a regular OCI image and packs it as format, as part on
 // platform p, and returns the packed rootfs in a temporary file. The image must
 // come from a registry and have a config.
-func (b Builder) packImage(ctx context.Context, s *solver, opts BuildOpts, src *imagespec.Image, uri *imagespec.Location, format kraftfile.FsType, part string, p ocispec.Platform) (*os.File, error) {
+func (b Builder) packImage(ctx context.Context, s *solver, opts BuildOpts, src *imagespec.Image, uri *imagespec.Location, format kraftfile.FsType, part string, p ocispec.Platform, config func() ocispec.Image) (*os.File, error) {
 	ref := uri.Path
 	if src.ManifestDescriptor.Digest != "" && !strings.Contains(ref, "@") {
 		ref += "@" + src.ManifestDescriptor.Digest.String()
@@ -712,7 +741,7 @@ func (b Builder) packImage(ctx context.Context, s *solver, opts BuildOpts, src *
 				Definition: def.ToPB(),
 				Evaluate:   true,
 			})
-		})
+		}, config)
 	if err != nil {
 		return nil, fmt.Errorf("packing rootfs image %q: %w", uri.Path, err)
 	}
@@ -769,6 +798,7 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 		}
 
 		var config ocispec.Image
+		pushConfig := func() ocispec.Image { return opts.push.image(p, applyConfigOverrides(config.Config, opts), nil) }
 		f, err := b.solveInitrd(ctx, s, opts, part, p, opts.Rootfs.Format, solveOpt, func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
 			res, err := c.Solve(ctx, gateway.SolveRequest{
 				Frontend:       solveOpt.Frontend,
@@ -787,9 +817,17 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 				return nil, err
 			}
 			return res, nil
-		})
+		}, pushConfig)
 		if err != nil {
 			return nil, err
+		}
+		if opts.push != nil {
+			img, err := opts.push.pushedImage(f, pushConfig())
+			if err != nil {
+				return nil, err
+			}
+			imgs = append(imgs, img)
+			continue
 		}
 		defer func() {
 			if rerr != nil {
@@ -985,8 +1023,12 @@ func addBuildSessions(sessions *[]session.Attachable, opts BuildOpts) error {
 		}
 		*sessions = append(*sessions, provider)
 	}
-	if len(opts.SSH) > 0 {
-		provider, err := buildflags.CreateSSH(opts.SSH)
+	ssh := opts.SSH
+	if opts.push != nil && opts.push.socket != "" {
+		ssh = append(slices.Clone(ssh), &buildflags.SSH{ID: authSSHID, Paths: []string{opts.push.socket}, Raw: true})
+	}
+	if len(ssh) > 0 {
+		provider, err := buildflags.CreateSSH(ssh)
 		if err != nil {
 			return err
 		}

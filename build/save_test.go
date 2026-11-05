@@ -25,6 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	imagespec "unikraft.com/x/image-spec"
+	"unikraft.com/x/image-spec/contentutil"
+	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/image-spec/schemes"
 
 	"unikraft.com/x/build"
@@ -144,6 +146,53 @@ func TestSave(t *testing.T) {
 		// The registry resolves the tag to the index that Save reports.
 		assert.Equal(t, registryDigest(t, host, "acme/app", "latest"), saved.Digest)
 		assert.Equal(t, []string{"[push] " + host + "/acme/app:latest"}, steps.names)
+	})
+
+	t.Run("the index of what the packer pushed replaces its temporary tags", func(t *testing.T) {
+		// A Harbor: a registry, and an API that removes tags.
+		reg := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
+		var removed []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasPrefix(r.URL.Path, "/api/") {
+				reg.ServeHTTP(w, r)
+				return
+			}
+			if user, pass, _ := r.BasicAuth(); r.Method != http.MethodDelete || user != "alice" || pass != "s3cret" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			removed = append(removed, r.URL.EscapedPath())
+		}))
+		t.Cleanup(srv.Close)
+		host := strings.TrimPrefix(srv.URL, "http://")
+
+		resolver := docker.NewResolver(docker.ResolverOptions{
+			Hosts: docker.ConfigureDefaultRegistries(docker.WithPlainHTTP(docker.MatchAllHosts)),
+		})
+		var pushed []*imagespec.Image
+		for _, img := range testImages(fcIntel, fcArm) {
+			ref := host + "/acme/team/app:tmp-test-fc-" + img.Image.Architecture
+			pusher, err := resolver.Pusher(t.Context(), ref)
+			require.NoError(t, err)
+			desc, err := imagespec.SaveManifest(t.Context(), contentutil.FromPusher(pusher), ref, img)
+			require.NoError(t, err)
+			parsed, err := reference.Parse(ref)
+			require.NoError(t, err)
+			pushed = append(pushed, &imagespec.Image{
+				Reference:          parsed,
+				ManifestDescriptor: desc,
+				Image:              img.Image,
+			})
+		}
+
+		b := registryBuilder(alice)
+		b.Credentials = alice
+		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/team/app:v1"}, pushed...)
+		require.NoError(t, err)
+		assert.Equal(t, []string{
+			"/api/v2.0/projects/acme/repositories/team%252Fapp/artifacts/" + pushed[0].ManifestDescriptor.Digest.String() + "/tags/tmp-test-fc-x86_64",
+			"/api/v2.0/projects/acme/repositories/team%252Fapp/artifacts/" + pushed[1].ManifestDescriptor.Digest.String() + "/tags/tmp-test-fc-arm64",
+		}, removed)
 	})
 
 	t.Run("a local layout needs no accessor", func(t *testing.T) {
