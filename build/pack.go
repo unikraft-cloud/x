@@ -8,20 +8,29 @@ package build
 import (
 	"archive/tar"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
+	"github.com/moby/buildkit/identity"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"google.golang.org/grpc"
+	imagespec "unikraft.com/x/image-spec"
+	"unikraft.com/x/image-spec/reference"
+	"unikraft.com/x/image-spec/schemes"
 	"unikraft.com/x/kraftfile"
 
 	"unikraft.com/x/build/internal/buildfs"
@@ -52,6 +61,109 @@ func (b Builder) pack(ctx context.Context, part string, p ocispec.Platform, opts
 	})
 }
 
+// authSSHID is the SSH forward that takes the requests of the packer for
+// registry credentials to Builder.Credentials.
+const authSSHID = "unikraft-registry-auth"
+
+// packerPush is how the packer pushes the image of each platform from its
+// solve: with the runtime's kernel, to a temporary tag in each repository.
+type packerPush struct {
+	runtime string                // pinned reference of the runtime
+	repos   []string              // of BuildOpts.Push
+	tag     string                // prefix of the temporary tags
+	socket  string                // serving Builder.Credentials, empty without
+	now     time.Time             // of the build, for the images' dates
+	kernels map[string]*time.Time // dates of the kernels by platform
+}
+
+// startPush has the packer of a build with kernels from a runtime push to the
+// repositories of opts.Push, and serves it Builder.Credentials until stop.
+func (b Builder) startPush(opts *BuildOpts, kernels []*imagespec.Image, now time.Time) (stop func(), err error) {
+	push := &packerPush{
+		runtime: kernels[0].Location.Path,
+		tag:     "tmp-" + identity.NewID()[:12],
+		now:     now,
+		kernels: make(map[string]*time.Time, len(kernels)),
+	}
+	for _, kernel := range kernels {
+		push.kernels[platforms.Format(kernel.Image.Platform)] = kernel.Metadata().Created
+	}
+	for _, dest := range opts.Push {
+		if dest.Scheme != schemes.OCI {
+			return nil, fmt.Errorf("the packer pushes only to a registry, not to %s", dest)
+		}
+		named, err := reference.ParseNormalizedNamed(dest.Path)
+		if err != nil {
+			return nil, fmt.Errorf("parsing image reference %q: %w", dest.Path, err)
+		}
+		push.repos = append(push.repos, named.Name())
+	}
+
+	stop = func() {}
+	if b.Credentials != nil {
+		// Not in TempDir, which can be too long for the path of a socket.
+		dir, err := os.MkdirTemp("", "unikraft-auth-*")
+		if err != nil {
+			return nil, fmt.Errorf("could not create temporary directory: %w", err)
+		}
+		push.socket = filepath.Join(dir, "auth.sock")
+		l, err := net.Listen("unix", push.socket)
+		if err != nil {
+			os.RemoveAll(dir)
+			return nil, fmt.Errorf("serving registry credentials: %w", err)
+		}
+		srv := grpc.NewServer()
+		b.Credentials.Attachable().Register(srv)
+		go func() { _ = srv.Serve(l) }()
+		stop = func() {
+			srv.Stop()
+			os.RemoveAll(dir)
+		}
+	}
+	opts.push = push
+	return stop, nil
+}
+
+// tagOf returns the temporary tag of the image of platform p.
+func (push *packerPush) tagOf(p ocispec.Platform) string {
+	return push.tag + "-" + strings.ReplaceAll(platforms.Format(p), "/", "-")
+}
+
+// image returns the config of the image of platform p with cfg, dated by its
+// newest part, of which rootfs is the date of the rootfs.
+func (push *packerPush) image(p ocispec.Platform, cfg ocispec.ImageConfig, rootfs *time.Time) ocispec.Image {
+	created := newest(push.now, push.kernels[platforms.Format(p)], rootfs)
+	return ocispec.Image{Created: &created, Platform: p, Config: cfg}
+}
+
+// pushedImage returns the image of img that the packer pushed, from the
+// descriptor of its manifest in f, which it removes.
+func (push *packerPush) pushedImage(f *os.File, img ocispec.Image) (*imagespec.Image, error) {
+	f.Close()
+	data, err := os.ReadFile(f.Name())
+	os.Remove(f.Name())
+	if err != nil {
+		return nil, err
+	}
+	var desc ocispec.Descriptor
+	if err := json.Unmarshal(data, &desc); err != nil {
+		return nil, fmt.Errorf("reading the descriptor of the pushed image: %w", err)
+	}
+	ref, err := reference.Parse(push.repos[0] + ":" + push.tagOf(img.Platform))
+	if err != nil {
+		return nil, err
+	}
+
+	pushed := imagespec.NewImage(
+		imagespec.WithImageConfig(img.Config),
+		imagespec.WithPlatform(img.Platform),
+		imagespec.WithImageMetadata(imagespec.ImageMetadata{Created: img.Created}),
+	)
+	pushed.ManifestDescriptor = desc
+	pushed.Reference = ref
+	return pushed, nil
+}
+
 // packArgs is the packer command line that packs /src as format into
 // /out/initrd, the way opts ask, refusing a rootfs over maxSize bytes.
 func packArgs(opts BuildOpts, format kraftfile.FsType, maxSize int64) []string {
@@ -76,10 +188,7 @@ func packArgs(opts BuildOpts, format kraftfile.FsType, maxSize int64) []string {
 // packer runs on the daemon's own platform, as the format does not depend on
 // the target's, and refuses a rootfs over Builder.MaxRootfsSize.
 func (b Builder) packState(c gateway.Client, rootfs llb.State, format kraftfile.FsType, opts BuildOpts) llb.State {
-	native := platforms.DefaultSpec()
-	if ws := c.BuildOpts().Workers; len(ws) > 0 && len(ws[0].Platforms) > 0 {
-		native = ws[0].Platforms[0]
-	}
+	native := nativePlatform(c)
 	runOpts := []llb.RunOption{
 		llb.Args(packArgs(opts, format, b.MaxRootfsSize)),
 		llb.AddMount("/src", rootfs, llb.Readonly),
@@ -94,10 +203,51 @@ func (b Builder) packState(c gateway.Client, rootfs llb.State, format kraftfile.
 	return packer.Run(runOpts...).AddMount("/out", llb.Scratch())
 }
 
+// pushState returns a state holding /manifest.json, the descriptor of the
+// image img that the packer pushes with the rootfs that packed holds.
+func (b Builder) pushState(c gateway.Client, packed llb.State, img ocispec.Image, opts BuildOpts) (llb.State, error) {
+	data, err := json.Marshal(img)
+	if err != nil {
+		return llb.State{}, err
+	}
+	native := nativePlatform(c)
+	args := []string{"/pack", "push", "--runtime=" + opts.push.runtime, "--config=/config/config.json"}
+	runOpts := []llb.RunOption{
+		llb.AddMount("/initrd", packed, llb.Readonly),
+		llb.AddMount("/config", llb.Scratch().File(llb.Mkfile("/config.json", 0o644, data)), llb.Readonly),
+		llb.Platform(native),
+	}
+	if opts.push.socket != "" {
+		args = append(args, "--auth-socket=/run/auth.sock")
+		runOpts = append(runOpts, llb.AddSSHSocket(llb.SSHID(authSSHID), llb.SSHSocketTarget("/run/auth.sock")))
+	}
+	args = append(args, "/initrd/initrd", "/out/manifest.json")
+	targets := make([]string, len(opts.push.repos))
+	for i, repo := range opts.push.repos {
+		targets[i] = repo + ":" + opts.push.tagOf(img.Platform)
+	}
+	runOpts = append(runOpts,
+		llb.Args(append(args, targets...)),
+		llb.WithCustomName("push to "+strings.Join(targets, ", ")),
+	)
+	packer := llb.Image(b.Packer, llb.Platform(native))
+	return packer.Run(runOpts...).AddMount("/out", llb.Scratch()), nil
+}
+
+// nativePlatform returns the platform of the daemon's first worker.
+func nativePlatform(c gateway.Client) ocispec.Platform {
+	if ws := c.BuildOpts().Workers; len(ws) > 0 && len(ws[0].Platforms) > 0 {
+		return ws[0].Platforms[0]
+	}
+	return platforms.DefaultSpec()
+}
+
 // solveInitrd packs the rootfs that build evaluates as format, in the solve with
 // Builder.Packer and on the caller without, and returns it in a temporary file
 // named after format. A rootfs over the size limit fails with ErrTooLarge.
-func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, part string, p ocispec.Platform, format kraftfile.FsType, solveOpt client.SolveOpt, build gateway.BuildFunc) (_ *os.File, rerr error) {
+// With opts.push, the packer also pushes the image that config gives after
+// build, and the file holds the descriptor of its manifest instead.
+func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, part string, p ocispec.Platform, format kraftfile.FsType, solveOpt client.SolveOpt, build gateway.BuildFunc, config func() ocispec.Image) (_ *os.File, rerr error) {
 	tarDest, err := os.CreateTemp(b.TempDir, "unikraft-buildkit-*.tar")
 	if err != nil {
 		return nil, fmt.Errorf("could not create temporary file: %w", err)
@@ -148,7 +298,13 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 				return nil, err
 			}
 		}
-		def, err := b.packState(c, rootfs, format, opts).Marshal(ctx)
+		st := b.packState(c, rootfs, format, opts)
+		if opts.push != nil {
+			if st, err = b.pushState(c, st, config(), opts); err != nil {
+				return nil, err
+			}
+		}
+		def, err := st.Marshal(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("marshalling the pack step: %w", err)
 		}
@@ -166,16 +322,20 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 		return nil, err
 	}
 
+	name := "initrd"
+	if opts.push != nil {
+		name = "manifest.json"
+	}
 	tr := tar.NewReader(tarDest)
 	for {
 		hdr, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			return nil, errors.New("the solve gave no initrd")
+			return nil, fmt.Errorf("the solve gave no %s", name)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("reading the packed rootfs: %w", err)
 		}
-		if strings.TrimPrefix(hdr.Name, "./") == "initrd" && hdr.Typeflag == tar.TypeReg {
+		if strings.TrimPrefix(hdr.Name, "./") == name && hdr.Typeflag == tar.TypeReg {
 			break
 		}
 	}

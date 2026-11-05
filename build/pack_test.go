@@ -6,6 +6,7 @@
 package build
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"io/fs"
@@ -15,6 +16,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/containerd/containerd/v2/core/remotes/docker"
+	"github.com/containerd/platforms"
 	"github.com/docker/cli/cli/config"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
@@ -26,6 +29,9 @@ import (
 	"github.com/tonistiigi/fsutil"
 	"github.com/tonistiigi/fsutil/types"
 	goerofs "github.com/unikraft/go-archivefs/erofs"
+	imagespec "unikraft.com/x/image-spec"
+	"unikraft.com/x/image-spec/reference"
+	"unikraft.com/x/image-spec/schemes"
 	"unikraft.com/x/kraftfile"
 
 	"unikraft.com/x/build/registryauth"
@@ -199,6 +205,81 @@ func TestPackOncePerSource(t *testing.T) {
 			assert.Same(t, imgs[0].Initrd, imgs[1].Initrd, "the second platform shares the pack of the first")
 		})
 	}
+}
+
+// TestPushInSolve builds a Dockerfile rootfs on the buildkitd at BUILDKIT_HOST
+// and has the packer at PACKER_IMAGE push the image to PUSH_REGISTRY, which this
+// test and the steps of the daemon both reach over plain HTTP.
+func TestPushInSolve(t *testing.T) {
+	addr, packer, reg := os.Getenv("BUILDKIT_HOST"), os.Getenv("PACKER_IMAGE"), os.Getenv("PUSH_REGISTRY")
+	if addr == "" || packer == "" || reg == "" {
+		t.Skip("BUILDKIT_HOST, PACKER_IMAGE and PUSH_REGISTRY must name a buildkitd, a packer image and a registry")
+	}
+	c, err := client.New(t.Context(), addr)
+	require.NoError(t, err)
+	t.Cleanup(func() { c.Close() })
+
+	resolver := docker.NewResolver(docker.ResolverOptions{
+		Hosts: docker.ConfigureDefaultRegistries(docker.WithPlainHTTP(docker.MatchAllHosts)),
+	})
+	access := imagespec.NewAccessor(imagespec.WithResolver(resolver))
+	fc := ocispec.Platform{OS: "fc", Architecture: "x86_64"}
+	runtime, err := reference.ParseNormalizedNamed(reg + "/runtime:v1")
+	require.NoError(t, err)
+	_, _, err = imagespec.SaveRegistryImage(t.Context(), runtime, resolver, imagespec.NewImage(
+		imagespec.WithPlatform(fc),
+		imagespec.WithKernel(imagespec.NewStaticFile("kernel", []byte("kernel"))),
+	))
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM scratch\nCOPY hello /\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "hello"), []byte("hello\n"), 0o644))
+
+	b := Builder{
+		Images:   func(context.Context) (*imagespec.Accessor, error) { return access, nil },
+		Buildkit: func(context.Context) (*client.Client, func(), error) { return c, nil, nil },
+		Session: func(context.Context) ([]session.Attachable, error) {
+			creds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
+			return []session.Attachable{creds.Attachable()}, nil
+		},
+		TempDir: t.TempDir(),
+		Packer:  packer,
+		// No credentials, though the packer asks for them through the socket.
+		Credentials: func(string) (string, string, error) { return "", "", nil },
+	}
+	dest := &imagespec.Location{Scheme: schemes.OCI, Path: reg + "/app:v1"}
+	imgs, err := b.Build(t.Context(), BuildOpts{
+		Runtime:  runtime.String(),
+		Rootfs:   FSOpts{Path: filepath.Join(dir, "Dockerfile"), Type: kraftfile.SourceTypeDockerfile, Format: kraftfile.FsTypeErofs},
+		Platform: []ocispec.Platform{fc},
+		Cmd:      []string{"/hello"},
+		Push:     []*imagespec.Location{dest},
+	})
+	require.NoError(t, err)
+	closeImages(t, imgs)
+	require.Len(t, imgs, 1)
+	require.Nil(t, imgs[0].Initrd, "the initrd stays on the builder")
+
+	_, err = b.Save(t.Context(), dest, imgs...)
+	require.NoError(t, err)
+
+	loaded, err := access.LoadAll(t.Context(), imagespec.Resolved{Location: *dest}, platforms.All)
+	require.NoError(t, err)
+	closeImages(t, loaded)
+	require.Len(t, loaded, 1)
+	assert.Equal(t, []string{"/hello"}, loaded[0].Image.Config.Cmd)
+
+	rc, _, err := loaded[0].Initrd.Open(t.Context())
+	require.NoError(t, err)
+	defer rc.Close()
+	initrd, err := io.ReadAll(rc)
+	require.NoError(t, err)
+	fsys, err := goerofs.Open(bytes.NewReader(initrd))
+	require.NoError(t, err)
+	hello, err := fs.ReadFile(fsys, "hello")
+	require.NoError(t, err)
+	assert.Equal(t, "hello\n", string(hello))
 }
 
 func TestPackArgs(t *testing.T) {

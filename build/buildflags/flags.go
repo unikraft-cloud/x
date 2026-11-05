@@ -88,6 +88,8 @@ func parseSecret(value string) (*Secret, error) {
 type SSH struct {
 	ID    string
 	Paths []string
+	// Raw forwards the one socket of Paths as it is, not as an SSH agent.
+	Raw bool
 }
 
 func (s *SSH) UnmarshalText(text []byte) error {
@@ -150,6 +152,7 @@ func CreateSSH(ssh []*SSH) (session.Attachable, error) {
 		cfg := sshprovider.AgentConfig{
 			ID:    entry.ID,
 			Paths: append([]string(nil), entry.Paths...),
+			Raw:   entry.Raw,
 		}
 		configs = append(configs, cfg)
 	}

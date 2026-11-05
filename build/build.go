@@ -50,9 +50,19 @@ type BuildOpts struct {
 
 	NoCache bool
 
+	// Push are the registry images that the packer pushes the image of each
+	// platform to from its solve, under a temporary tag, when Builder.Packer
+	// is set and the build has a runtime, no roms and a rootfs from a solve.
+	// Build then returns images of their manifests only, which Save can put
+	// under one index at each of Push. Otherwise Save pushes whole images.
+	Push []*imagespec.Location
+
 	// kconfig is the kernel-level KConfig, which also applies to a target
 	// that FilterArch adds.
 	kconfig kraftfile.Map
+
+	// push is how the packer pushes, nil when it does not.
+	push *packerPush
 }
 
 type FSOpts struct {
@@ -202,6 +212,14 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) ([]*imagespec.Image,
 		return nil, fmt.Errorf("no platform targets specified")
 	}
 
+	if b.Packer != "" && len(opts.Push) > 0 && opts.Kernel == "" && opts.Runtime != "" && len(opts.Roms) == 0 {
+		stop, err := b.startPush(&opts, kernels, now)
+		if err != nil {
+			return nil, err
+		}
+		defer stop()
+	}
+
 	// Build ROMs if any are specified.
 	romFiles, err := b.buildRoms(ctx, opts)
 	if err != nil {
@@ -262,6 +280,11 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) ([]*imagespec.Image,
 	// Assemble images, one per platform.
 	images := make([]*imagespec.Image, 0, len(opts.Platform))
 	for i, p := range opts.Platform {
+		if i < len(roots) && roots[i].ManifestDescriptor.Digest != "" {
+			images = append(images, roots[i]) // the packer pushed all of it
+			continue
+		}
+
 		// Date the image by its newest part. A part without a date is new.
 		var dates []*time.Time
 		if i < len(kernels) {

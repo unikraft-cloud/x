@@ -15,6 +15,7 @@ import (
 	imagespec "unikraft.com/x/image-spec"
 
 	"unikraft.com/x/build/progress"
+	"unikraft.com/x/build/registryauth"
 )
 
 // Builder makes Unikraft images. It calls each of its functions only when a
@@ -54,6 +55,10 @@ type Builder struct {
 	// being the published one. When it is empty, the build packs each rootfs
 	// that it gets from a solve itself.
 	Packer string
+
+	// Credentials log the packer in to the registries of BuildOpts.Push. When
+	// it is nil, the packer pushes without credentials.
+	Credentials registryauth.Credentials
 }
 
 func (b Builder) images(ctx context.Context) (*imagespec.Accessor, error) {
