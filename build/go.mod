@@ -9,6 +9,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v29.5.3+incompatible
 	github.com/google/go-containerregistry v0.21.6
+	github.com/in-toto/in-toto-golang v0.11.0
 	github.com/moby/buildkit v0.31.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
@@ -54,7 +55,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/in-toto/attestation v1.2.0 // indirect
-	github.com/in-toto/in-toto-golang v0.11.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
