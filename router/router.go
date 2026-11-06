@@ -25,6 +25,7 @@ const (
 	DefaultIdleTimeout        = 30 * time.Second
 	DefaultReadHeaderTimeout  = 30 * time.Second
 	DefaultShutdownTimeout    = 30 * time.Second
+	DefaultRequestTimeout     = 10 * time.Minute
 	DefaultMaxMultipartMemory = int64(8 * bytesize.MiB)
 )
 
@@ -45,7 +46,9 @@ type Router struct {
 	idleTimeout        time.Duration
 	readHeaderTimeout  time.Duration
 	shutdownTimeout    time.Duration
+	requestTimeout     time.Duration
 	maxMultipartMemory int64
+	trustedProxies     []string
 }
 
 // New returns a new router, which wraps an http server and gin handler engine.
@@ -59,6 +62,7 @@ func New(ctx context.Context, addr string, opts ...RouterOption) (*Router, error
 		idleTimeout:        DefaultIdleTimeout,
 		readHeaderTimeout:  DefaultReadHeaderTimeout,
 		shutdownTimeout:    DefaultShutdownTimeout,
+		requestTimeout:     DefaultRequestTimeout,
 		maxMultipartMemory: DefaultMaxMultipartMemory,
 	}
 
@@ -82,6 +86,13 @@ func New(ctx context.Context, addr string, opts ...RouterOption) (*Router, error
 	// Create the engine here -- this is the core request routing handler.
 	router.engine.MaxMultipartMemory = router.maxMultipartMemory
 	router.engine.HandleMethodNotAllowed = true
+
+	if router.trustedProxies != nil {
+		router.engine.RemoteIPHeaders = []string{"X-Forwarded-For"}
+		if err := router.engine.SetTrustedProxies(router.trustedProxies); err != nil {
+			return nil, fmt.Errorf("setting trusted proxies: %w", err)
+		}
+	}
 
 	router.server = &http.Server{
 		Addr:              addr,
@@ -133,7 +144,7 @@ func (router *Router) Start(ctx context.Context) error {
 
 		// Wrap the gin engine handler in our own timeout handler, to ensure we don't
 		// keep very slow requests around.
-		router.server.Handler = timeoutHandler{mux}
+		router.server.Handler = timeoutHandler{mux, router.requestTimeout}
 	}
 
 	// Set the base context for the server.

@@ -49,6 +49,9 @@ type Transport interface {
 
 	// Environ is the instance's own environment, as NAME=value
 	Environ(ctx context.Context) ([]string, error)
+
+	// Commands is every command name on the instance's PATH
+	Commands(ctx context.Context) ([]string, error)
 }
 
 // AccessMode is what a caller wants to do with a file.
@@ -76,20 +79,14 @@ func ExitStatus(err error) (int, error) {
 	}
 
 	coded, ok := errors.AsType[exitCoder](err)
-	switch {
-	case !ok:
+	if !ok {
 		return 0, err
-	case coded.ExitCode() < 0:
-		// -1 is a signal the error did not name, so the shell reports the one a
-		// prompt sees: the command was cut short, not that it exited.
-		return StatusInterrupted, nil
-	default:
-		return coded.ExitCode(), nil
 	}
+	return coded.ExitCode(), nil
 }
 
 // exitCoder is what a command that ran and ended answers with; ExitCode is
-// [exec.ExitError.ExitCode], -1 included.
+// its status, a signal negated as [Transport] asks.
 type exitCoder interface {
 	error
 	ExitCode() int

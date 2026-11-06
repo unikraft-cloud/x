@@ -1,11 +1,12 @@
 module unikraft.com/x/router
 
-go 1.26.6
+go 1.27.3
 
 require (
 	codeberg.org/gruf/go-bytesize v1.0.4
 	github.com/a-h/templ v0.3.1020
 	github.com/gin-gonic/gin v1.12.0
+	github.com/stretchr/testify v1.12.1
 	unikraft.com/x/log v0.0.0-20250930151222-cdcd2dd742c9
 )
 
@@ -36,10 +37,10 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.60.0 // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
-	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.29.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/net v0.59.0 // indirect

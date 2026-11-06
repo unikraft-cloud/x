@@ -72,3 +72,27 @@ type Fingerprint struct {
 	// The kernel version of the underlying host, if available.
 	KernelVersion *string `json:"kernel_version,omitempty" oid:"22,omitempty"`
 }
+
+// Option adjusts what New gathers.
+type Option func(*options)
+
+type options struct {
+	machineId bool
+	cpu       bool
+	memory    bool
+	kernel    bool
+}
+
+// WithMachineId is whether to gather the machine id, which costs a process on
+// macOS.
+func WithMachineId(gather bool) Option { return func(o *options) { o.machineId = gather } }
+
+// WithCpu is whether to gather the CPU details.
+func WithCpu(gather bool) Option { return func(o *options) { o.cpu = gather } }
+
+// WithMemory is whether to gather the memory details, which cost a process on
+// macOS without cgo.
+func WithMemory(gather bool) Option { return func(o *options) { o.memory = gather } }
+
+// WithKernel is whether to gather the kernel release, version and features.
+func WithKernel(gather bool) Option { return func(o *options) { o.kernel = gather } }

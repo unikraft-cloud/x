@@ -61,7 +61,8 @@ func TestBuildImage(t *testing.T) {
 				t.Helper()
 				workDir := t.TempDir()
 				tarPath := filepath.Join(workDir, "out.tar")
-				require.NoError(t, SaveTarball(ctx, tarPath, image))
+				desc, err := SaveTarball(ctx, tarPath, image)
+				require.NoError(t, err)
 
 				f, err := os.Open(tarPath)
 				require.NoError(t, err)
@@ -71,9 +72,10 @@ func TestBuildImage(t *testing.T) {
 				store, err := local.NewStore(storeDir)
 				require.NoError(t, err)
 
-				idxDesc, err := imagesarchive.ImportIndex(ctx, store, f)
+				// The tarball carries the index that SaveTarball reports.
+				_, err = imagesarchive.ImportIndex(ctx, store, f)
 				require.NoError(t, err)
-				return store, idxDesc
+				return store, desc
 			},
 		},
 	}
@@ -194,6 +196,14 @@ func TestBuildImageMultiPlatform(t *testing.T) {
 				}
 				require.True(t, sawInitrd)
 			}
+
+			loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.All)
+			require.NoError(t, err)
+			require.Len(t, loaded, len(idx.Manifests))
+			for _, img := range loaded {
+				require.Contains(t, idx.Manifests, img.ManifestDescriptor)
+				require.NoError(t, img.Close())
+			}
 		})
 	}
 }
@@ -206,10 +216,11 @@ func TestDeleteImage(t *testing.T) {
 		tarPath := filepath.Join(workDir, "image.tar")
 
 		// Save an image to a tarball
-		require.NoError(t, SaveTarball(ctx, tarPath, testImage))
+		_, err := SaveTarball(ctx, tarPath, testImage)
+		require.NoError(t, err)
 
 		// Verify the tarball exists
-		_, err := os.Stat(tarPath)
+		_, err = os.Stat(tarPath)
 		require.NoError(t, err)
 
 		// Delete the tarball
@@ -323,11 +334,40 @@ func TestOSFeaturesOnlyInConfig(t *testing.T) {
 	require.Equal(t, platform.OSFeatures, loaded[0].Image.OSFeatures)
 }
 
+func TestIndexAnnotations(t *testing.T) {
+	ctx := t.Context()
+
+	annotations := map[string]string{AnnotationBuildID: "0b9c6f1e-6a52-4d1f-9a43-2f0d9b7f5c11"}
+	img := *testImage
+	img.Image = &ocispec.Image{Architecture: "x86_64", OS: "fc"}
+	img.IndexAnnotations = annotations
+
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	idxDesc, err := SaveContent(ctx, store, "latest", &img)
+	require.NoError(t, err)
+
+	idxBlob, err := content.ReadBlob(ctx, store, idxDesc)
+	require.NoError(t, err)
+	var idx ocispec.Index
+	require.NoError(t, json.Unmarshal(idxBlob, &idx))
+	require.Equal(t, annotations, idx.Annotations)
+
+	loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.All)
+	require.NoError(t, err)
+	require.Len(t, loaded, 1)
+	require.Equal(t, annotations, loaded[0].IndexAnnotations)
+
+	resaved, err := SaveContent(ctx, store, "latest", loaded...)
+	require.NoError(t, err)
+	require.Equal(t, idxDesc.Digest, resaved.Digest)
+}
+
 func TestLoadIgnoresDescriptorOSFeatures(t *testing.T) {
 	ctx := t.Context()
 
 	img := *testImage
-	img.Image = &ocispec.Image{Platform: ocispec.Platform{Architecture: "x86_64", OS: "fc"}}
+	img.Image = &ocispec.Image{Architecture: "x86_64", OS: "fc"}
 
 	store, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)
@@ -362,5 +402,30 @@ func TestLoadIgnoresDescriptorOSFeatures(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, single)
 		})
+	}
+}
+
+func TestSaveByManifest(t *testing.T) {
+	ctx := t.Context()
+
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	var byManifest []*Image
+	for _, arch := range []string{"x86_64", "arm64"} {
+		img := *testImage
+		img.Image = &ocispec.Image{Architecture: arch, OS: "fc"}
+		desc, err := SaveManifest(ctx, store, "tmp-"+arch, &img)
+		require.NoError(t, err)
+		byManifest = append(byManifest, &Image{ManifestDescriptor: desc})
+	}
+
+	idxDesc, err := SaveContent(ctx, store, "latest", byManifest...)
+	require.NoError(t, err)
+
+	loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.All)
+	require.NoError(t, err)
+	require.Len(t, loaded, 2)
+	for i, img := range loaded {
+		require.Equal(t, byManifest[i].ManifestDescriptor, img.ManifestDescriptor)
 	}
 }

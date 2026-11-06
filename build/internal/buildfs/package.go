@@ -1,0 +1,176 @@
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) 2026, Unikraft GmbH and The Unikraft CLI Authors.
+// Licensed under the BSD-3-Clause License (the "License").
+// You may not use this file except in compliance with the License.
+
+package buildfs
+
+import (
+	"compress/gzip"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+
+	"github.com/unikraft/go-archivefs"
+	"unikraft.com/x/kraftfile"
+	"unikraft.com/x/log"
+)
+
+// ErrTooLarge tells that a rootfs or a rom is larger than its size limit.
+var ErrTooLarge = errors.New("rootfs is too large")
+
+// ExitCodeTooLarge is the exit status of the packer command for ErrTooLarge,
+// as a solve gets only the exit status of a step. 1 is taken by its other
+// errors and 2 by a Go panic.
+const ExitCodeTooLarge = 3
+
+// Package writes src to dst in format, padded as WithPad asks.
+func Package(ctx context.Context, format kraftfile.FsType, dst *os.File, src fs.FS, opts ...CreateOption) error {
+	c := createOptions{}
+	for _, opt := range opts {
+		opt(&c)
+	}
+	src = contextFS{ctx, src}
+
+	log.G(ctx).
+		Debug().
+		Str("format", string(format)).
+		Msg("packaging rootfs")
+
+	switch format {
+	case kraftfile.FsTypeCpio:
+		var gw *gzip.Writer
+		var w io.Writer = dst
+		if c.compress {
+			gw = gzip.NewWriter(w)
+			w = gw
+		}
+
+		if err := CreateCPIO(w, src, opts...); err != nil {
+			return fmt.Errorf("could not create CPIO archive: %w", err)
+		}
+
+		if gw != nil {
+			if err := gw.Close(); err != nil {
+				return fmt.Errorf("could not close gzip writer: %w", err)
+			}
+		}
+	case kraftfile.FsTypeErofs:
+		if c.compress {
+			log.G(ctx).Warn().Msg("compression is not supported for EROFS, ignoring compress option")
+		}
+
+		if err := CreateEROFS(dst, src, opts...); err != nil {
+			return fmt.Errorf("could not create EroFS archive: %w", err)
+		}
+	default:
+		return fmt.Errorf("unknown filesystem type %q", format)
+	}
+
+	if err := PadFile(dst, c.pad); err != nil {
+		return err
+	}
+
+	if err := dst.Sync(); err != nil {
+		return fmt.Errorf("could not sync file: %w", err)
+	}
+
+	return nil
+}
+
+// contextFS fails each directory listing and file read of fsys once ctx is
+// done, as the archive writers take no context.
+type contextFS struct {
+	ctx context.Context
+	fs.FS
+}
+
+func (c contextFS) Open(name string) (fs.File, error) {
+	f, err := c.FS.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return contextFile{c.ctx, f}, nil
+}
+
+func (c contextFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if err := c.ctx.Err(); err != nil {
+		return nil, err
+	}
+	return fs.ReadDir(c.FS, name)
+}
+
+// Lstat and ReadLink keep fs.ReadLinkFS, which erofs requires.
+func (c contextFS) Lstat(name string) (fs.FileInfo, error) {
+	return fs.Lstat(c.FS, name)
+}
+
+func (c contextFS) ReadLink(name string) (string, error) {
+	return fs.ReadLink(c.FS, name)
+}
+
+type contextFile struct {
+	ctx context.Context
+	fs.File
+}
+
+func (f contextFile) Read(p []byte) (int, error) {
+	if err := f.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return f.File.Read(p)
+}
+
+// PadFile pads f up to a multiple of pad bytes.
+func PadFile(f *os.File, pad int64) error {
+	if pad <= 0 {
+		return nil
+	}
+
+	pos, err := f.Seek(0, io.SeekEnd)
+	if err != nil {
+		return fmt.Errorf("could not seek to end of file: %w", err)
+	}
+	if rem := pos % pad; rem != 0 {
+		padding := make([]byte, pad-rem)
+		if _, err := f.Write(padding); err != nil {
+			return fmt.Errorf("could not pad file to page alignment: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// CheckSize returns ErrTooLarge if the regular files of fsys, each file
+// with hardlinks once, hold more than limit. A tarball can claim more than it holds.
+func CheckSize(fsys fs.FS, limit int64) error {
+	if limit <= 0 {
+		return nil
+	}
+
+	var total int64
+	linked := map[uint64]bool{}
+	return fs.WalkDir(fsys, ".", func(_ string, d fs.DirEntry, err error) error {
+		if err != nil || !d.Type().IsRegular() {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if sys := info.Sys(); archivefs.GetNlink(sys) > 1 {
+			ino := archivefs.GetIno(sys)
+			if linked[ino] {
+				return nil
+			}
+			linked[ino] = true
+		}
+		if total += info.Size(); total > limit {
+			return fmt.Errorf("%w: more than %d bytes", ErrTooLarge, limit)
+		}
+		return nil
+	})
+}

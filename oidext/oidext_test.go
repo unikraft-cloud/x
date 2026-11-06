@@ -49,7 +49,7 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 		When:        time.Date(2026, 1, 4, 12, 0, 0, 0, time.UTC),
 		Inner:       Inner{Role: "worker"},
 		Optional:    &opt,
-		Embedded:    Embedded{Region: "eu-west"},
+		Region:      "eu-west",
 		SkipMe:      "should not appear",
 	}
 
@@ -392,4 +392,60 @@ func TestFloatEncoding(t *testing.T) {
 
 	assert.Equal(t, in.F32, out.F32) //nolint:testifylint // this is exact
 	assert.Equal(t, in.F64, out.F64) //nolint:testifylint // this is exact
+}
+
+type testEnum string
+
+const (
+	testEnumZero testEnum = "zero"
+	testEnumOne  testEnum = "one"
+)
+
+func TestScalarRoundTrip(t *testing.T) {
+	prefix := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 99999, 5}
+
+	exts, err := Encode(prefix, testEnumOne)
+	require.NoError(t, err)
+	require.Len(t, exts, 1)
+	assert.True(t, exts[0].Id.Equal(prefix))
+	assert.False(t, exts[0].Critical)
+
+	got := testEnumZero
+	require.NoError(t, Decode(prefix, exts, &got))
+	assert.Equal(t, testEnumOne, got)
+
+	name := "premium"
+	exts, err = Encode(prefix, &name, WithEncodeCritical())
+	require.NoError(t, err)
+	require.Len(t, exts, 1)
+	assert.True(t, exts[0].Critical)
+
+	var gotName string
+	require.NoError(t, Decode(prefix, exts, &gotName))
+	assert.Equal(t, "premium", gotName)
+}
+
+func TestScalarDecodeAbsent(t *testing.T) {
+	prefix := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 99999, 5}
+	other, err := Encode(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 99999, 6}, 1)
+	require.NoError(t, err)
+
+	got := testEnumOne
+	require.NoError(t, Decode(prefix, other, &got))
+	assert.Equal(t, testEnumOne, got, "an absent extension leaves the value alone")
+
+	require.Error(t, Decode(prefix, other, &got, WithDecodeRequireAll()))
+}
+
+func TestScalarIgnoresStructArcs(t *testing.T) {
+	prefix := asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 99999, 5}
+	type attrs struct {
+		Value int `oid:"1"`
+	}
+	exts, err := Encode(prefix, &attrs{Value: 7})
+	require.NoError(t, err)
+
+	var got int
+	require.NoError(t, Decode(prefix, exts, &got))
+	assert.Zero(t, got, "a field below the prefix is not the scalar at the prefix")
 }

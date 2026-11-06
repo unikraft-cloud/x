@@ -25,6 +25,7 @@ type promptConfig struct {
 	prompt    func(continuation bool) string
 	paint     func(string) string
 	isBuiltin func(string) bool
+	complete  func(line []rune, cursor int) (start int, cands []candidate, err error)
 }
 
 func newPrompt(promptConfig) *prompt { return &prompt{} }
