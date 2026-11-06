@@ -9,9 +9,8 @@ package build_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +23,6 @@ import (
 	"github.com/moby/buildkit/session"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
-	"github.com/unikraft/go-archivefs/cpio"
 	"unikraft.com/x/buildkit"
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/integration"
@@ -143,42 +141,31 @@ RUN ln -s /etc/passwd /another-test-link
 	assertBuildPlatforms(t, imgs, []string{"kraftcloud/x86_64"})
 
 	// Inspect the CPIO archive to verify symlink targets
-	initrd := imgs[0].Initrd
-	require.NotNil(t, initrd)
-
-	f, _, err := initrd.Open(ctx)
-	require.NoError(t, err)
-	defer f.Close()
-
-	cr := cpio.NewReader(f)
+	fsys := integration.OpenInitrd(t, imgs[0].Initrd, kraftfile.FsTypeCpio)
 
 	// Track found symlinks and their targets
 	foundSymlinks := make(map[string]string)
-
-	for {
-		hdr, err := cr.Next()
-		if errors.Is(err, io.EOF) {
-			break
+	require.NoError(t, fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.Type()&fs.ModeSymlink == 0 {
+			return err
 		}
-		require.NoError(t, err)
-
-		if hdr.Mode&cpio.TypeSymlink != 0 {
-			foundSymlinks[hdr.Name] = hdr.Linkname
-		}
-	}
+		target, err := fs.ReadLink(fsys, path)
+		foundSymlinks[path] = target
+		return err
+	}))
 
 	// Verify our test symlinks are correct
-	require.Contains(t, foundSymlinks, "./test-symlink")
-	require.Equal(t, "/usr/bin/bash", foundSymlinks["./test-symlink"],
+	require.Contains(t, foundSymlinks, "test-symlink")
+	require.Equal(t, "/usr/bin/bash", foundSymlinks["test-symlink"],
 		"test-symlink should point to /usr/bin/bash, not a rewritten path")
 
-	require.Contains(t, foundSymlinks, "./another-test-link")
-	require.Equal(t, "/etc/passwd", foundSymlinks["./another-test-link"],
+	require.Contains(t, foundSymlinks, "another-test-link")
+	require.Equal(t, "/etc/passwd", foundSymlinks["another-test-link"],
 		"another-test-link should point to /etc/passwd, not a rewritten path")
 
 	// Verify a symlink from the debian image itself
-	require.Contains(t, foundSymlinks, "./etc/alternatives/awk")
-	require.Equal(t, "/usr/bin/mawk", foundSymlinks["./etc/alternatives/awk"],
+	require.Contains(t, foundSymlinks, "etc/alternatives/awk")
+	require.Equal(t, "/usr/bin/mawk", foundSymlinks["etc/alternatives/awk"],
 		"Debian's awk symlink should point to /usr/bin/mawk, not a rewritten path")
 
 	// Ensure no symlinks have been incorrectly rewritten with platform prefixes
@@ -561,8 +548,8 @@ EOF
 	require.Len(t, imgs, 1)
 
 	files := integration.ReadCpioInitrd(t, imgs[0])
-	require.Contains(t, files, "./hello.txt")
-	require.Equal(t, "hello\n", files["./hello.txt"])
+	require.Contains(t, files, "hello.txt")
+	require.Equal(t, "hello\n", files["hello.txt"])
 }
 
 func TestRootfsDockerfileLabelsIntegration(t *testing.T) {
@@ -651,8 +638,8 @@ EOF
 	require.Len(t, imgs, 1)
 
 	files := integration.ReadCpioInitrd(t, imgs[0])
-	require.Contains(t, files, "./hello.txt")
-	require.Equal(t, "hello\n", files["./hello.txt"])
+	require.Contains(t, files, "hello.txt")
+	require.Equal(t, "hello\n", files["hello.txt"])
 }
 
 func TestRootfsDockerfileWithDeviceNodeIntegration(t *testing.T) {
@@ -685,8 +672,8 @@ EOF
 			switch format {
 			case kraftfile.FsTypeCpio:
 				files := integration.ReadCpioInitrd(t, imgs[0])
-				require.Contains(t, files, "./hello.txt")
-				require.Equal(t, "hello\n", files["./hello.txt"])
+				require.Contains(t, files, "hello.txt")
+				require.Equal(t, "hello\n", files["hello.txt"])
 			case kraftfile.FsTypeErofs:
 				files := integration.ReadErofsInitrd(t, imgs[0])
 				require.Contains(t, files, "hello.txt")
@@ -750,8 +737,8 @@ COPY --from=base /arch.txt /arch.txt
 	content := make(map[string]string)
 	for _, img := range imgs {
 		files := integration.ReadCpioInitrd(t, img)
-		require.Contains(t, files, "./arch.txt")
-		content[platforms.Format(img.Image.Platform)] = files["./arch.txt"]
+		require.Contains(t, files, "arch.txt")
+		content[platforms.Format(img.Image.Platform)] = files["arch.txt"]
 	}
 	require.Equal(t, "amd64\n", content["fc/x86_64"])
 	require.Equal(t, "arm64\n", content["fc/arm64"])
@@ -787,8 +774,8 @@ COPY --from=base /arch.txt /arch.txt
 	content := make(map[string]string)
 	for _, img := range imgs {
 		files := integration.ReadCpioInitrd(t, img)
-		require.Contains(t, files, "./arch.txt")
-		content[platforms.Format(img.Image.Platform)] = files["./arch.txt"]
+		require.Contains(t, files, "arch.txt")
+		content[platforms.Format(img.Image.Platform)] = files["arch.txt"]
 	}
 	require.Equal(t, "x86_64\n", content["fc/x86_64"])
 	require.Equal(t, "aarch64\n", content["fc/arm64"])
@@ -817,7 +804,7 @@ func TestRootfsOCIRegularImageIntegration(t *testing.T) {
 			switch format {
 			case kraftfile.FsTypeCpio:
 				files := integration.ReadCpioInitrd(t, imgs[0])
-				require.Contains(t, files, "./hello")
+				require.Contains(t, files, "hello")
 			case kraftfile.FsTypeErofs:
 				files := integration.ReadErofsInitrd(t, imgs[0])
 				require.Contains(t, files, "hello")
@@ -841,7 +828,7 @@ func TestRootfsOCIRegularImageNoCacheIntegration(t *testing.T) {
 		NoCache:  true,
 	})
 	require.Len(t, imgs, 1)
-	require.Contains(t, integration.ReadCpioInitrd(t, imgs[0]), "./hello")
+	require.Contains(t, integration.ReadCpioInitrd(t, imgs[0]), "hello")
 }
 
 // TestRootfsOCIRegularImagePerArchIntegration covers two platforms that resolve

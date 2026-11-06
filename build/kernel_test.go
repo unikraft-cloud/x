@@ -96,7 +96,7 @@ func TestBuildIsDatedByItsNewestPart(t *testing.T) {
 	}
 
 	var initrd bytes.Buffer
-	require.NoError(t, buildfs.CreateCPIO(t.Context(), &initrd, fstest.MapFS{
+	require.NoError(t, buildfs.CreateCPIO(&initrd, fstest.MapFS{
 		"hello.txt": {Data: []byte("hello\n"), Mode: 0o644},
 	}))
 	kernel := imagespec.WithKernel(imagespec.NewStaticFile("kernel", []byte("kernel")))

@@ -33,7 +33,7 @@ func writeUnikraftOCIArchive(t *testing.T, srcDir string, extra ...imagespec.New
 	defer f.Close()
 
 	ctx := context.Background()
-	require.NoError(t, buildfs.CreateCPIO(ctx, f, os.DirFS(srcDir)))
+	require.NoError(t, buildfs.CreateCPIO(f, os.DirFS(srcDir)))
 	require.NoError(t, f.Sync())
 
 	cpioFile, err := os.Open(cpioPath)
@@ -71,10 +71,10 @@ func TestRootfsOCIUnikraftImage(t *testing.T) {
 			require.Len(t, imgs, 1)
 
 			files := readCpioInitrd(t, imgs[0])
-			require.Contains(t, files, "./hello.txt")
-			require.Equal(t, "hello\n", files["./hello.txt"])
-			require.Contains(t, files, "./subdir/nested.txt")
-			require.Equal(t, "nested\n", files["./subdir/nested.txt"])
+			require.Contains(t, files, "hello.txt")
+			require.Equal(t, "hello\n", files["hello.txt"])
+			require.Contains(t, files, "subdir/nested.txt")
+			require.Equal(t, "nested\n", files["subdir/nested.txt"])
 		})
 	}
 }

@@ -7,14 +7,11 @@ package build
 
 import (
 	"archive/tar"
-	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/moby/buildkit/client/llb"
@@ -88,10 +85,10 @@ func TestRootfsCpioArchive(t *testing.T) {
 
 	// The pre-built CPIO is passed through as-is; verify its contents.
 	files := readCpioInitrd(t, imgs[0])
-	require.Contains(t, files, "./hello.txt")
-	require.Equal(t, "hello\n", files["./hello.txt"])
-	require.Contains(t, files, "./subdir/nested.txt")
-	require.Equal(t, "nested\n", files["./subdir/nested.txt"])
+	require.Contains(t, files, "hello.txt")
+	require.Equal(t, "hello\n", files["hello.txt"])
+	require.Contains(t, files, "subdir/nested.txt")
+	require.Equal(t, "nested\n", files["subdir/nested.txt"])
 }
 
 func TestRootfsErofsArchive(t *testing.T) {
@@ -132,10 +129,10 @@ func TestRootfsTarball(t *testing.T) {
 			switch format {
 			case kraftfile.FsTypeCpio:
 				files := readCpioInitrd(t, imgs[0])
-				require.Contains(t, files, "./hello.txt")
-				require.Equal(t, "hello\n", files["./hello.txt"])
-				require.Contains(t, files, "./subdir/nested.txt")
-				require.Equal(t, "nested\n", files["./subdir/nested.txt"])
+				require.Contains(t, files, "hello.txt")
+				require.Equal(t, "hello\n", files["hello.txt"])
+				require.Contains(t, files, "subdir/nested.txt")
+				require.Equal(t, "nested\n", files["subdir/nested.txt"])
 			case kraftfile.FsTypeErofs:
 				files := readErofsInitrd(t, imgs[0])
 				require.Contains(t, files, "hello.txt")
@@ -242,7 +239,7 @@ func TestRootfsPreservesConfig(t *testing.T) {
 
 	// Config assertions above are sufficient, but also verify the initrd is valid.
 	files := readCpioInitrd(t, imgs[0])
-	require.Contains(t, files, "./hello.txt")
+	require.Contains(t, files, "hello.txt")
 }
 
 func TestRootfsDirectoryDefaultFormat(t *testing.T) {
@@ -300,8 +297,7 @@ func TestRomDefaultFormat(t *testing.T) {
 	fsys, err := goerofs.Open(tmp)
 	require.NoError(t, err)
 
-	files := make(map[string]string)
-	readErofsDir(t, fsys, ".", files)
+	files := readFiles(t, fsys)
 	require.Contains(t, files, "hello.txt")
 	require.Equal(t, "hello\n", files["hello.txt"])
 	require.Contains(t, files, "subdir/nested.txt")
@@ -465,83 +461,60 @@ func TestRootfsCpioSourceErofsFormatMismatch(t *testing.T) {
 // content for all regular files in the CPIO archive.
 func readCpioInitrd(t *testing.T, img *imagespec.Image) map[string]string {
 	t.Helper()
-	require.NotNil(t, img.Initrd)
-
-	ctx := t.Context()
-	f, _, err := img.Initrd.Open(ctx)
-	require.NoError(t, err)
-	defer f.Close()
-
-	cr := cpio.NewReader(f)
-	files := make(map[string]string)
-	for {
-		hdr, err := cr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		require.NoError(t, err)
-
-		if hdr.Mode&cpio.TypeRegular != 0 {
-			data, err := io.ReadAll(cr)
-			require.NoError(t, err)
-			files[hdr.Name] = string(data)
-		}
-	}
-	return files
+	return readFiles(t, openImage(t, img.Initrd, kraftfile.FsTypeCpio))
 }
 
 // readErofsInitrd opens the initrd from img and returns a map of file name to
 // content for all regular files in the EROFS archive.
 func readErofsInitrd(t *testing.T, img *imagespec.Image) map[string]string {
 	t.Helper()
-	require.NotNil(t, img.Initrd)
+	return readFiles(t, openImage(t, img.Initrd, kraftfile.FsTypeErofs))
+}
 
-	ctx := t.Context()
-	rc, _, err := img.Initrd.Open(ctx)
+// openImage opens the filesystem image f in format as an fs.FS.
+func openImage(t *testing.T, f imagespec.File, format kraftfile.FsType) fs.FS {
+	t.Helper()
+	require.NotNil(t, f)
+
+	rc, _, err := f.Open(t.Context())
 	require.NoError(t, err)
 	defer rc.Close()
 
-	// EROFS needs io.ReaderAt; copy the stream into a temporary file.
-	tmp, err := os.CreateTemp(t.TempDir(), "erofs-*.img")
+	// Both readers need io.ReaderAt; copy the stream into a temporary file.
+	tmp, err := os.CreateTemp(t.TempDir(), "rootfs-*.img")
 	require.NoError(t, err)
-	defer tmp.Close()
-
+	t.Cleanup(func() { tmp.Close() })
 	_, err = io.Copy(tmp, rc)
 	require.NoError(t, err)
 
-	fsys, err := goerofs.Open(tmp)
-	require.NoError(t, err)
-
-	files := make(map[string]string)
-	readErofsDir(t, fsys, ".", files)
-	return files
+	switch format {
+	case kraftfile.FsTypeCpio:
+		fsys, err := cpio.OpenFS(tmp)
+		require.NoError(t, err)
+		return fsys
+	case kraftfile.FsTypeErofs:
+		fsys, err := goerofs.Open(tmp)
+		require.NoError(t, err)
+		return fsys
+	}
+	t.Fatalf("unknown format %q", format)
+	return nil
 }
 
-// readErofsDir recursively reads all regular files from an EROFS filesystem.
-func readErofsDir(t *testing.T, fsys *goerofs.Filesystem, dir string, files map[string]string) {
+// readFiles returns a map of file name to content for all regular files in fsys.
+func readFiles(t *testing.T, fsys fs.FS) map[string]string {
 	t.Helper()
-	entries, err := fsys.ReadDir(dir)
-	require.NoError(t, err)
 
-	for _, entry := range entries {
-		name := dir + "/" + entry.Name()
-		if dir == "." {
-			name = entry.Name()
+	files := make(map[string]string)
+	require.NoError(t, fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || !d.Type().IsRegular() {
+			return err
 		}
-		if entry.IsDir() {
-			readErofsDir(t, fsys, name, files)
-			continue
-		}
-		if !entry.Type().IsRegular() {
-			continue
-		}
-		f, err := fsys.Open(name)
-		require.NoError(t, err)
-		data, err := io.ReadAll(f)
-		f.Close()
-		require.NoError(t, err)
-		files[name] = string(data)
-	}
+		data, err := fs.ReadFile(fsys, path)
+		files[path] = string(data)
+		return err
+	}))
+	return files
 }
 
 // writeTestDirectory creates a temporary directory with some test files.
@@ -564,8 +537,7 @@ func writeTestCpioFile(t *testing.T) string {
 	require.NoError(t, err)
 	defer f.Close()
 
-	ctx := context.Background()
-	require.NoError(t, buildfs.CreateCPIO(ctx, f, os.DirFS(srcDir)))
+	require.NoError(t, buildfs.CreateCPIO(f, os.DirFS(srcDir)))
 	return cpioPath
 }
 
@@ -730,32 +702,17 @@ func TestRepackErofsAsCpio(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Cleanup() })
 
-	rc, _, err := f.Open(t.Context())
+	fsys := openImage(t, f, kraftfile.FsTypeCpio)
+	info, err := fs.Lstat(fsys, "owned/file.txt")
 	require.NoError(t, err)
-	defer rc.Close()
-	headers := map[string]*cpio.Header{}
-	var content []byte
-	cr := cpio.NewReader(rc)
-	for {
-		hdr, err := cr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		require.NoError(t, err)
-		headers[strings.TrimPrefix(hdr.Name, "./")] = hdr
-		if hdr.Name == "./owned/file.txt" {
-			content, err = io.ReadAll(cr)
-			require.NoError(t, err)
-		}
-	}
-
-	require.Contains(t, headers, "owned/file.txt")
-	file := headers["owned/file.txt"]
-	require.Equal(t, owner{1000, 1000}, owner{file.Uid, file.Guid})
-	require.Equal(t, cpio.FileMode(0o640), file.Mode.Perm())
+	require.Equal(t, owner{1000, 1000}, owner{archivefs.GetUID(info.Sys()), archivefs.GetGID(info.Sys())})
+	require.Equal(t, fs.FileMode(0o640), info.Mode().Perm())
+	content, err := fs.ReadFile(fsys, "owned/file.txt")
+	require.NoError(t, err)
 	require.Equal(t, "owned\n", string(content))
-	require.Contains(t, headers, "link")
-	require.Equal(t, "owned/file.txt", headers["link"].Linkname)
+	target, err := fs.ReadLink(fsys, "link")
+	require.NoError(t, err)
+	require.Equal(t, "owned/file.txt", target)
 }
 
 func TestRepackSameFormat(t *testing.T) {
@@ -774,8 +731,8 @@ func TestRepackSameFormat(t *testing.T) {
 	t.Cleanup(func() { _ = f.Cleanup() })
 
 	files := readCpioInitrd(t, &imagespec.Image{Initrd: f})
-	require.Equal(t, "hello\n", files["./hello.txt"])
-	require.Equal(t, "nested\n", files["./subdir/nested.txt"])
+	require.Equal(t, "hello\n", files["hello.txt"])
+	require.Equal(t, "nested\n", files["subdir/nested.txt"])
 }
 
 func TestRepackStream(t *testing.T) {
@@ -789,8 +746,8 @@ func TestRepackStream(t *testing.T) {
 	t.Cleanup(func() { _ = f.Cleanup() })
 
 	files := readCpioInitrd(t, &imagespec.Image{Initrd: f})
-	require.Equal(t, "hello\n", files["./hello.txt"])
-	require.Equal(t, "nested\n", files["./subdir/nested.txt"])
+	require.Equal(t, "hello\n", files["hello.txt"])
+	require.Equal(t, "nested\n", files["subdir/nested.txt"])
 }
 
 // owner is the uid and gid of an entry in a built root filesystem.
@@ -799,50 +756,19 @@ type owner struct{ uid, gid int }
 // readOwners returns the owner of every entry in the filesystem image f.
 func readOwners(t *testing.T, f imagespec.File, format kraftfile.FsType) map[string]owner {
 	t.Helper()
-	require.NotNil(t, f)
-
-	rc, _, err := f.Open(t.Context())
-	require.NoError(t, err)
-	defer rc.Close()
-
 	owners := make(map[string]owner)
-	switch format {
-	case kraftfile.FsTypeCpio:
-		cr := cpio.NewReader(rc)
-		for {
-			hdr, err := cr.Next()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			require.NoError(t, err)
-			_, err = io.Copy(io.Discard, cr)
-			require.NoError(t, err)
-			owners[strings.TrimPrefix(hdr.Name, "./")] = owner{hdr.Uid, hdr.Guid}
+	fsys := openImage(t, f, format)
+	require.NoError(t, fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || path == "." {
+			return err
 		}
-	case kraftfile.FsTypeErofs:
-		// EROFS needs io.ReaderAt; copy the stream into a temporary file.
-		tmp, err := os.CreateTemp(t.TempDir(), "erofs-*.img")
-		require.NoError(t, err)
-		defer tmp.Close()
-		_, err = io.Copy(tmp, rc)
-		require.NoError(t, err)
-
-		fsys, err := goerofs.Open(tmp)
-		require.NoError(t, err)
-		require.NoError(t, fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
-			if err != nil || path == "." {
-				return err
-			}
-			info, err := d.Info()
-			if err != nil {
-				return err
-			}
-			owners[path] = owner{archivefs.GetUID(info.Sys()), archivefs.GetGID(info.Sys())}
-			return nil
-		}))
-	default:
-		t.Fatalf("unknown format %q", format)
-	}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		owners[path] = owner{archivefs.GetUID(info.Sys()), archivefs.GetGID(info.Sys())}
+		return nil
+	}))
 	return owners
 }
 
