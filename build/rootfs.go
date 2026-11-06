@@ -34,9 +34,9 @@ import (
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/image-spec/schemes"
 
+	gocpio "github.com/unikraft/go-archivefs/cpio"
 	goerofs "github.com/unikraft/go-archivefs/erofs"
 	gotar "github.com/unikraft/go-archivefs/tarfs"
-	gocpio "github.com/unikraft/go-cpio"
 	"unikraft.com/x/kraftfile"
 
 	"unikraft.com/x/build/buildflags"
