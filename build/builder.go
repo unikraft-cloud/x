@@ -60,6 +60,10 @@ type Builder struct {
 	// Save in to the Harbor API that removes the packer's temporary tags. When
 	// it is nil, both go without credentials.
 	Credentials registryauth.Credentials
+
+	// InsecureRegistries are the registries, as host or host:port, that the
+	// packer pushes to over plain HTTP.
+	InsecureRegistries []string
 }
 
 func (b Builder) images(ctx context.Context) (*imagespec.Accessor, error) {
