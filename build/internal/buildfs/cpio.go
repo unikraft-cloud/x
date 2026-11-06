@@ -151,8 +151,7 @@ func CreateCPIO(ctx context.Context, w io.Writer, fsys fs.FS, opts ...CreateOpti
 
 // hardlinkKey identifies a file on the source filesystem.
 type hardlinkKey struct {
-	device int
-	inode  int64
+	inode int64
 }
 
 // inodeAllocator gives archive inode numbers in walk order, so that the same
@@ -188,7 +187,7 @@ func (a *inodeAllocator) get(source hardlinkKey, linked bool) int64 {
 // canonicalizeInode replaces the source inode on header with an archive inode.
 // It returns the source identity and true if the entry is one of many links.
 func canonicalizeInode(a *inodeAllocator, header *cpio.Header) (hardlinkKey, bool) {
-	source := hardlinkKey{device: header.DeviceID, inode: header.Inode}
+	source := hardlinkKey{inode: header.Inode}
 	linked := header.Links > 1 && header.Inode != 0
 	header.Inode = a.get(source, linked)
 
