@@ -30,6 +30,12 @@ jobs:
       - name: Setup go
         uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
 
+      - name: Login to Docker Hub
+        uses: ./.github/actions/login-docker-hub
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Run integration tests
         shell: bash
         run: |
