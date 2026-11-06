@@ -223,6 +223,9 @@ func (b Builder) pushState(c gateway.Client, packed llb.State, img ocispec.Image
 	}
 	native := nativePlatform(c)
 	args := []string{"/pack", "push", "--runtime=" + opts.push.runtime, "--config=/config/config.json"}
+	for _, host := range b.InsecureRegistries {
+		args = append(args, "--insecure-registry="+host)
+	}
 	runOpts := []llb.RunOption{
 		llb.AddMount("/initrd", packed, llb.Readonly),
 		llb.AddMount("/config", llb.Scratch().File(llb.Mkfile("/config.json", 0o644, data)), llb.Readonly),
