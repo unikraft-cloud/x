@@ -49,7 +49,7 @@ func Package(ctx context.Context, format kraftfile.FsType, dst *os.File, src fs.
 			w = gw
 		}
 
-		if err := CreateCPIO(ctx, w, src, opts...); err != nil {
+		if err := CreateCPIO(w, src, opts...); err != nil {
 			return fmt.Errorf("could not create CPIO archive: %w", err)
 		}
 

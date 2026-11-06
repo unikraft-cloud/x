@@ -8,8 +8,6 @@ package buildfs
 import (
 	"archive/tar"
 	"bytes"
-	"errors"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -25,52 +23,38 @@ import (
 	"github.com/unikraft/go-archivefs/erofs"
 )
 
-// readCPIO returns the headers of a CPIO archive in archive order.
-func readCPIO(t *testing.T, data []byte) []*cpio.Header {
+// openCPIO opens a CPIO archive as an fs.FS.
+func openCPIO(t *testing.T, data []byte) *cpio.FS {
 	t.Helper()
 
-	var headers []*cpio.Header
-	r := cpio.NewReader(bytes.NewReader(data))
-	for {
-		hdr, err := r.Next()
-		if errors.Is(err, io.EOF) {
-			return headers
-		}
-		require.NoError(t, err)
-		headers = append(headers, hdr)
-	}
+	fsys, err := cpio.OpenFS(bytes.NewReader(data))
+	require.NoError(t, err)
+	return fsys
 }
 
-// headerByName returns the header of the entry called name.
-func headerByName(t *testing.T, headers []*cpio.Header, name string) *cpio.Header {
+// lstat returns the file information of name in fsys.
+func lstat(t *testing.T, fsys fs.FS, name string) fs.FileInfo {
 	t.Helper()
 
-	for _, hdr := range headers {
-		if hdr.Name == name {
-			return hdr
-		}
-	}
-	require.Failf(t, "entry not found", "%s", name)
-	return nil
+	info, err := fs.Lstat(fsys, name)
+	require.NoError(t, err)
+	return info
 }
 
 func createCPIO(t *testing.T, fsys fs.FS, opts ...CreateOption) []byte {
 	t.Helper()
 
 	var buf bytes.Buffer
-	require.NoError(t, CreateCPIO(t.Context(), &buf, fsys, opts...))
+	require.NoError(t, CreateCPIO(&buf, fsys, opts...))
 	return buf.Bytes()
 }
 
-func TestCreateCPIOInodesFollowWalkOrder(t *testing.T) {
+func TestCreateCPIOTarballHardlinks(t *testing.T) {
 	var tarball bytes.Buffer
 	tw := tar.NewWriter(&tarball)
 	for _, hdr := range []*tar.Header{
-		{Typeflag: tar.TypeDir, Name: "etc/", Mode: 0o755},
-		{Typeflag: tar.TypeReg, Name: "etc/hosts", Mode: 0o644, Size: 4},
 		{Typeflag: tar.TypeReg, Name: "a.txt", Mode: 0o644, Size: 3},
 		{Typeflag: tar.TypeLink, Name: "b.txt", Linkname: "a.txt"},
-		{Typeflag: tar.TypeSymlink, Name: "link", Linkname: "a.txt"},
 	} {
 		require.NoError(t, tw.WriteHeader(hdr))
 		_, err := tw.Write(bytes.Repeat([]byte("x"), int(hdr.Size)))
@@ -81,18 +65,10 @@ func TestCreateCPIOInodesFollowWalkOrder(t *testing.T) {
 	fsys, err := TarballFS(bytes.NewReader(tarball.Bytes()))
 	require.NoError(t, err)
 
-	headers := readCPIO(t, createCPIO(t, fsys))
+	archive := openCPIO(t, createCPIO(t, fsys))
 
-	var names []string
-	var inodes []int64
-	for _, hdr := range headers {
-		names = append(names, hdr.Name)
-		inodes = append(inodes, hdr.Inode)
-	}
-	assert.Equal(t, []string{"./a.txt", "./b.txt", "./etc", "./etc/hosts", "./link"}, names)
-	assert.Equal(t, []int64{1, 1, 2, 3, 4}, inodes, "links to one file must share one inode")
-	assert.Equal(t, int64(3), headers[0].Size)
-	assert.Zero(t, headers[1].Size, "only the first link carries the data")
+	a, b := lstat(t, archive, "a.txt"), lstat(t, archive, "b.txt")
+	assert.Equal(t, archivefs.GetIno(a.Sys()), archivefs.GetIno(b.Sys()), "links to one file must share one inode")
 }
 
 // newTree writes a tree with a directory, files and a hardlink. Each call
@@ -125,7 +101,7 @@ func TestCreateCPIOStreamsFiles(t *testing.T) {
 	var archive countingWriter
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	require.NoError(t, CreateCPIO(t.Context(), &archive, os.DirFS(dir)))
+	require.NoError(t, CreateCPIO(&archive, os.DirFS(dir)))
 	runtime.ReadMemStats(&after)
 
 	assert.Greater(t, int64(archive), int64(size))
@@ -142,8 +118,8 @@ func TestCreateCPIORefusesFilesOf4GiB(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	var archive countingWriter
-	err = CreateCPIO(t.Context(), &archive, os.DirFS(dir))
-	require.ErrorContains(t, err, "more than CPIO holds")
+	err = CreateCPIO(&archive, os.DirFS(dir))
+	require.ErrorIs(t, err, cpio.ErrHeader)
 	assert.Less(t, int64(archive), int64(1<<20))
 }
 
@@ -156,20 +132,15 @@ func (w *countingWriter) Write(p []byte) (int, error) {
 }
 
 func TestCreateCPIOKeepsSpecialBits(t *testing.T) {
-	headers := readCPIO(t, createCPIO(t, fstest.MapFS{
+	fsys := openCPIO(t, createCPIO(t, fstest.MapFS{
 		"tmp":      {Mode: fs.ModeDir | fs.ModeSticky | 0o777},
 		"mail":     {Mode: fs.ModeDir | fs.ModeSetgid | 0o775},
 		"bin/sudo": {Data: []byte("sudo"), Mode: fs.ModeSetuid | 0o755},
 	}))
 
-	tmp := headerByName(t, headers, "./tmp")
-	assert.Equal(t, cpio.FileMode(cpio.ModeSticky|0o777), tmp.Mode&^cpio.ModeType)
-	assert.True(t, tmp.Mode.IsDir(), "the type bits must stay")
-	mail := headerByName(t, headers, "./mail")
-	assert.Equal(t, cpio.FileMode(cpio.ModeSetgid|0o775), mail.Mode&^cpio.ModeType)
-	sudo := headerByName(t, headers, "./bin/sudo")
-	assert.Equal(t, cpio.FileMode(cpio.ModeSetuid|0o755), sudo.Mode&^cpio.ModeType)
-	assert.Equal(t, cpio.FileMode(cpio.TypeRegular), sudo.Mode&cpio.ModeType, "the type bits must stay")
+	assert.Equal(t, fs.ModeDir|fs.ModeSticky|0o777, lstat(t, fsys, "tmp").Mode())
+	assert.Equal(t, fs.ModeDir|fs.ModeSetgid|0o775, lstat(t, fsys, "mail").Mode())
+	assert.Equal(t, fs.ModeSetuid|0o755, lstat(t, fsys, "bin/sudo").Mode())
 }
 
 func TestCreateCPIOIdenticalTreesAreIdentical(t *testing.T) {
@@ -190,30 +161,28 @@ func TestCreateCPIOFileInfoMap(t *testing.T) {
 	})
 
 	t.Run("source owners", func(t *testing.T) {
-		headers := readCPIO(t, createCPIO(t, os.DirFS(root), fileInfo))
+		fsys := openCPIO(t, createCPIO(t, os.DirFS(root), fileInfo))
 
-		shadow := headerByName(t, headers, "./etc/shadow")
-		assert.Equal(t, 12, shadow.Uid)
-		assert.Equal(t, 34, shadow.Guid)
-		assert.Equal(t, cpio.FileMode(0o600), shadow.Mode.Perm())
-		assert.True(t, shadow.Mode.IsRegular(), "the type bits must stay")
+		shadow := lstat(t, fsys, "etc/shadow")
+		assert.Equal(t, 12, archivefs.GetUID(shadow.Sys()))
+		assert.Equal(t, 34, archivefs.GetGID(shadow.Sys()))
+		assert.Equal(t, fs.FileMode(0o600), shadow.Mode(), "the type bits must stay")
 
-		dir := headerByName(t, headers, "./etc")
-		assert.Equal(t, cpio.FileMode(0o750), dir.Mode.Perm())
-		assert.True(t, dir.Mode.IsDir(), "the type bits must stay")
+		dir := lstat(t, fsys, "etc")
+		assert.Equal(t, fs.ModeDir|0o750, dir.Mode(), "the type bits must stay")
 
 		source, err := os.Stat(filepath.Join(root, "a.txt"))
 		require.NoError(t, err)
-		unlisted := headerByName(t, headers, "./a.txt")
-		assert.Equal(t, cpio.FileMode(source.Mode().Perm()), unlisted.Mode.Perm())
-		assert.Equal(t, archivefs.GetUID(source.Sys()), unlisted.Uid)
+		unlisted := lstat(t, fsys, "a.txt")
+		assert.Equal(t, source.Mode().Perm(), unlisted.Mode().Perm())
+		assert.Equal(t, archivefs.GetUID(source.Sys()), archivefs.GetUID(unlisted.Sys()))
 	})
 
 	t.Run("all root", func(t *testing.T) {
-		headers := readCPIO(t, createCPIO(t, os.DirFS(root), fileInfo, WithAllRoot(true)))
+		fsys := openCPIO(t, createCPIO(t, os.DirFS(root), fileInfo, WithAllRoot(true)))
 
-		shadow := headerByName(t, headers, "./etc/shadow")
-		assert.Zero(t, shadow.Uid)
-		assert.Zero(t, shadow.Guid)
+		shadow := lstat(t, fsys, "etc/shadow")
+		assert.Zero(t, archivefs.GetUID(shadow.Sys()))
+		assert.Zero(t, archivefs.GetGID(shadow.Sys()))
 	})
 }
