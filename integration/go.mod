@@ -6,8 +6,7 @@ require (
 	github.com/containerd/containerd/v2 v2.4.1
 	github.com/moby/buildkit v0.31.1
 	github.com/stretchr/testify v1.12.1
-	github.com/unikraft/go-archivefs v0.0.0-20261019091157-8981da32f72d
-	github.com/unikraft/go-cpio v0.0.0-20260415131742-4f1984ca41f3
+	github.com/unikraft/go-archivefs v0.0.0-20261106123111-364b178a11ba
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d
 )

@@ -15,8 +15,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	archivefs "github.com/unikraft/go-archivefs"
+	"github.com/unikraft/go-archivefs/cpio"
 	goerofs "github.com/unikraft/go-archivefs/erofs"
-	"github.com/unikraft/go-cpio"
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/kraftfile"
 )

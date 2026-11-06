@@ -14,7 +14,7 @@ import (
 	gopath "path"
 
 	"github.com/unikraft/go-archivefs"
-	"github.com/unikraft/go-cpio"
+	"github.com/unikraft/go-archivefs/cpio"
 	"unikraft.com/x/log"
 )
 

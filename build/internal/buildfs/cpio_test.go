@@ -21,8 +21,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/unikraft/go-archivefs"
+	"github.com/unikraft/go-archivefs/cpio"
 	"github.com/unikraft/go-archivefs/erofs"
-	"github.com/unikraft/go-cpio"
 )
 
 // readCPIO returns the headers of a CPIO archive in archive order.
