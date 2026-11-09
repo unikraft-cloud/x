@@ -42,6 +42,9 @@ const (
 	AnnotationKraftKitVersion      = "sh.kraftkit.version"
 )
 
+// annotationPrefix is the prefix of the annotations of Unikraft images.
+const annotationPrefix = "org.unikraft."
+
 const (
 	MediaTypeKernel = "application/vnd.unikraft.kernel.v1"
 	MediaTypeInitrd = "application/vnd.unikraft.initrd.v1"

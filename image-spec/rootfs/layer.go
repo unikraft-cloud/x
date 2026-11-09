@@ -23,14 +23,21 @@ var (
 	zstdMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
 )
 
-// NewLayer returns the Layer of a plain, gzip or zstd tar blob of OCI or Docker, with the compression from its first bytes.
-func NewLayer(mediaType string, open func() (io.ReadCloser, error)) (Layer, error) {
+// IsLayer reports if NewLayer accepts the media type: a plain, gzip or zstd tar layer of OCI or Docker.
+func IsLayer(mediaType string) bool {
 	switch mediaType {
 	case ocispec.MediaTypeImageLayer, ocispec.MediaTypeImageLayerGzip, ocispec.MediaTypeImageLayerZstd,
 		ocispec.MediaTypeImageLayerNonDistributable, ocispec.MediaTypeImageLayerNonDistributableGzip, //nolint:staticcheck // Old images still use them.
 		ocispec.MediaTypeImageLayerNonDistributableZstd, //nolint:staticcheck // Old images still use it.
 		images.MediaTypeDockerSchema2Layer, images.MediaTypeDockerSchema2LayerGzip, images.MediaTypeDockerSchema2LayerZstd:
-	default:
+		return true
+	}
+	return false
+}
+
+// NewLayer returns the Layer of a blob that [IsLayer] accepts, with the compression from its first bytes.
+func NewLayer(mediaType string, open func() (io.ReadCloser, error)) (Layer, error) {
+	if !IsLayer(mediaType) {
 		return nil, fmt.Errorf("unsupported layer media type %q", mediaType)
 	}
 	return func() (io.ReadCloser, error) {
