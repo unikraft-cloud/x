@@ -29,6 +29,9 @@ type Image struct {
 	Initrd      File
 	Roms        []File
 
+	// Generic is true for an OCI image without Unikraft annotations; loaded for a Unikraft platform, its Initrd is EROFS.
+	Generic bool
+
 	// Image configs
 	Image            *ocispec.Image
 	Annotations      map[string]string
