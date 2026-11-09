@@ -66,8 +66,8 @@ func SaveManifest(ctx context.Context, store content.Ingester, ref string, image
 
 func saveManifests(ctx context.Context, store content.Ingester, ref string, images ...*Image) ([]ocispec.Descriptor, error) {
 	for _, image := range images {
-		if image.skippedLayers {
-			return nil, fmt.Errorf("image %s has layers that are not Unikraft parts, which a save cannot write: copy it with Accessor.Copy", image.ManifestDescriptor.Digest)
+		if err := savable(image); err != nil {
+			return nil, err
 		}
 	}
 	store = ingestRef(store, ref)
@@ -117,8 +117,8 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 			})
 		}
 
-		// Initrd layer
-		if image.Initrd != nil {
+		// Initrd layer, which a Docker image has only from its layers
+		if image.Initrd != nil && image.Runtime != RuntimeKindDocker {
 			layer := new(ocispec.Descriptor)
 			layers = append(layers, layer)
 			eg.Go(func() error {
@@ -150,6 +150,20 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 			})
 		}
 
+		// Layers of a Docker image, written back as they are
+		for _, file := range image.Layers {
+			layer := new(ocispec.Descriptor)
+			layers = append(layers, layer)
+			eg.Go(func() error {
+				desc, err := packageLayer(egCtx, store, image, file, ocispec.MediaTypeImageLayer, "")
+				if err != nil {
+					return fmt.Errorf("failed to package layer: %w", err)
+				}
+				*layer = desc
+				return nil
+			})
+		}
+
 		imageLayers[i] = layers
 	}
 
@@ -170,11 +184,14 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 		if image.Image != nil {
 			ociImage = *image.Image
 		}
-		ociImage.RootFS.Type = "layers"
-		ociImage.RootFS.DiffIDs = make([]digest.Digest, 0, len(layers))
-		for _, layer := range layers {
-			// NOTE: layers are uncompressed, so DiffID == Digest
-			ociImage.RootFS.DiffIDs = append(ociImage.RootFS.DiffIDs, layer.Digest)
+		// The config of a Docker image has the digests of its uncompressed layers.
+		if image.Runtime != RuntimeKindDocker {
+			ociImage.RootFS.Type = "layers"
+			ociImage.RootFS.DiffIDs = make([]digest.Digest, 0, len(layers))
+			for _, layer := range layers {
+				// NOTE: layers are uncompressed, so DiffID == Digest
+				ociImage.RootFS.DiffIDs = append(ociImage.RootFS.DiffIDs, layer.Digest)
+			}
 		}
 
 		var err error
@@ -206,6 +223,21 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 	}
 
 	return mfstDescs, nil
+}
+
+// savable returns why a save cannot write image, or nil.
+func savable(image *Image) error {
+	parts := image.Kernel != nil || image.KernelDebug != nil || len(image.Roms) > 0
+	switch {
+	case image.Runtime == RuntimeKindDocker && (parts || image.Initrd != nil && !isRootfs(image.Initrd)):
+		return errors.New("a Docker image cannot have a kernel, an initrd or ROMs next to its layers: for a Unikraft image, set Runtime to RuntimeKindUnikraft, clear Layers and set Image.Platform to a Unikraft platform")
+	case image.Runtime != RuntimeKindDocker && len(image.Layers) > 0:
+		return errors.New("only a Docker image has layers: clear Layers, or set Runtime to RuntimeKindDocker")
+	case image.skippedLayers:
+		// Load gives a linux image that is no Docker image without its other layers.
+		return fmt.Errorf("image %s has layers that are not Unikraft parts, which a save cannot write: copy it with Accessor.Copy", image.ManifestDescriptor.Digest)
+	}
+	return nil
 }
 
 func packageJSON(ctx context.Context, store content.Ingester, mediaType string, dt any) (ocispec.Descriptor, error) {

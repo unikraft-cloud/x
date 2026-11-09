@@ -122,14 +122,14 @@ func checkLayoutContentType(rsp *http.Response) error {
 // LoadTarballRemote loads the layout tarball at u, from desc if it is set, or
 // else from the tarball's own index.json, as LoadTarballReader does. A digest
 // in u is not checked against what is served.
-func LoadTarballRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor, client *http.Client, header http.Header, platform platforms.MatchComparer) (*Image, error) {
+func LoadTarballRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor, client *http.Client, header http.Header, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	body, err := openTarballRemote(ctx, u, client, header)
 	if err != nil {
 		return nil, err
 	}
 	defer body.Close()
 
-	img, err := LoadTarballReader(ctx, body, desc, platform)
+	img, err := LoadTarballReader(ctx, body, desc, platform, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -141,14 +141,14 @@ func LoadTarballRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor,
 // images share one temporary store, which stays until all of them are closed.
 // It loads them as
 // LoadTarballRemote does.
-func LoadAllTarballsRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor, client *http.Client, header http.Header, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllTarballsRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor, client *http.Client, header http.Header, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	body, err := openTarballRemote(ctx, u, client, header)
 	if err != nil {
 		return nil, err
 	}
 	defer body.Close()
 
-	imgs, err := LoadAllTarballReaders(ctx, body, desc, platform)
+	imgs, err := LoadAllTarballReaders(ctx, body, desc, platform, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ package imagespec
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -167,11 +168,18 @@ func ManifestDescriptors(ctx context.Context, provider content.Provider, image o
 		if wasIndex {
 			err = fmt.Errorf("no match for platform in manifest %v: %w", image.Digest, errdefs.ErrNotFound)
 		}
-		return nil, err
+		return nil, noMatchError{err}
 	}
 
 	return m, nil
 }
+
+// noMatchError is the error of ManifestDescriptors when no manifest matches the platform.
+type noMatchError struct{ error }
+
+func (e noMatchError) Unwrap() error { return e.error }
+
+func isNoMatch(err error) bool { return errors.As(err, new(noMatchError)) }
 
 // ignoringOSFeatures strips OSFeatures from candidates before matching, so a
 // platform without them still matches descriptors that carry them.
