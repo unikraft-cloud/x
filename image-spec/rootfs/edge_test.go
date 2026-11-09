@@ -169,3 +169,22 @@ func TestInMemoryHugeHeader(t *testing.T) {
 	_, err = Merge(context.Background(), []Layer{layer}, InMemory())
 	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
+
+func TestSpoolFileOffsetZero(t *testing.T) {
+	t.Parallel()
+
+	spool, err := os.Create(filepath.Join(t.TempDir(), "spool"))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, spool.Close()) }()
+	_, err = spool.WriteString("old data of the caller")
+	require.NoError(t, err)
+	layers, _ := layersOf(t, [][]ent{{reg("a", "hello")}})
+	f, err := Merge(context.Background(), layers, WithSpoolFile(spool))
+	require.NoError(t, err)
+	off, ok := f.DataOffset("a")
+	require.True(t, ok)
+	require.Zero(t, off)
+	got, err := fs.ReadFile(f, "a")
+	require.NoError(t, err)
+	require.Equal(t, "hello", string(got))
+}
