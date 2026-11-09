@@ -224,3 +224,21 @@ func TestSymlinkLookup(t *testing.T) {
 		require.NoError(t, err, name)
 	}
 }
+
+func TestStatSymlinkName(t *testing.T) {
+	t.Parallel()
+
+	layers, _ := layersOf(t, [][]ent{{reg("real", "1"), sym("ln", "real")}})
+	f, err := Merge(context.Background(), layers, InMemory())
+	require.NoError(t, err)
+	fi, err := f.Stat("ln")
+	require.NoError(t, err)
+	require.Equal(t, "ln", fi.Name())
+	require.Equal(t, int64(1), fi.Size())
+	h, err := f.Open("ln")
+	require.NoError(t, err)
+	fi, err = h.Stat()
+	require.NoError(t, err)
+	require.Equal(t, "ln", fi.Name())
+	require.NoError(t, h.Close())
+}
