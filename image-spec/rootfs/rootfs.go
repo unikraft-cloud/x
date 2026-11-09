@@ -95,7 +95,7 @@ type FS struct {
 }
 
 // Merge reads the layers, base layer first, and returns the merged tree.
-// It writes only the data of files that are visible in the result.
+// It does not write the data of files that an upper layer hides.
 func Merge(ctx context.Context, layers []Layer, opts ...Option) (*FS, error) {
 	var o options
 	for _, opt := range opts {

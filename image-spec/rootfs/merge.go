@@ -84,6 +84,7 @@ type merger struct {
 	spoolW   *bufio.Writer
 	spoolOff int64
 	cpBuf    []byte
+	zeros    []byte // padding for WithAlign
 	pending  map[string][]*pend
 	seen     map[string]*seenRec
 	cands    map[string]*Inode
@@ -115,7 +116,7 @@ func newMerger(layers []Layer, o options) (*merger, error) {
 		_ = os.Remove(f.Name())
 		m.spoolF, m.ownSpool = f, true
 	}
-	m.spoolW = bufio.NewWriterSize(onlyWriter{m.spoolF}, 1<<20)
+	m.spoolW = bufio.NewWriterSize(onlyWriter{io.NewOffsetWriter(m.spoolF, 0)}, 1<<20)
 	return m, nil
 }
 
@@ -691,7 +692,10 @@ func (m *merger) store(ino *Inode, r io.Reader, size int64) error {
 	}
 	if a := m.opts.align; a > 1 && m.spoolOff%a != 0 {
 		pad := a - m.spoolOff%a
-		if _, err := m.spoolW.Write(make([]byte, pad)); err != nil {
+		if len(m.zeros) < int(pad) {
+			m.zeros = make([]byte, a)
+		}
+		if _, err := m.spoolW.Write(m.zeros[:pad]); err != nil {
 			return err
 		}
 		m.spoolOff += pad
