@@ -23,6 +23,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestFSInterface(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name string
+		opts []Option
+	}{
+		{name: "in memory", opts: []Option{InMemory()}},
+		{name: "spool", opts: []Option{WithSpoolDir(t.TempDir())}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			layers, _ := tarLayers(t, imageLayers())
+			f, err := Merge(context.Background(), layers, tt.opts...)
+			require.NoError(t, err)
+			require.NoError(t, fstest.TestFS(f, "usr/bin/ping", "usr/bin/ping6", "etc/new", "home/u/f", "dev/null", "bin", "big"))
+			require.NoError(t, f.Close())
+		})
+	}
+}
+
 func TestRootHeader(t *testing.T) {
 	t.Parallel()
 

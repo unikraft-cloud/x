@@ -73,6 +73,9 @@ func (i *Inode) GetDevMajor() uint32 { return i.Major }
 // GetDevMinor implements archivefs.DevInfo.
 func (i *Inode) GetDevMinor() uint32 { return i.Minor }
 
+// GetXattrs implements archivefs.XattrInfo.
+func (i *Inode) GetXattrs() (map[string]string, error) { return i.Xattrs, nil }
+
 // Merge takes the layers base layer first, reads each one time from the top
 // layer down, and returns the merged tree. It writes to the spool only the
 // data of the files that stay visible.

@@ -19,6 +19,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/unikraft/go-archivefs"
+
 	xio "unikraft.com/x/io"
 )
 
@@ -269,12 +271,9 @@ var ErrXattrTooLarge = errors.New("rootfs has an xattr that is too large")
 
 // checkXattrs returns ErrXattrTooLarge for xattrs of a header that Linux refuses.
 func checkXattrs(hdr *tar.Header) error {
+	xattrs, _ := archivefs.GetXattrs(hdr)
 	list := 0
-	for k, v := range hdr.PAXRecords {
-		name, ok := strings.CutPrefix(k, "SCHILY.xattr.")
-		if !ok {
-			continue
-		}
+	for name, v := range xattrs {
 		if len(name) > maxXattrName || len(v) > maxXattrValue {
 			return fmt.Errorf("%w: %d bytes of name and %d bytes of value", ErrXattrTooLarge, len(name), len(v))
 		}
@@ -612,14 +611,11 @@ func setXattr(ino *Inode, x xattr) {
 // addXattrs keeps the xattrs of a header. A hard link header without a
 // capability removes it, because the lchown of docker removes it.
 func addXattrs(ino *Inode, hdr *tar.Header, rank int64, link bool) error {
-	hasCap := false
-	for k, v := range hdr.PAXRecords {
-		if name, ok := strings.CutPrefix(k, "SCHILY.xattr."); ok {
-			setXattr(ino, xattr{k: name, v: v, rank: rank})
-			hasCap = hasCap || name == capXattr
-		}
+	xattrs, _ := archivefs.GetXattrs(hdr)
+	for name, v := range xattrs {
+		setXattr(ino, xattr{k: name, v: v, rank: rank})
 	}
-	if link && !hasCap {
+	if _, hasCap := xattrs[capXattr]; link && !hasCap {
 		setXattr(ino, xattr{k: capXattr, rank: rank, del: true})
 	}
 	if ino.xlist > maxXattrList {
