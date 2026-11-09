@@ -32,23 +32,23 @@ import (
 // This is essentially equivalent to the tarball archive loaders/savers, but
 // unpacked and managing an index file. It's very useful for debugging :)
 
-func LoadOCILayout(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+func LoadOCILayout(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	store, err := local.NewStore(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
-	return LoadContent(ctx, store, desc, platform)
+	return LoadContent(ctx, store, desc, platform, opts...)
 }
 
-func LoadAllOCILayouts(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllOCILayouts(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	store, err := local.NewStore(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
-	return LoadAllContent(ctx, store, desc, platform)
+	return LoadAllContent(ctx, store, desc, platform, opts...)
 }
 
-func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) (*Image, error) {
+func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	idx := ociindex.NewStoreIndex(path)
 	var desc *ocispec.Descriptor
 	var err error
@@ -66,10 +66,10 @@ func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform p
 		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
 
-	return LoadContent(ctx, store, *desc, platform)
+	return LoadContent(ctx, store, *desc, platform, opts...)
 }
 
-func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	idx := ociindex.NewStoreIndex(path)
 	var desc *ocispec.Descriptor
 	var err error
@@ -87,7 +87,7 @@ func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platfo
 		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
 
-	return LoadAllContent(ctx, store, *desc, platform)
+	return LoadAllContent(ctx, store, *desc, platform, opts...)
 }
 
 func SaveOCILayout(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {

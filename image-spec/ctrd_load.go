@@ -24,8 +24,35 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+// LoadOpt is an option of a load.
+type LoadOpt func(*loadOptions)
+
+type loadOptions struct {
+	rootfsDir   string
+	rootfsWrite RootfsWriter
+}
+
+func newLoadOptions(opts []LoadOpt) loadOptions {
+	var o loadOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
+func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
+	o := newLoadOptions(opts)
 	mfsts, err := imageManifests(ctx, store, desc, platform)
+	if isNoMatch(err) {
+		imgs, err := loadFallback(ctx, store, desc, platform, err, o)
+		if err != nil {
+			return nil, err
+		}
+		for _, img := range imgs[1:] {
+			_ = img.Close()
+		}
+		return imgs[0], nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +60,7 @@ func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descr
 	if err != nil {
 		return nil, err
 	}
-	img, err := loadCtrdImageMfst(ctx, store, desc, mfsts[0])
+	img, err := loadCtrdImageMfst(ctx, store, desc, mfsts[0], platform, o)
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +68,18 @@ func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descr
 	return img, nil
 }
 
-func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
-	mfsts, err := imageManifests(ctx, store, desc, platform)
+func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
+	o := newLoadOptions(opts)
+	imgs, err := loadAll(ctx, store, desc, platform, platform, o)
+	if isNoMatch(err) {
+		return loadFallback(ctx, store, desc, platform, err, o)
+	}
+	return imgs, err
+}
+
+// loadAll loads the images of the manifests of desc that match selects, each for the platform.
+func loadAll(ctx context.Context, store content.Provider, desc ocispec.Descriptor, match, platform platforms.MatchComparer, opts loadOptions) ([]*Image, error) {
+	mfsts, err := imageManifests(ctx, store, desc, match)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +94,7 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 	eg, ctx := errgroup.WithContext(ctx)
 	for i, mfst := range mfsts {
 		eg.Go(func() error {
-			img, err := loadCtrdImageMfst(ctx, store, desc, mfst)
+			img, err := loadCtrdImageMfst(ctx, store, desc, mfst, platform, opts)
 			if err != nil {
 				return fmt.Errorf("failed to load image manifest: %w", err)
 			}
@@ -67,6 +104,11 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 		})
 	}
 	if err := eg.Wait(); err != nil {
+		for _, img := range imgs {
+			if img != nil {
+				_ = img.Close()
+			}
+		}
 		return nil, err
 	}
 
@@ -91,9 +133,8 @@ func imageManifests(ctx context.Context, store content.Provider, desc ocispec.De
 	return mfsts, nil
 }
 
-// loadCtrdImageMfst loads the image whose manifest is desc, recording root as
-// what it was loaded from.
-func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec.Descriptor, desc ocispec.Descriptor) (*Image, error) {
+// loadCtrdImageMfst loads the image whose manifest is desc for the platform, and records root as its source.
+func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec.Descriptor, desc ocispec.Descriptor, platform platforms.MatchComparer, opts loadOptions) (*Image, error) {
 	mfst, err := readManifest(ctx, store, desc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read image manifest: %w", err)
@@ -113,6 +154,19 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 		return nil, fmt.Errorf("failed to unmarshal image config blob: %w", err)
 	}
 	img.Image = &config
+
+	if IsGeneric(mfst, config.Platform) {
+		img.Runtime = RuntimeKindDocker
+		for _, layer := range mfst.Layers {
+			img.Layers = append(img.Layers, NewContentStoreFile(store, layer, ""))
+		}
+		// A build that loads an OCI rootfs asks for linux, thus only a load for a Unikraft platform converts the image.
+		// The match ignores OS features, as the selection of the manifest does.
+		if platform != nil && !ignoringOSFeatures(platform).Match(config.Platform) && (genericPlatforms{platform}).Match(config.Platform) {
+			img.Initrd = newRootfsFile(store, mfst.Layers, opts)
+		}
+		return img, nil
+	}
 
 	for _, layer := range mfst.Layers {
 		part := true
@@ -139,7 +193,7 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 		default:
 			part = false
 		}
-		// A linux image loads without its layers, for the rootfs of a build, and Save refuses it.
+		// A linux image that is no Docker image loads without its layers, and Save refuses it.
 		if !part && config.OS != "linux" {
 			return nil, fmt.Errorf("layer %s of type %s of manifest %s is not a kernel, an initrd or a ROM: copy the image with Accessor.Copy", layer.Digest, layer.MediaType, desc.Digest)
 		}

@@ -23,19 +23,19 @@ import (
 // errLocalImages is returned on js, which has no local content store.
 var errLocalImages = fmt.Errorf("local image files are not supported on js: %w", errdefs.ErrNotImplemented)
 
-func LoadOCILayout(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+func LoadOCILayout(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	return nil, errLocalImages
 }
 
-func LoadAllOCILayouts(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllOCILayouts(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	return nil, errLocalImages
 }
 
-func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) (*Image, error) {
+func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	return nil, errLocalImages
 }
 
-func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	return nil, errLocalImages
 }
 
@@ -51,19 +51,19 @@ func DeleteOCILayoutNamed(path string, tag string) error {
 	return errLocalImages
 }
 
-func LoadTarball(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+func LoadTarball(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	return nil, errLocalImages
 }
 
-func LoadAllTarballs(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllTarballs(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	return nil, errLocalImages
 }
 
-func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	return nil, errLocalImages
 }
 
-func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	return nil, errLocalImages
 }
 
