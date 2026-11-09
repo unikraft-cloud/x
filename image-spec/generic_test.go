@@ -158,6 +158,9 @@ func TestLoadGeneric(t *testing.T) {
 			}
 			require.NotEqual(t, "v3", img.Image.Variant)
 			require.Equal(t, "test", img.IndexAnnotations[ocispec.AnnotationRefName])
+			require.Equal(t, []string{"/bin/sh", "-c", "echo hi"}, img.Image.Config.Cmd)
+			require.Empty(t, img.Image.Config.Entrypoint)
+			require.Equal(t, []string{"PATH=/bin", "PWD=/app"}, img.Image.Config.Env)
 			desc, _ := img.Initrd.Source()
 			require.Empty(t, desc.Digest)
 
@@ -297,4 +300,13 @@ func TestIsGeneric(t *testing.T) {
 	} {
 		require.Equal(t, tc.want, isGeneric(tc.mfst), name)
 	}
+}
+
+func TestRunnableConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := ocispec.ImageConfig{Cmd: []string{"nginx"}}
+	runnableConfig(&cfg)
+	require.Equal(t, []string{"nginx"}, cfg.Cmd)
+	require.Empty(t, cfg.Env)
 }

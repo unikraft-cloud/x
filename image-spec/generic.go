@@ -12,6 +12,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -46,6 +47,16 @@ func hasUnikraftAnnotation(annotations map[string]string) bool {
 		}
 	}
 	return false
+}
+
+// runnableConfig changes the config of a generic image for base-compat, which runs Cmd in the directory PWD.
+func runnableConfig(cfg *ocispec.ImageConfig) {
+	cfg.Cmd = append(slices.Clone(cfg.Entrypoint), cfg.Cmd...)
+	cfg.Entrypoint = nil
+	if cfg.WorkingDir != "" {
+		cfg.Env = slices.DeleteFunc(cfg.Env, func(e string) bool { return strings.HasPrefix(e, "PWD=") })
+		cfg.Env = append(cfg.Env, "PWD="+cfg.WorkingDir)
+	}
 }
 
 // rootfsFile is the Initrd of a generic image: the first Open writes the layers to a temporary EROFS image.

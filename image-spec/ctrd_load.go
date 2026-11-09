@@ -123,6 +123,7 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 	img.Generic = isGeneric(mfst)
 	if img.Generic && forUnikraft(platform, config.Platform) {
 		img.Initrd = newRootfsFile(store, mfst.Layers)
+		runnableConfig(&img.Image.Config)
 	}
 
 	return img, nil
