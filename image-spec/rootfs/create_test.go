@@ -133,6 +133,12 @@ func TestEROFS(t *testing.T) {
 	got, err := erofs.Open(bytes.NewReader(img))
 	require.NoError(t, err)
 	sameTree(t, mergedImage(t), got, true)
+
+	fi, err := got.Lstat("usr/bin/ping")
+	require.NoError(t, err)
+	xattrs, err := archivefs.GetXattrs(fi.Sys())
+	require.NoError(t, err)
+	require.Equal(t, "escaped", xattrs["user.a=b"])
 }
 
 func TestCPIO(t *testing.T) {
