@@ -17,6 +17,8 @@ import (
 	"path"
 	"slices"
 	"strings"
+
+	"github.com/unikraft/go-archivefs"
 )
 
 // The merge reads the top layer first. Entry i of layer l has the rank (l, i),
@@ -457,14 +459,11 @@ func setXattr(ino *Inode, x xattr) {
 // addXattrs keeps the xattrs of a header. A hard link header without a
 // capability removes it, because the lchown of docker removes it.
 func addXattrs(ino *Inode, hdr *tar.Header, rank int64, link bool) {
-	hasCap := false
-	for k, v := range hdr.PAXRecords {
-		if name, ok := strings.CutPrefix(k, "SCHILY.xattr."); ok {
-			setXattr(ino, xattr{k: name, v: v, rank: rank})
-			hasCap = hasCap || name == capXattr
-		}
+	xattrs, _ := archivefs.GetXattrs(hdr)
+	for name, v := range xattrs {
+		setXattr(ino, xattr{k: name, v: v, rank: rank})
 	}
-	if link && !hasCap {
+	if _, hasCap := xattrs[capXattr]; link && !hasCap {
 		setXattr(ino, xattr{k: capXattr, rank: rank, del: true})
 	}
 }
