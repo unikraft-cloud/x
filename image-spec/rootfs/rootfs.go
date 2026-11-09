@@ -92,6 +92,7 @@ type FS struct {
 	root  *node
 	spool *os.File
 	own   bool
+	left  bool // the spool is still in its directory
 }
 
 // Merge reads the layers, base layer first, and returns the merged tree.
@@ -109,7 +110,7 @@ func Merge(ctx context.Context, layers []Layer, opts ...Option) (*FS, error) {
 		m.close()
 		return nil, err
 	}
-	return &FS{root: m.root, spool: m.spoolF, own: m.ownSpool}, nil
+	return &FS{root: m.root, spool: m.spoolF, own: m.ownSpool, left: m.spoolLeft}, nil
 }
 
 // DataOffset returns the spool offset of the data of the regular file at
@@ -125,7 +126,7 @@ func (f *FS) DataOffset(name string) (int64, bool) {
 // Close closes the spool file when Merge created it.
 func (f *FS) Close() error {
 	if f.spool != nil && f.own {
-		return f.spool.Close()
+		return closeSpool(f.spool, f.left)
 	}
 	return nil
 }
