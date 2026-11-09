@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -122,7 +123,7 @@ func (f *FS) Open(name string) (fs.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	h := &file{n: n}
+	h := &file{n: n, info: named(n, name)}
 	if n.kind == kOther && n.ino.mode.Type() == 0 {
 		var ra io.ReaderAt
 		if n.ino.data != nil {
@@ -155,8 +156,28 @@ func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
 
 // Stat returns the FileInfo of the named file and follows symlinks.
 func (f *FS) Stat(name string) (fs.FileInfo, error) {
-	return f.lookup("stat", name, true)
+	n, err := f.lookup("stat", name, true)
+	if err != nil {
+		return nil, err
+	}
+	return named(n, name), nil
 }
+
+// named returns the FileInfo of n with the base name of name, like os.Stat for a symlink.
+func named(n *node, name string) fs.FileInfo {
+	if base := path.Base(name); name != "." && base != n.name {
+		return renamed{n, base}
+	}
+	return n
+}
+
+type renamed struct {
+	*node
+	name string
+}
+
+func (r renamed) Name() string   { return r.name }
+func (r renamed) String() string { return fs.FormatFileInfo(r) }
 
 // Lstat returns the FileInfo of the named file. It does not follow a
 // symlink at the end of the path.
@@ -177,12 +198,13 @@ func (f *FS) ReadLink(name string) (string, error) {
 }
 
 type file struct {
-	n   *node
-	sr  *io.SectionReader
-	pos int
+	n    *node
+	info fs.FileInfo
+	sr   *io.SectionReader
+	pos  int
 }
 
-func (h *file) Stat() (fs.FileInfo, error) { return h.n, nil }
+func (h *file) Stat() (fs.FileInfo, error) { return h.info, nil }
 func (h *file) Close() error               { return nil }
 
 func (h *file) Read(p []byte) (int, error) {
