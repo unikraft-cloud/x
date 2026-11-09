@@ -242,3 +242,16 @@ func TestStatSymlinkName(t *testing.T) {
 	require.Equal(t, "ln", fi.Name())
 	require.NoError(t, h.Close())
 }
+
+func TestSpoolRemoved(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	layers, _ := layersOf(t, [][]ent{{reg("a", "1")}})
+	f, err := Merge(context.Background(), layers, WithSpoolDir(dir))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	left, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Empty(t, left)
+}

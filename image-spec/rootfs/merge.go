@@ -78,19 +78,20 @@ type seenRec struct {
 }
 
 type merger struct {
-	layers   []Layer
-	opts     options
-	root     *node
-	spoolF   *os.File
-	ownSpool bool
-	spoolW   *bufio.Writer
-	spoolOff int64
-	cpBuf    []byte
-	zeros    []byte // padding for WithAlign
-	pending  map[string][]*pend
-	seen     map[string]*seenRec
-	cands    map[string]*Inode
-	refetch  map[int32][]*Inode
+	layers    []Layer
+	opts      options
+	root      *node
+	spoolF    *os.File
+	ownSpool  bool
+	spoolLeft bool // the spool is still in its directory
+	spoolW    *bufio.Writer
+	spoolOff  int64
+	cpBuf     []byte
+	zeros     []byte // padding for WithAlign
+	pending   map[string][]*pend
+	seen      map[string]*seenRec
+	cands     map[string]*Inode
+	refetch   map[int32][]*Inode
 }
 
 func newMerger(layers []Layer, o options) (*merger, error) {
@@ -115,7 +116,8 @@ func newMerger(layers []Layer, o options) (*merger, error) {
 		if err != nil {
 			return nil, err
 		}
-		_ = os.Remove(f.Name())
+		// Windows cannot remove an open file, thus closeSpool removes it then.
+		m.spoolLeft = os.Remove(f.Name()) != nil
 		m.spoolF, m.ownSpool = f, true
 	}
 	m.spoolW = bufio.NewWriterSize(onlyWriter{io.NewOffsetWriter(m.spoolF, 0)}, 1<<20)
@@ -124,8 +126,17 @@ func newMerger(layers []Layer, o options) (*merger, error) {
 
 func (m *merger) close() {
 	if m.spoolF != nil && m.ownSpool {
-		_ = m.spoolF.Close()
+		_ = closeSpool(m.spoolF, m.spoolLeft)
 	}
+}
+
+// closeSpool closes a spool of Merge, and removes it when newMerger could not.
+func closeSpool(f *os.File, left bool) error {
+	err := f.Close()
+	if left {
+		err = errors.Join(err, os.Remove(f.Name()))
+	}
+	return err
 }
 
 func (m *merger) run(ctx context.Context) error {
