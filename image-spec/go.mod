@@ -13,6 +13,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/stretchr/testify v1.12.1
+	github.com/unikraft/go-archivefs v0.0.0-20261109165216-6df91ed79bb6
 	golang.org/x/sync v0.23.0
 	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624
 	unikraft.com/x/log v0.0.0-20260120165849-5b2c62ce8457
@@ -34,6 +35,7 @@ require (
 	github.com/getsentry/sentry-go v0.41.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.23 // indirect
