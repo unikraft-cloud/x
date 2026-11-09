@@ -121,3 +121,27 @@ func TestMergeErrors(t *testing.T) {
 	_, err := Merge(ctx, []Layer{func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(good)), nil }})
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
+
+func TestLinkTargetHiddenBetween(t *testing.T) {
+	t.Parallel()
+
+	// A layer between the link and its target hides the target, so the link has no target.
+	for name, hide := range map[string][]ent{
+		"opaque":             {opq("d")},
+		"whiteout":           {wh("d")},
+		"file":               {reg("d", "file")},
+		"opaque, new target": {opq("d"), reg("d/x", "new")},
+		"file after target":  {reg("d/x", "mid"), reg("d", "file")},
+	} {
+		layers, _ := layersOf(t, [][]ent{{reg("d/x", "stale")}, hide, {link("a", "d/x")}})
+		f, err := Merge(context.Background(), layers, InMemory())
+		require.NoError(t, err, name)
+		got, err := fs.ReadFile(f, "a")
+		if name == "opaque, new target" {
+			require.NoError(t, err, name)
+			require.Equal(t, "new", string(got), name)
+			continue
+		}
+		require.ErrorIs(t, err, fs.ErrNotExist, name)
+	}
+}

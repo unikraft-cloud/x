@@ -254,6 +254,7 @@ func (m *merger) entry(tr *tar.Reader, hdr *tar.Header, l, i int32) error {
 	dir, base := splitName(name)
 	if strings.HasPrefix(base, whPrefix) {
 		if base == whOpaque {
+			m.danglePending(dir, l, false)
 			if d := m.dirFor(dir, l, i); d != nil {
 				d.opaque = max(d.opaque, rankOf(l, 0))
 			}
@@ -317,6 +318,9 @@ func (m *merger) entry(tr *tar.Reader, hdr *tar.Header, l, i int32) error {
 	}
 
 	if len(m.pending) > 0 {
+		if !isDirHdr(hdr) {
+			m.danglePending(name, l, true)
+		}
 		if need, ok := m.pendingAbove(name, l); ok {
 			c, err := m.candidate(tr, hdr, name, l, i, vis, need)
 			if err != nil {
@@ -405,6 +409,7 @@ func (m *merger) whiteout(dir, name string, l, i int32) {
 				m.cands[target] = nil
 			}
 		}
+		m.danglePending(target, l, false)
 	}
 	parent := m.dirFor(dir, l, i)
 	if parent == nil {
@@ -735,6 +740,25 @@ func (m *merger) candidate(tr *tar.Reader, hdr *tar.Header, name string, l, i in
 	ino := &Inode{rank: -1}
 	rec.ino, rec.queued = ino, true
 	return ino, m.fill(ino, tr, hdr, rankOf(l, i))
+}
+
+// danglePending makes dangling the upper links that wait for a path below dir, also for entries of layer l with replace.
+func (m *merger) danglePending(dir string, l int32, replace bool) {
+	prefix := dir + "/"
+	if dir == "" {
+		prefix = ""
+	}
+	for name := range m.pending {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		if _, ok := m.pendingAbove(name, l); !ok {
+			continue
+		}
+		if _, ok := m.cands[name]; !ok || replace {
+			m.cands[name] = nil
+		}
+	}
 }
 
 // resolvePending gives the last entry of layer l at a path to the links that
