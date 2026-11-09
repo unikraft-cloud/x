@@ -188,3 +188,25 @@ func TestSpoolFileOffsetZero(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "hello", string(got))
 }
+
+func TestAUFSMetadata(t *testing.T) {
+	t.Parallel()
+
+	// Like in docker, a hard link to a file in .wh..wh.plnk still works.
+	layers, _ := layersOf(t, [][]ent{{
+		dir(".wh..wh.plnk"), reg(".wh..wh.plnk/123.456", "x"), reg(".wh..wh.aufs", ""), dir(".wh..wh.orph"), reg("a", "1"),
+		link("b", ".wh..wh.plnk/123.456"),
+	}})
+	f, err := Merge(context.Background(), layers, InMemory())
+	require.NoError(t, err)
+	require.NoError(t, fstest.TestFS(f, "a", "b"))
+	entries, err := f.ReadDir(".")
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	got, err := fs.ReadFile(f, "b")
+	require.NoError(t, err)
+	require.Equal(t, "x", string(got))
+	fi, err := f.Lstat("b")
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), fi.Sys().(*Inode).Nlink)
+}

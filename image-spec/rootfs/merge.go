@@ -25,9 +25,11 @@ import (
 // and a node of a higher layer or an opaque rank above (l, i) hides it.
 
 const (
-	whPrefix = ".wh."
-	whOpaque = ".wh..wh..opq"
-	capXattr = "security.capability"
+	whPrefix     = ".wh."
+	whOpaque     = ".wh..wh..opq"
+	whMetaPrefix = ".wh..wh."
+	whLinkDir    = ".wh..wh.plnk"
+	capXattr     = "security.capability"
 )
 
 const (
@@ -252,8 +254,13 @@ func (m *merger) entry(tr *tar.Reader, hdr *tar.Header, l, i int32) error {
 		}
 		return nil
 	}
+	// Like docker, keep only the files of .wh..wh.plnk from the AUFS metadata at the root, for hard links.
+	aufs := strings.HasPrefix(name, whMetaPrefix) && name != whOpaque
+	if aufs && name != whLinkDir && !strings.HasPrefix(name, whLinkDir+"/") {
+		return nil
+	}
 	dir, base := splitName(name)
-	if strings.HasPrefix(base, whPrefix) {
+	if strings.HasPrefix(base, whPrefix) && !aufs {
 		if base == whOpaque {
 			m.danglePending(dir, l, false)
 			if d := m.dirFor(dir, l, i); d != nil {
@@ -842,6 +849,10 @@ func (m *merger) finalize() {
 		d.list = make([]*node, 0, len(d.kids))
 		subdirs := uint32(0)
 		for _, c := range d.kids {
+			// Like docker, leave out the AUFS metadata at the root, such as .wh..wh.plnk.
+			if d == m.root && strings.HasPrefix(c.name, whMetaPrefix) {
+				continue
+			}
 			switch c.kind {
 			case kWhiteout:
 				continue
