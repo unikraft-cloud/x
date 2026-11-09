@@ -24,7 +24,7 @@ require (
 	unikraft.com/x/dockerfile v0.0.0-20261117112737-6700b805fc2e
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
 	unikraft.com/x/integration v0.0.0-20261029083025-f2d161e6abc8
-	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624
+	unikraft.com/x/io v0.0.0-20261126143640-3a5ba07339c1
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d
 	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
 )
@@ -121,4 +121,5 @@ replace (
 	unikraft.com/x/io => ../io
 	unikraft.com/x/kraftfile => ../kraftfile
 	unikraft.com/x/log => ../log
+	unikraft.com/x/mergefs => ../mergefs
 )
