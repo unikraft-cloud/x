@@ -155,3 +155,17 @@ func TestLinkWithoutTargetHides(t *testing.T) {
 	_, err = f.Lstat("bin/sh")
 	require.ErrorIs(t, err, fs.ErrNotExist)
 }
+
+func TestInMemoryHugeHeader(t *testing.T) {
+	t.Parallel()
+
+	// The header claims more data than the layer has.
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	require.NoError(t, tw.WriteHeader(&tar.Header{Typeflag: tar.TypeReg, Name: "big", Mode: 0o644, Size: 1 << 40, Format: tar.FormatPAX}))
+	_, err := tw.Write([]byte("only this"))
+	require.NoError(t, err)
+	layer := func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(buf.Bytes())), nil }
+	_, err = Merge(context.Background(), []Layer{layer}, InMemory())
+	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+}
