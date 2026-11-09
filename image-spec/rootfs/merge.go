@@ -678,8 +678,12 @@ func (m *merger) fill(ino *Inode, tr *tar.Reader, hdr *tar.Header, rank int64) e
 
 func (m *merger) store(ino *Inode, r io.Reader, size int64) error {
 	if m.opts.inMemory {
-		ino.data = make([]byte, size)
-		_, err := io.ReadFull(r, ino.data)
+		// The size comes from the header, thus the data grows only with what the layer has.
+		data, err := io.ReadAll(io.LimitReader(r, size))
+		if err == nil && int64(len(data)) != size {
+			err = io.ErrUnexpectedEOF
+		}
+		ino.data = data
 		return err
 	}
 	if size == 0 {
