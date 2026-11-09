@@ -73,6 +73,10 @@ func (f *FS) lookup(op, name string, follow bool) (*node, error) {
 		} else {
 			comp, rest = rest, ""
 		}
+		// Like Linux, a path can go on after a file only to the end of a symlink target.
+		if cur.kind != kDir {
+			return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
+		}
 		switch comp {
 		case "", ".":
 			continue
@@ -81,9 +85,6 @@ func (f *FS) lookup(op, name string, follow bool) (*node, error) {
 				cur = cur.parent
 			}
 			continue
-		}
-		if cur.kind != kDir {
-			return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
 		}
 		c := cur.child(comp)
 		if c == nil {
@@ -94,6 +95,13 @@ func (f *FS) lookup(op, name string, follow bool) (*node, error) {
 				return nil, &fs.PathError{Op: op, Path: name, Err: errLoop}
 			}
 			t := c.ino.target
+			if t == "" {
+				return nil, &fs.PathError{Op: op, Path: name, Err: fs.ErrNotExist}
+			}
+			// A target with a slash at the end must be a directory.
+			if rest == "" && strings.HasSuffix(t, "/") {
+				t += "."
+			}
 			if strings.HasPrefix(t, "/") {
 				cur, t = f.root, strings.TrimLeft(t, "/")
 			}

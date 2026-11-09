@@ -210,3 +210,17 @@ func TestAUFSMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), fi.Sys().(*Inode).Nlink)
 }
+
+func TestSymlinkLookup(t *testing.T) {
+	t.Parallel()
+
+	layers, _ := layersOf(t, [][]ent{{reg("f", "1"), sym("empty", ""), sym("up", "f/.."), sym("slash", "f/")}})
+	f, err := Merge(context.Background(), layers, InMemory())
+	require.NoError(t, err)
+	for _, name := range []string{"empty", "up", "slash"} {
+		_, err := f.Stat(name)
+		require.ErrorIs(t, err, fs.ErrNotExist, name)
+		_, err = f.Lstat(name)
+		require.NoError(t, err, name)
+	}
+}
