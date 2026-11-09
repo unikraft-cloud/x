@@ -551,7 +551,9 @@ func (m *merger) create(tr *tar.Reader, parent *node, base string, hdr *tar.Head
 	case hdr.Typeflag == tar.TypeLink:
 		ino, ok := m.linkInode(cleanName(hdr.Linkname), l)
 		if !ok {
-			return nil, nil
+			// Like a dangling link, a link without a valid target still hides the lower layers.
+			n.kind = kWhiteout
+			break
 		}
 		applyMeta(ino, hdr, rank, true)
 		n.ino = ino

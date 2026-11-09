@@ -145,3 +145,13 @@ func TestLinkTargetHiddenBetween(t *testing.T) {
 		require.ErrorIs(t, err, fs.ErrNotExist, name)
 	}
 }
+
+func TestLinkWithoutTargetHides(t *testing.T) {
+	t.Parallel()
+
+	layers, _ := layersOf(t, [][]ent{{reg("bin/sh", "lower")}, {reg("bin/sh", "mid"), dir("d"), link("bin/sh", "d")}})
+	f, err := Merge(context.Background(), layers, InMemory())
+	require.NoError(t, err)
+	_, err = f.Lstat("bin/sh")
+	require.ErrorIs(t, err, fs.ErrNotExist)
+}
