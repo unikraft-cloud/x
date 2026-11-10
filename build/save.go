@@ -7,6 +7,7 @@ package build
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -102,9 +103,14 @@ func (b Builder) untag(ctx context.Context, dest *imagespec.Location, dgst diges
 	if !ok {
 		return fmt.Errorf("%s names no Harbor project", named.Name())
 	}
-	scheme := "https"
+	scheme, hc := "https", http.DefaultClient
 	if local, _ := docker.MatchLocalhost(host); local {
 		scheme = "http"
+	}
+	if slices.Contains(b.InsecureRegistries, host) {
+		t := http.DefaultTransport.(*http.Transport).Clone()
+		t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		hc = &http.Client{Transport: docker.NewHTTPFallback(t)}
 	}
 	// Harbor takes a repository with a slash only escaped twice.
 	u := fmt.Sprintf("%s://%s/api/v2.0/projects/%s/repositories/%s/artifacts/%s/tags/%s",
@@ -120,7 +126,7 @@ func (b Builder) untag(ctx context.Context, dest *imagespec.Location, dgst diges
 		}
 		req.SetBasicAuth(user, secret)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return err
 	}
