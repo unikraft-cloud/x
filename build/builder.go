@@ -62,7 +62,8 @@ type Builder struct {
 	Credentials registryauth.Credentials
 
 	// InsecureRegistries are the registries, as host or host:port, that the
-	// packer pushes to over plain HTTP.
+	// packer and Save reach as docker's insecure registries: over TLS without
+	// verifying the certificate, or else over plain HTTP.
 	InsecureRegistries []string
 }
 

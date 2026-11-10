@@ -7,10 +7,12 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"slices"
 	"time"
@@ -35,13 +37,13 @@ func push(args []string) error {
 	runtime := flags.String("runtime", "", "runtime image to take the kernel from")
 	config := flags.String("config", "", "file with the image's OCI image JSON")
 	socket := flags.String("auth-socket", "", "unix socket of a buildkit auth server for registry credentials")
-	var roms, plainHTTP []string
+	var roms, insecureHosts []string
 	flags.Func("rom", "a ROM file to add, repeatable", func(s string) error {
 		roms = append(roms, s)
 		return nil
 	})
-	flags.Func("insecure-registry", "a registry to reach over plain HTTP, repeatable", func(s string) error {
-		plainHTTP = append(plainHTTP, s)
+	flags.Func("insecure-registry", "a registry to reach without verifying its certificate, or over plain HTTP, repeatable", func(s string) error {
+		insecureHosts = append(insecureHosts, s)
 		return nil
 	})
 	if err := flags.Parse(args[1:]); err != nil {
@@ -65,7 +67,7 @@ func push(args []string) error {
 	}
 
 	ctx := context.Background()
-	authorizer := docker.NewDockerAuthorizer()
+	var authOpts []docker.AuthorizerOpt
 	if *socket != "" {
 		conn, err := grpc.NewClient("unix://"+*socket, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -73,7 +75,7 @@ func push(args []string) error {
 		}
 		defer conn.Close()
 		client := auth.NewAuthClient(conn)
-		authorizer = docker.NewDockerAuthorizer(docker.WithAuthCreds(func(host string) (string, string, error) {
+		authOpts = append(authOpts, docker.WithAuthCreds(func(host string) (string, string, error) {
 			ctx, cancel := context.WithTimeout(ctx, time.Minute)
 			defer cancel()
 			resp, err := client.Credentials(ctx, &auth.CredentialsRequest{Host: host})
@@ -83,18 +85,30 @@ func push(args []string) error {
 			return resp.Username, resp.Secret, nil
 		}))
 	}
+	// As docker's insecure registries: TLS without verification, else plain HTTP.
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.TLSClientConfig = &tls.Config{InsecureSkipVerify: len(insecureHosts) > 0}
+	insecureClient := &http.Client{Transport: docker.NewHTTPFallback(t)}
+	authorizer := docker.NewDockerAuthorizer(authOpts...)
+	// The token server of an insecure registry is usually on the same host.
+	insecureAuthorizer := docker.NewDockerAuthorizer(append(authOpts, docker.WithAuthClient(insecureClient))...)
 	// A resolver skips a digest it already pushed, so each target gets its own.
 	resolver := func() remotes.Resolver {
+		hosts := docker.ConfigureDefaultRegistries(
+			docker.WithAuthorizer(authorizer),
+			docker.WithPlainHTTP(docker.MatchLocalhost),
+		)
+		unverified := docker.ConfigureDefaultRegistries(
+			docker.WithAuthorizer(insecureAuthorizer),
+			docker.WithClient(insecureClient),
+		)
 		return docker.NewResolver(docker.ResolverOptions{
-			Hosts: docker.ConfigureDefaultRegistries(
-				docker.WithAuthorizer(authorizer),
-				docker.WithPlainHTTP(func(host string) (bool, error) {
-					if slices.Contains(plainHTTP, host) {
-						return true, nil
-					}
-					return docker.MatchLocalhost(host)
-				}),
-			),
+			Hosts: func(host string) ([]docker.RegistryHost, error) {
+				if slices.Contains(insecureHosts, host) {
+					return unverified(host)
+				}
+				return hosts(host)
+			},
 		})
 	}
 
