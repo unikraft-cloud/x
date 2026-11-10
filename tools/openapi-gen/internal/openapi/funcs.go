@@ -38,11 +38,11 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs := sprig.TxtFuncMap()
 
 	// Add strcase functions
-	funcs["pascalcase"] = strcase.ToPascal // overrides sprig
-	funcs["camelcase"] = strcase.ToCamel   // overrides sprig
-	funcs["snakecase"] = strcase.ToSnake   // overrides sprig
-	funcs["kebabcase"] = strcase.ToKebab   // overrides sprig
-	funcs["screamingsnakecase"] = strcase.ToSNAKE
+	funcs["pascalcase"] = identcase(strcase.ToPascal) // overrides sprig
+	funcs["camelcase"] = identcase(strcase.ToCamel)   // overrides sprig
+	funcs["snakecase"] = identcase(strcase.ToSnake)   // overrides sprig
+	funcs["kebabcase"] = identcase(strcase.ToKebab)   // overrides sprig
+	funcs["screamingsnakecase"] = identcase(strcase.ToSNAKE)
 
 	// Other string helpers
 	funcs["capitalize"] = capitalize
@@ -361,6 +361,18 @@ func resolveTypeFromRef(parser *Parser, ref *openapi3.SchemaRef) *openapi3.Schem
 		}
 	}
 	return nil
+}
+
+// identcase wraps a strcase conversion to split words on any non-alphanumeric rune
+func identcase(convert func(string) string) func(string) string {
+	return func(s string) string {
+		return convert(strings.Map(func(r rune) rune {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) {
+				return r
+			}
+			return '_'
+		}, s))
+	}
 }
 
 // capitalize converts first letter to uppercase (unicode-safe)
