@@ -212,7 +212,7 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) ([]*imagespec.Image,
 		return nil, fmt.Errorf("no platform targets specified")
 	}
 
-	if b.Packer != "" && len(opts.Push) > 0 && opts.Kernel == "" && opts.Runtime != "" && len(opts.Roms) == 0 {
+	if (b.Packer != "" || b.PackerDir != "") && len(opts.Push) > 0 && opts.Kernel == "" && opts.Runtime != "" && len(opts.Roms) == 0 {
 		stop, err := b.startPush(&opts, kernels, now)
 		if err != nil {
 			return nil, err

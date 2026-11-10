@@ -52,9 +52,14 @@ type Builder struct {
 
 	// Packer is the image with the packer command that a solve runs on each
 	// rootfs it builds, pulled with the session's credentials, DefaultPacker
-	// being the published one. When it is empty, the build packs each rootfs
-	// that it gets from a solve itself.
+	// being the published one. When it and PackerDir are empty, the build packs
+	// each rootfs that it gets from a solve itself.
 	Packer string
+
+	// PackerDir holds the root filesystem of the packer image for each platform,
+	// in a directory named <os>-<arch> such as linux-amd64. A solve takes the one
+	// of the daemon's platform from its own session instead of pulling Packer.
+	PackerDir string
 
 	// Credentials log the packer in to the registries of BuildOpts.Push, and
 	// Save in to the Harbor API that removes the packer's temporary tags. When

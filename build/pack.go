@@ -26,7 +26,10 @@ import (
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	gatewaypb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/identity"
+	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/filesync"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/tonistiigi/fsutil"
 	"google.golang.org/grpc"
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/image-spec/reference"
@@ -195,10 +198,10 @@ func packArgs(opts BuildOpts, format kraftfile.FsType, maxSize int64) []string {
 	return append(args, "/src", "/out/initrd")
 }
 
-// packState returns rootfs packed as format, in a state holding /initrd. The
-// packer runs on the daemon's own platform, as the format does not depend on
-// the target's, and refuses a rootfs over Builder.MaxRootfsSize.
-func (b Builder) packState(c gateway.Client, rootfs llb.State, format kraftfile.FsType, opts BuildOpts) llb.State {
+// packState returns rootfs packed as format by packer, in a state holding
+// /initrd. The packer runs on the daemon's own platform, as the format does not
+// depend on the target's, and refuses a rootfs over Builder.MaxRootfsSize.
+func (b Builder) packState(c gateway.Client, packer, rootfs llb.State, format kraftfile.FsType, opts BuildOpts) llb.State {
 	native := nativePlatform(c)
 	runOpts := []llb.RunOption{
 		llb.Args(packArgs(opts, format, b.MaxRootfsSize)),
@@ -210,13 +213,12 @@ func (b Builder) packState(c gateway.Client, rootfs llb.State, format kraftfile.
 	if opts.NoCache {
 		runOpts = append(runOpts, llb.IgnoreCache)
 	}
-	packer := llb.Image(b.Packer, llb.Platform(native))
 	return packer.Run(runOpts...).AddMount("/out", llb.Scratch())
 }
 
 // pushState returns a state holding /manifest.json, the descriptor of the
-// image img that the packer pushes with the rootfs that packed holds.
-func (b Builder) pushState(c gateway.Client, packed llb.State, img ocispec.Image, opts BuildOpts) (llb.State, error) {
+// image img that packer pushes with the rootfs that packed holds.
+func (b Builder) pushState(c gateway.Client, packer, packed llb.State, img ocispec.Image, opts BuildOpts) (llb.State, error) {
 	data, err := json.Marshal(img)
 	if err != nil {
 		return llb.State{}, err
@@ -246,7 +248,6 @@ func (b Builder) pushState(c gateway.Client, packed llb.State, img ocispec.Image
 		llb.Args(append(args, targets...)),
 		llb.WithCustomName("push to "+strings.Join(targets, ", ")),
 	)
-	packer := llb.Image(b.Packer, llb.Platform(native))
 	return packer.Run(runOpts...).AddMount("/out", llb.Scratch()), nil
 }
 
@@ -259,7 +260,7 @@ func nativePlatform(c gateway.Client) ocispec.Platform {
 }
 
 // solveInitrd packs the rootfs that build evaluates as format, in the solve with
-// Builder.Packer and on the caller without, and returns it in a temporary file
+// a packer and on the caller without, and returns it in a temporary file
 // named after format. A rootfs over the size limit fails with ErrTooLarge.
 // With opts.push, the packer also pushes the image that config gives after
 // build, and the file holds the descriptor of its manifest instead.
@@ -284,7 +285,7 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 		}
 	}()
 
-	if b.Packer == "" {
+	if b.Packer == "" && b.PackerDir == "" {
 		if err := s.solveToTar(ctx, tarDest, partPrefix(part, p), solveOpt, build); err != nil {
 			return nil, err
 		}
@@ -296,6 +297,34 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 			return nil, err
 		}
 		return f, nil
+	}
+
+	var packers filesync.StaticDirSource
+	var packerSession string
+	if b.PackerDir != "" {
+		entries, err := os.ReadDir(b.PackerDir)
+		if err != nil {
+			return nil, fmt.Errorf("could not read packer directory: %w", err)
+		}
+		dirs := make(map[string]fsutil.FS, len(entries))
+		for _, e := range entries {
+			fs, err := fsutil.NewFS(filepath.Join(b.PackerDir, e.Name()))
+			if err != nil {
+				return nil, err
+			}
+			dirs["packer-"+e.Name()] = fs
+		}
+		if packers, err = syncedDirs(dirs); err != nil {
+			return nil, err
+		}
+		// The caller's session may serve a FileSync already, and the constant
+		// key lets the daemon keep one copy for every caller.
+		sess, stop, err := serveSession(ctx, s.client, "unikraft-packer", []session.Attachable{filesync.NewFSSyncProvider(packers)})
+		if err != nil {
+			return nil, err
+		}
+		defer stop()
+		packerSession = sess.ID()
 	}
 
 	var refused bool
@@ -314,9 +343,21 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 				return nil, err
 			}
 		}
-		st := b.packState(c, rootfs, format, opts)
+		native := nativePlatform(c)
+		packer := llb.Image(b.Packer, llb.Platform(native))
+		if packerSession != "" {
+			name := "packer-" + native.OS + "-" + native.Architecture
+			if _, ok := packers[name]; !ok {
+				return nil, fmt.Errorf("no packer for %s in %s", platforms.Format(native), b.PackerDir)
+			}
+			// A copy, as an exec on the synced files takes them over and the
+			// next solve would send them all again.
+			local := llb.Local(name, llb.SessionID(packerSession))
+			packer = llb.Scratch().File(llb.Copy(local, "/", "/"))
+		}
+		st := b.packState(c, packer, rootfs, format, opts)
 		if opts.push != nil {
-			if st, err = b.pushState(c, st, config(), opts); err != nil {
+			if st, err = b.pushState(c, packer, st, config(), opts); err != nil {
 				return nil, err
 			}
 		}
