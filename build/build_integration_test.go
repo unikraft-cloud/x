@@ -10,6 +10,7 @@ package build_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
+	"github.com/docker/cli/cli/config"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/session"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -400,7 +402,8 @@ func mirrorHelloWorld(t *testing.T, ctx context.Context) string {
 	user, _, err := creds("unikraft.io")
 	require.NoError(t, err)
 	org := strings.TrimSuffix(strings.TrimPrefix(user, "robot$"), ".users.kraftcloud")
-	resolver := docker.NewResolver(docker.ResolverOptions{Hosts: tokenHosts(creds)})
+	dockerCreds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
+	resolver := docker.NewResolver(docker.ResolverOptions{Hosts: tokenHosts(creds.Or(dockerCreds))})
 	return integration.HelloWorld.Mirror(t, ctx, resolver, "unikraft.io/"+org)
 }
 
