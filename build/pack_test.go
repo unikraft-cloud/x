@@ -11,7 +11,9 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -119,7 +121,8 @@ func TestPackInSolve(t *testing.T) {
 }
 
 // TestPackOwners packs a directory of each LLB source built on the buildkitd at
-// BUILDKIT_HOST, on the caller and in the solve.
+// BUILDKIT_HOST, on the caller and in the solve, with the packer image or the
+// packer of a directory.
 func TestPackOwners(t *testing.T) {
 	addr := os.Getenv("BUILDKIT_HOST")
 	if addr == "" {
@@ -141,17 +144,18 @@ func TestPackOwners(t *testing.T) {
 
 	state := llb.Scratch().File(llb.Mkfile("/file.txt", 0o644, []byte("state\n"), llb.WithUIDGID(1000, 1000)))
 
-	packers := map[string]string{"on the caller": "", "in the solve": DefaultPacker}
-	for where, packer := range packers {
-		b := Builder{
-			Buildkit: func(context.Context) (*client.Client, func(), error) { return c, nil, nil },
-			Session: func(context.Context) ([]session.Attachable, error) {
-				creds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
-				return []session.Attachable{creds.Attachable(), filesync.NewFSSyncProvider(filesync.StaticDirSource{"context": host})}, nil
-			},
-			TempDir: t.TempDir(),
-			Packer:  packer,
+	packers := map[string]Builder{
+		"on the caller":                 {},
+		"in the solve":                  {Packer: DefaultPacker},
+		"in the solve from a directory": {PackerDir: packerDir(t)},
+	}
+	for where, b := range packers {
+		b.Buildkit = func(context.Context) (*client.Client, func(), error) { return c, nil, nil }
+		b.Session = func(context.Context) ([]session.Attachable, error) {
+			creds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
+			return []session.Attachable{creds.Attachable(), filesync.NewFSSyncProvider(filesync.StaticDirSource{"context": host})}, nil
 		}
+		b.TempDir = t.TempDir()
 		ownerOf := func(t *testing.T, src Source) owner {
 			imgs, err := b.BuildRootfs(t.Context(), BuildOpts{
 				Rootfs:   FSOpts{Path: ".", Type: kraftfile.SourceTypeDirectory, Source: src, Format: kraftfile.FsTypeCpio},
@@ -169,6 +173,16 @@ func TestPackOwners(t *testing.T) {
 			assert.Equal(t, owner{0, 0}, ownerOf(t, SessionSource{Name: "context"}))
 		})
 	}
+}
+
+// packerDir builds cmd/packer into a Builder.PackerDir for the platform of the host.
+func packerDir(t *testing.T) string {
+	dir := t.TempDir()
+	cmd := exec.Command("go", "build", "-o", filepath.Join(dir, "linux-"+runtime.GOARCH, "pack"), "./cmd/packer")
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "%s", out)
+	return dir
 }
 
 // TestPackOncePerSource builds a regular image for two platforms on the
@@ -208,12 +222,12 @@ func TestPackOncePerSource(t *testing.T) {
 }
 
 // TestPushInSolve builds a Dockerfile rootfs on the buildkitd at BUILDKIT_HOST
-// and has the packer at PACKER_IMAGE push the image to PUSH_REGISTRY, which this
+// and has the packer of cmd/packer push the image to PUSH_REGISTRY, which this
 // test and the steps of the daemon both reach over plain HTTP.
 func TestPushInSolve(t *testing.T) {
-	addr, packer, reg := os.Getenv("BUILDKIT_HOST"), os.Getenv("PACKER_IMAGE"), os.Getenv("PUSH_REGISTRY")
-	if addr == "" || packer == "" || reg == "" {
-		t.Skip("BUILDKIT_HOST, PACKER_IMAGE and PUSH_REGISTRY must name a buildkitd, a packer image and a registry")
+	addr, reg := os.Getenv("BUILDKIT_HOST"), os.Getenv("PUSH_REGISTRY")
+	if addr == "" || reg == "" {
+		t.Skip("BUILDKIT_HOST and PUSH_REGISTRY must name a buildkitd and a registry")
 	}
 	c, err := client.New(t.Context(), addr)
 	require.NoError(t, err)
@@ -243,8 +257,8 @@ func TestPushInSolve(t *testing.T) {
 			creds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
 			return []session.Attachable{creds.Attachable()}, nil
 		},
-		TempDir: t.TempDir(),
-		Packer:  packer,
+		TempDir:   t.TempDir(),
+		PackerDir: packerDir(t),
 		// No credentials, though the packer asks for them through the socket.
 		Credentials: func(string) (string, string, error) { return "", "", nil },
 	}
