@@ -61,7 +61,13 @@ func (Kraftfile) JSONSchemaExtend(schema *jsonschema.Schema) {
 	labelsObjectSchema := &jsonschema.Schema{
 		Type: "object",
 		PatternProperties: map[string]*jsonschema.Schema{
-			"^[a-zA-Z0-9._/-]+$": {Type: "string"},
+			"^[a-zA-Z0-9._/-]+$": {
+				AnyOf: []*jsonschema.Schema{
+					{Type: "string"},
+					{Type: "number"},
+					{Type: "boolean"},
+				},
+			},
 		},
 		AdditionalProperties: jsonschema.FalseSchema,
 	}

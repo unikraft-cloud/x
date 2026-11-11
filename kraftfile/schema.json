@@ -302,7 +302,17 @@
         {
           "patternProperties": {
             "^[a-zA-Z0-9._/-]+$": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
             }
           },
           "additionalProperties": false,

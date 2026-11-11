@@ -194,19 +194,67 @@ func (ref *Runtime) UnmarshalJSON(data []byte) error {
 	}
 }
 
-func (kf *Kraftfile) UnmarshalJSON(data []byte) error {
-	type alias Kraftfile
-	if err := json.Unmarshal(data, (*alias)(kf)); err != nil {
+// scalarString decodes a JSON string, number or boolean into its text. YAML
+// leaves values such as label values unquoted, and since Kraftfile has its own
+// UnmarshalJSON, the yaml package does not convert them to strings for us.
+type scalarString string
+
+func (s *scalarString) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	var aliased struct {
+	switch value := raw.(type) {
+	case nil:
+		return nil
+	case string:
+		*s = scalarString(value)
+		return nil
+	case float64, bool:
+		*s = scalarString(data)
+		return nil
+	default:
+		return fmt.Errorf("invalid scalar value type %T", raw)
+	}
+}
+
+func (kf *Kraftfile) UnmarshalJSON(data []byte) error {
+	type alias Kraftfile
+	var aux struct {
+		*alias
+		Name     *scalarString   `json:"name,omitempty"`
+		OutDir   *scalarString   `json:"outdir,omitempty"`
+		Labels   json.RawMessage `json:"labels,omitempty"`
 		Unikraft json.RawMessage `json:"unikraft,omitempty"`
 	}
-	if err := json.Unmarshal(data, &aliased); err != nil {
+	aux.alias = (*alias)(kf)
+	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
-	if len(aliased.Unikraft) == 0 {
+
+	if aux.Name != nil {
+		kf.Name = string(*aux.Name)
+	}
+	if aux.OutDir != nil {
+		kf.OutDir = string(*aux.OutDir)
+	}
+	if len(aux.Labels) > 0 {
+		var labels map[string]scalarString
+		if err := json.Unmarshal(aux.Labels, &labels); err != nil {
+			return err
+		}
+		if labels == nil {
+			kf.Labels = nil
+		} else if kf.Labels == nil {
+			kf.Labels = make(map[string]string, len(labels))
+		}
+		for key, value := range labels {
+			kf.Labels[key] = string(value)
+		}
+	}
+
+	if len(aux.Unikraft) == 0 {
 		return nil
 	}
 	if kf.Kernel != nil {
@@ -214,7 +262,7 @@ func (kf *Kraftfile) UnmarshalJSON(data []byte) error {
 	}
 
 	var kernel Kernel
-	if err := json.Unmarshal(aliased.Unikraft, &kernel); err != nil {
+	if err := json.Unmarshal(aux.Unikraft, &kernel); err != nil {
 		return err
 	}
 	kf.Kernel = &kernel

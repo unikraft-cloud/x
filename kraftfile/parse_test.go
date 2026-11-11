@@ -92,6 +92,21 @@ labels:
 	require.Equal(t, "web", doc.Labels["tier"])
 }
 
+func TestParseLabelsScalarValues(t *testing.T) {
+	input := `spec: v0.7
+labels:
+  cloud.unikraft.v1.instances/scale_to_zero.cooldown_time_ms: 1000
+  cloud.unikraft.v1.instances/scale_to_zero.stateful: false
+`
+	requireValidSchema(t, input)
+	doc, err := ParseBytes([]byte(input))
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"cloud.unikraft.v1.instances/scale_to_zero.cooldown_time_ms": "1000",
+		"cloud.unikraft.v1.instances/scale_to_zero.stateful":         "false",
+	}, doc.Labels)
+}
+
 func TestParseVolumesAndTargets(t *testing.T) {
 	input := `spec: v0.7
 volumes:
@@ -546,6 +561,33 @@ func TestMapUnmarshalJSONNull(t *testing.T) {
 	kf := Kraftfile{Env: Map{{Key: "HOME", Value: "/"}}}
 	require.NoError(t, json.Unmarshal([]byte(`{"env":null}`), &kf))
 	require.Nil(t, kf.Env)
+}
+
+func TestKraftfileUnmarshalJSONScalars(t *testing.T) {
+	var kf Kraftfile
+	require.NoError(t, json.Unmarshal([]byte(`{"name":1234,"outdir":5,"labels":{"cooldown":1000,"stateful":false}}`), &kf))
+	require.Equal(t, "1234", kf.Name)
+	require.Equal(t, "5", kf.OutDir)
+	require.Equal(t, map[string]string{"cooldown": "1000", "stateful": "false"}, kf.Labels)
+}
+
+func TestKraftfileUnmarshalJSONUnikraftAlias(t *testing.T) {
+	var kf Kraftfile
+	require.NoError(t, json.Unmarshal([]byte(`{"unikraft":{"source":"./kernel"}}`), &kf))
+	require.NotNil(t, kf.Kernel)
+	require.Equal(t, "./kernel", kf.Kernel.Source)
+}
+
+func TestKraftfileUnmarshalJSONKernelAndUnikraftConflict(t *testing.T) {
+	var kf Kraftfile
+	err := json.Unmarshal([]byte(`{"kernel":"./a","unikraft":"./b"}`), &kf)
+	require.ErrorContains(t, err, "'kernel' and 'unikraft' cannot both be specified")
+}
+
+func TestKraftfileUnmarshalJSONLabelsNull(t *testing.T) {
+	kf := Kraftfile{Labels: map[string]string{"app": "demo"}}
+	require.NoError(t, json.Unmarshal([]byte(`{"labels":null}`), &kf))
+	require.Nil(t, kf.Labels)
 }
 
 func requireValidSchema(t *testing.T, input string) {
