@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/moby/buildkit/client"
@@ -25,9 +27,10 @@ import (
 // The headers that announce a session to the daemon, as session.Session.Run
 // sends them.
 const (
-	headerSessionID        = "X-Docker-Expose-Session-Uuid"
-	headerSessionSharedKey = "X-Docker-Expose-Session-Sharedkey"
-	headerSessionMethod    = "X-Docker-Expose-Session-Grpc-Method"
+	headerSessionID               = "X-Docker-Expose-Session-Uuid"
+	headerSessionSharedKey        = "X-Docker-Expose-Session-Sharedkey"
+	headerSessionSharedKeyEncoded = headerSessionSharedKey + "-Encoded"
+	headerSessionMethod           = "X-Docker-Expose-Session-Grpc-Method"
 )
 
 // The limits of the session server: a stream holds at most one window and one
@@ -63,6 +66,11 @@ func serveSession(ctx context.Context, c *client.Client, sharedKey string, attac
 	meta := map[string][]string{
 		headerSessionID:        {s.ID()},
 		headerSessionSharedKey: {sharedKey},
+	}
+	// A header value holds printable ASCII only. Escape a key with other characters.
+	if strings.ContainsFunc(sharedKey, func(r rune) bool { return r < 0x20 || r > 0x7e }) {
+		meta[headerSessionSharedKey] = []string{url.QueryEscape(sharedKey)}
+		meta[headerSessionSharedKeyEncoded] = []string{"1"}
 	}
 	for name, svc := range srv.GetServiceInfo() {
 		for _, m := range svc.Methods {
