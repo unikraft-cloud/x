@@ -9,14 +9,12 @@ package build_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
@@ -394,7 +392,7 @@ func integrationBuilder(t *testing.T, ctx context.Context) build.Builder {
 }
 
 // mirrorHelloWorld copies integration.HelloWorld into the organization of
-// UKC_TOKEN, and gives the reference of the copy. TestMain deletes it.
+// UKC_TOKEN, and gives the reference of the copy, which stays in the registry.
 func mirrorHelloWorld(t *testing.T, ctx context.Context) string {
 	t.Helper()
 	creds := tokenCredentials(t)
@@ -405,27 +403,6 @@ func mirrorHelloWorld(t *testing.T, ctx context.Context) string {
 	dockerCreds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
 	resolver := docker.NewResolver(docker.ResolverOptions{Hosts: tokenHosts(creds.Or(dockerCreds))})
 	return integration.HelloWorld.Mirror(t, ctx, resolver, "unikraft.io/"+org)
-}
-
-func TestMain(m *testing.M) {
-	m.Run()
-	ref := integration.HelloWorld.Ref()
-	if ref == "" {
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	creds, err := registryauth.FromToken(os.Getenv("UKC_TOKEN"))
-	var loc *imagespec.Location
-	if err == nil {
-		loc, err = imagespec.GuessLocation(ref)
-	}
-	if err == nil {
-		err = tokenAccessor(creds).Delete(ctx, loc)
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to delete %s: %v\n", ref, err)
-	}
 }
 
 func assertBuildPlatforms(t *testing.T, imgs []*imagespec.Image, expected []string) {
