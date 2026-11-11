@@ -555,6 +555,38 @@ EOF
 	require.Equal(t, "hello\n", files["hello.txt"])
 }
 
+func TestRootfsDockerfileNonASCIISharedKeyIntegration(t *testing.T) {
+	ctx := buildIntegrationContext(t)
+	dockerfile := `
+FROM scratch
+
+COPY <<'EOF' /hello.txt
+hello
+EOF
+`
+	rootfsPath := writeBuildDockerfile(t, dockerfile)
+	builder := integrationBuilder(t, ctx)
+	builder.SharedKey = "/home/café/proiect"
+	imgs, err := builder.BuildRootfs(ctx, build.BuildOpts{
+		Rootfs: build.FSOpts{
+			Format: kraftfile.FsTypeCpio,
+			Path:   rootfsPath,
+			Type:   kraftfile.SourceTypeDockerfile,
+		},
+		Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		for _, img := range imgs {
+			_ = img.Close()
+		}
+	})
+	require.Len(t, imgs, 1)
+
+	files := integration.ReadCpioInitrd(t, imgs[0])
+	require.Equal(t, "hello\n", files["hello.txt"])
+}
+
 func TestRootfsDockerfileLabelsIntegration(t *testing.T) {
 	dockerfile := `
 FROM scratch
