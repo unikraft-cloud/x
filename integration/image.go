@@ -7,9 +7,7 @@ package integration
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
 
@@ -25,9 +23,8 @@ var HelloWorld = &MirroredImage{
 }
 
 // MirroredImage is a public image that tests copy into their own
-// organization, so that each user runs against their own project. Mirror
-// copies it one time, and the caller deletes the copy at Ref when the test
-// binary ends.
+// organization, so that each user runs against their own project. The copy
+// stays there: all runs share its digest, thus a delete breaks the other runs.
 type MirroredImage struct {
 	// Name is the image name, without the organization and the tag.
 	Name string
@@ -53,25 +50,28 @@ func (m *MirroredImage) Mirror(t testing.TB, ctx context.Context, resolver remot
 	return m.ref
 }
 
-// Ref gives the reference of the copy, empty when Mirror made none.
-func (m *MirroredImage) Ref() string {
-	return m.ref
-}
+// mirrorTag is the tag of every copy. A push of the same content changes nothing.
+const mirrorTag = "test"
 
 // mirror copies every manifest and blob of the source image, so that a
 // multi-platform image keeps all of its platforms.
 func (m *MirroredImage) mirror(ctx context.Context, resolver remotes.Resolver, namespace string) (string, error) {
-	ref := namespace + "/" + m.Name + ":test-" + strings.ToLower(rand.Text()[:8])
+	ref := namespace + "/" + m.Name + ":" + mirrorTag
 
 	_, desc, err := resolver.Resolve(ctx, m.Source)
 	if err != nil {
 		return "", fmt.Errorf("resolving %s: %w", m.Source, err)
 	}
+	// The copy of an earlier run is good when it has the digest of the source.
+	if _, copied, err := resolver.Resolve(ctx, ref); err == nil && copied.Digest == desc.Digest {
+		return ref, nil
+	}
 	fetcher, err := resolver.Fetcher(ctx, m.Source)
 	if err != nil {
 		return "", fmt.Errorf("fetching %s: %w", m.Source, err)
 	}
-	pusher, err := resolver.Pusher(ctx, ref)
+	// The digest in the reference gives the tag to the root manifest only.
+	pusher, err := resolver.Pusher(ctx, ref+"@"+desc.Digest.String())
 	if err != nil {
 		return "", fmt.Errorf("pushing to %s: %w", ref, err)
 	}
