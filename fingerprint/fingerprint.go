@@ -71,6 +71,14 @@ type Fingerprint struct {
 
 	// The kernel version of the underlying host, if available.
 	KernelVersion *string `json:"kernel_version,omitempty" oid:"22,omitempty"`
+
+	// The DMI system vendor, if available.  E.g. "Amazon EC2", "Google",
+	// "Hetzner", or the hardware maker on bare metal.  Only applies to Linux.
+	SysVendor *string `json:"sys_vendor,omitempty" oid:"26,omitempty"`
+
+	// The DMI product name, if available.  E.g. the EC2 instance type
+	// ("c5.large") or "Google Compute Engine".  Only applies to Linux.
+	ProductName *string `json:"product_name,omitempty" oid:"27,omitempty"`
 }
 
 // Option adjusts what New gathers.
@@ -81,6 +89,7 @@ type options struct {
 	cpu       bool
 	memory    bool
 	kernel    bool
+	dmi       bool
 }
 
 // WithMachineId is whether to gather the machine id, which costs a process on
@@ -96,3 +105,7 @@ func WithMemory(gather bool) Option { return func(o *options) { o.memory = gathe
 
 // WithKernel is whether to gather the kernel release, version and features.
 func WithKernel(gather bool) Option { return func(o *options) { o.kernel = gather } }
+
+// WithDmi is whether to gather the DMI system vendor and product name, which
+// are off by default.
+func WithDmi(gather bool) Option { return func(o *options) { o.dmi = gather } }

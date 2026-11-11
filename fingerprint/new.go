@@ -79,6 +79,12 @@ func New(opts ...Option) (*Fingerprint, error) {
 		f.KernelVersion = ptr.NilIfZero(kernelVersion)
 	}
 
+	if o.dmi {
+		sysVendor, productName := getDmi()
+		f.SysVendor = ptr.NilIfZero(sysVendor)
+		f.ProductName = ptr.NilIfZero(productName)
+	}
+
 	if o.cpu {
 		// The CPU details are best-effort, as WMI answers them on Windows and can
 		// fail or time out.
