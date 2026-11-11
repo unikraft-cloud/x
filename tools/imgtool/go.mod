@@ -12,13 +12,12 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
 	unikraft.com/x/image-spec v0.0.0-00010101000000-000000000000
-	unikraft.com/x/log v0.0.0-20260126094137-ab6e717e5679
+	unikraft.com/x/log v0.0.0-20261001175239-9a0204088d3c
 	unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8
 )
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
-	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/x/ansi v0.11.9 // indirect
@@ -33,7 +32,6 @@ require (
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/docker-credential-helpers v0.9.9 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/getsentry/sentry-go v0.41.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofrs/flock v0.13.2 // indirect
@@ -57,7 +55,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/grpc v1.85.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
