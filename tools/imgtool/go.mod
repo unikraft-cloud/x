@@ -11,6 +11,7 @@ require (
 	github.com/docker/cli v29.8.1+incompatible
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
+	github.com/unikraft/go-archivefs v0.0.0-20261109165216-6df91ed79bb6
 	unikraft.com/x/image-spec v0.0.0-00010101000000-000000000000
 	unikraft.com/x/log v0.0.0-20260120165849-5b2c62ce8457
 	unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8
@@ -49,7 +50,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
-	github.com/unikraft/go-archivefs v0.0.0-20261109165216-6df91ed79bb6 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect
