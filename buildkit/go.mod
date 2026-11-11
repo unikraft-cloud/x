@@ -60,7 +60,7 @@ require (
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/tonistiigi/fsutil v0.0.0-20260609091201-0257b3308df4 // indirect
-	github.com/unikraft/go-archivefs v0.0.0-20261106133356-c81ad57e55c4 // indirect
+	github.com/unikraft/go-archivefs v0.0.0-20261109165216-6df91ed79bb6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.69.0 // indirect
