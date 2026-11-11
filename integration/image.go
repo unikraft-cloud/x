@@ -62,6 +62,10 @@ func (m *MirroredImage) mirror(ctx context.Context, resolver remotes.Resolver, n
 	if err != nil {
 		return "", fmt.Errorf("resolving %s: %w", m.Source, err)
 	}
+	// The copy of an earlier run is good when it has the digest of the source.
+	if _, copied, err := resolver.Resolve(ctx, ref); err == nil && copied.Digest == desc.Digest {
+		return ref, nil
+	}
 	fetcher, err := resolver.Fetcher(ctx, m.Source)
 	if err != nil {
 		return "", fmt.Errorf("fetching %s: %w", m.Source, err)
