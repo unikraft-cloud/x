@@ -109,10 +109,11 @@ func TestPackInSolve(t *testing.T) {
 	require.NotErrorIs(t, err, ErrTooLarge, "a step that exits as the packer refuses is not ErrTooLarge")
 
 	// Symlinks hold no regular bytes, thus only the limit on the export refuses them.
+	// XFS limits a target to 1024 bytes.
 	links := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(links, "Dockerfile"), []byte("FROM scratch\nCOPY . /\n"), 0o644))
-	for i := range 500 {
-		require.NoError(t, os.Symlink(strings.Repeat("x", 4000), filepath.Join(links, strconv.Itoa(i))))
+	for i := range 2000 {
+		require.NoError(t, os.Symlink(strings.Repeat("x", 1000), filepath.Join(links, strconv.Itoa(i))))
 	}
 	b.MaxRootfsSize = 1 << 20
 	opts.Rootfs.Path = filepath.Join(links, "Dockerfile")
