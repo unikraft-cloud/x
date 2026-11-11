@@ -7,7 +7,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/shirou/gopsutil/v4 v4.26.10
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 	tailscale.com v1.104.5
 	unikraft.com/x/ptr v0.0.0-20260126094137-ab6e717e5679
 )
