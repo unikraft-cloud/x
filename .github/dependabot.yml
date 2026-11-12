@@ -50,8 +50,9 @@ updates:
 # Each image lives in a Dockerfile of one FROM line, next to where it's used.
 - package-ecosystem: docker
   directories:
-  - /.github/actions/actionlint
-  - /.github/workflows/integration
+  - /.github/actions/*
+  - /.github/workflows
+  - /.github/workflows/*
   - /build/testdata
   - /integration
   schedule:
