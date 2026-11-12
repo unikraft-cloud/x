@@ -102,10 +102,8 @@ import (
 {{- /* Also scan query/path parameters for $ref types */}}
 {{- range $op.Parameters}}
 {{- if .Value.Schema}}
-{{- if .Value.Schema.Ref}}
 {{- $p := getTypePackage .Value.Schema}}
 {{- if $p}}{{- $_ := set $extPkgs $p (getTypeImportPath .Value.Schema)}}{{- end}}
-{{- end}}
 {{- end}}
 {{- end}}
 {{- end}}
@@ -219,7 +217,7 @@ type {{$serviceName}} interface {
 	{{$op.OperationID}}(g *gin.Context
 {{- range $pathParams}}, {{camelcase .Name}} {{paramToGoType .}}{{end}}
 {{- if $hasRequestBody}}, req {{if $requestBodyIsArray}}[]*{{$qualifiedReqType}}{{else}}*{{$qualifiedReqType}}{{end}}{{end}}
-{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if $ptPkg}}{{- $pt = printf "%s.%s" $ptPkg $pt}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) ({{if $wrapResponse}}*{{$respPrefix}}Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}]{{else}}{{if $qualifiedRespType}}*{{$qualifiedRespType}}{{else}}any{{end}}{{end}}, int, error)
+{{- range $queryParams}}{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if $ptPkg}}{{- $pt = regexReplaceAll "([A-Z]\\w+)$" $pt (printf "%s.${1}" $ptPkg)}}{{- end}}, {{camelcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}}{{end}}) ({{if $wrapResponse}}*{{$respPrefix}}Response[{{if $responseHasData}}{{$qualifiedRespType}}Data{{else}}any{{end}}]{{else}}{{if $qualifiedRespType}}*{{$qualifiedRespType}}{{else}}any{{end}}{{end}}, int, error)
 {{- end}}
 {{- end}}
 {{- end}}
@@ -409,7 +407,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 	// Bind query parameters
 	var query struct {
 {{- range $queryParams}}
-{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if $ptPkg}}{{- $pt = printf "%s.%s" $ptPkg $pt}}{{- end}}
+{{- $pt := paramToGoType .}}{{- $ptPkg := getTypePackage .}}{{- if $ptPkg}}{{- $pt = regexReplaceAll "([A-Z]\\w+)$" $pt (printf "%s.${1}" $ptPkg)}}{{- end}}
 		{{pascalcase .Name}} {{if and (not .Required) (not (hasPrefix "[]" $pt))}}*{{end}}{{$pt}} `form:"{{.Name}}"`
 {{- end}}
 	}

@@ -5,6 +5,25 @@ info:
   title: Namespaced Example API
   version: "1.0.0"
 paths:
+  /machines:
+    get:
+      operationId: ListMachines
+      tags: [Machines]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Org.Common.Status'
+      responses:
+        default:
+          description: default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Machines.Machine'
   /machines/{id}:
     get:
       operationId: GetMachine
