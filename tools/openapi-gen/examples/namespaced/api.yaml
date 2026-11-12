@@ -8,7 +8,7 @@ paths:
   /machines:
     get:
       operationId: ListMachines
-      tags: [Machines]
+      tags: [machines]
       parameters:
         - name: status
           in: query
@@ -27,7 +27,7 @@ paths:
   /machines/{id}:
     get:
       operationId: GetMachine
-      tags: [Machines]
+      tags: [machines]
       parameters:
         - name: id
           in: path

@@ -126,6 +126,7 @@ var (
 )
 
 {{- $serviceName := $tagName}}
+{{- if regexMatch "^[a-z]" $tagName}}{{- $serviceName = pascalcase $tagName}}{{- end}}
 
 // {{$serviceName}} provides the API handlers.
 type {{$serviceName}} interface {
