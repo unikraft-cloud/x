@@ -5,7 +5,8 @@
 
 // Package lineage draws instance family trees: an instance hangs off the
 // clone source the platform reports for it, a checkpoint off the instance
-// that took it.
+// that took it.  It also reads the checkpoint histories it needs from the
+// platform, in batches the platform accepts (FetchHistories).
 package lineage
 
 import (
