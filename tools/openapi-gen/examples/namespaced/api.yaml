@@ -68,5 +68,9 @@ components:
             $ref: '#/components/schemas/Org.Common.Label'
         lastError:
           $ref: '#/components/schemas/Org.Common.Error'
+        labelsByKey:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Org.Common.Label'
     Machines.Phase:
       $ref: '#/components/schemas/Org.Common.Status'

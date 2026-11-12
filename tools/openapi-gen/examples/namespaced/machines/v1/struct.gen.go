@@ -15,11 +15,12 @@ var (
 )
 
 type Machine struct {
-	Id        string           `json:"id" yaml:"id"`
-	Status    *commonv1.Status `json:"status,omitzero" yaml:"status,omitempty"`
-	Phase     *Phase           `json:"phase,omitzero" yaml:"phase,omitempty"`
-	Labels    []commonv1.Label `json:"labels,omitzero" yaml:"labels,omitempty"`
-	LastError *commonv1.Error  `json:"lastError,omitzero" yaml:"lastError,omitempty"`
+	Id          string                    `json:"id" yaml:"id"`
+	Status      *commonv1.Status          `json:"status,omitzero" yaml:"status,omitempty"`
+	Phase       *Phase                    `json:"phase,omitzero" yaml:"phase,omitempty"`
+	Labels      []commonv1.Label          `json:"labels,omitzero" yaml:"labels,omitempty"`
+	LastError   *commonv1.Error           `json:"lastError,omitzero" yaml:"lastError,omitempty"`
+	LabelsByKey map[string]commonv1.Label `json:"labelsByKey,omitzero" yaml:"labelsByKey,omitempty"`
 
 	// AdditionalProperties captures any JSON object members that do not map to
 	// an explicit field above.

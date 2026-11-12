@@ -72,6 +72,10 @@ components:
       properties:
         status:
           $ref: '#/components/schemas/Org.Common.Status'
+        statusByKey:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Org.Common.Status'
     Org.Common.Status:
       type: string
 `
@@ -140,6 +144,7 @@ func TestRunNamespaceImportPathQualifiesReferences(t *testing.T) {
 	})
 
 	require.Contains(t, got, "status commonv1 example.com/api/common/v1 Status")
+	require.Contains(t, got, "statusByKey commonv1 example.com/api/common/v1 map[string]Status")
 }
 
 // A local component that only refers to an imported one stays local.
