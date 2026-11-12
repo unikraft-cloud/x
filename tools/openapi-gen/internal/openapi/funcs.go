@@ -306,6 +306,9 @@ func (tf *templateFuncs) extractRef(v any) string {
 		if val.Items != nil && val.Items.Ref != "" {
 			return val.Items.Ref
 		}
+		if ap := val.AdditionalProperties.Schema; ap != nil && ap.Ref != "" {
+			return ap.Ref
+		}
 		return ""
 	case *openapi3.Parameter:
 		if val == nil || val.Schema == nil {
