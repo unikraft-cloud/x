@@ -54,6 +54,8 @@ updates:
 - package-ecosystem: docker
   directories:
   - /.github/workflows/integration
+  - /build/testdata
+  - /integration
   schedule:
     interval: weekly
     day: sunday

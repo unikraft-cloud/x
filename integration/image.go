@@ -7,20 +7,25 @@ package integration
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/moby/buildkit/util/contentutil"
+	"unikraft.com/x/dockerfile"
 )
 
 // HelloWorld is a regular OCI image, with plain layers and no unikraft
 // components.
 var HelloWorld = &MirroredImage{
 	Name:   "hello-world",
-	Source: "index.docker.io/library/hello-world:latest",
+	Source: dockerfile.MustImage(helloWorldDockerfile),
 }
+
+//go:embed hello-world.Dockerfile
+var helloWorldDockerfile []byte
 
 // MirroredImage is a public image that tests copy into their own
 // organization, so that each user runs against their own project. The copy
