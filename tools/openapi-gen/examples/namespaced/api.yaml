@@ -18,8 +18,8 @@ paths:
             items:
               $ref: '#/components/schemas/Org.Common.Status'
       responses:
-        default:
-          description: default
+        '200':
+          description: OK
           content:
             application/json:
               schema:
