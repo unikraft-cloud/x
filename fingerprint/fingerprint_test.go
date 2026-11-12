@@ -6,7 +6,9 @@
 package fingerprint_test
 
 import (
+	"os"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +29,9 @@ func TestNew(t *testing.T) {
 
 	require.NotNil(t, fp.GoVersion)
 	assert.Equal(t, runtime.Version(), *fp.GoVersion)
+
+	assert.Nil(t, fp.SysVendor, "leaves out DMI by default")
+	assert.Nil(t, fp.ProductName, "leaves out DMI by default")
 }
 
 func TestNewWithoutOptional(t *testing.T) {
@@ -35,6 +40,7 @@ func TestNewWithoutOptional(t *testing.T) {
 		fingerprint.WithCpu(false),
 		fingerprint.WithMemory(false),
 		fingerprint.WithKernel(false),
+		fingerprint.WithDmi(false),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, fp)
@@ -54,6 +60,8 @@ func TestNewWithoutOptional(t *testing.T) {
 	assert.Nil(t, fp.KernelFeatures)
 	assert.Nil(t, fp.KernelRelease)
 	assert.Nil(t, fp.KernelVersion)
+	assert.Nil(t, fp.SysVendor)
+	assert.Nil(t, fp.ProductName)
 
 	assert.Equal(t, runtime.GOARCH, fp.Goarch, "still reports the build's architecture")
 	assert.Equal(t, runtime.GOOS, fp.Goos, "still reports the build's operating system")
@@ -62,4 +70,23 @@ func TestNewWithoutOptional(t *testing.T) {
 
 	require.NotNil(t, fp.GoVersion)
 	assert.Equal(t, runtime.Version(), *fp.GoVersion)
+}
+
+func TestNewWithDmi(t *testing.T) {
+	fp, err := fingerprint.New(fingerprint.WithDmi(true))
+	require.NoError(t, err)
+
+	for name, got := range map[string]*string{
+		"sys_vendor":   fp.SysVendor,
+		"product_name": fp.ProductName,
+	} {
+		b, err := os.ReadFile("/sys/class/dmi/id/" + name)
+		want := strings.ToValidUTF8(strings.TrimSpace(string(b)), "\uFFFD")
+		if runtime.GOOS != "linux" || err != nil || want == "" {
+			assert.Nil(t, got, name)
+			continue
+		}
+		require.NotNil(t, got, name)
+		assert.Equal(t, want, *got, name)
+	}
 }
