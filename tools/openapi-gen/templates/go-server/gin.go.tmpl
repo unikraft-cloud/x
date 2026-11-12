@@ -82,6 +82,7 @@ import (
 {{- end}}
 {{- if $op.Responses}}
 {{- $defaultResp := $op.Responses.Default}}
+{{- if not $defaultResp}}{{- $defaultResp = $op.Responses.Status 200}}{{- end}}
 {{- if and $defaultResp $defaultResp.Value}}
 {{- $respContent := index $defaultResp.Value.Content "application/json"}}
 {{- if $respContent}}
@@ -171,6 +172,7 @@ type {{$serviceName}} interface {
 {{- $isSSE := false}}
 {{- if $op.Responses}}
 {{- $defaultResp := $op.Responses.Default}}
+{{- if not $defaultResp}}{{- $defaultResp = $op.Responses.Status 200}}{{- end}}
 {{- if $defaultResp}}
 {{- if $defaultResp.Value}}
 {{- $respContent := index $defaultResp.Value.Content "application/json"}}
@@ -287,6 +289,7 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- $isSSE := false}}
 {{- if $op.Responses}}
 {{- $defaultResp := $op.Responses.Default}}
+{{- if not $defaultResp}}{{- $defaultResp = $op.Responses.Status 200}}{{- end}}
 {{- if $defaultResp}}
 {{- if $defaultResp.Value}}
 {{- $respContent := index $defaultResp.Value.Content "application/json"}}
