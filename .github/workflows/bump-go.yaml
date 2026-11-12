@@ -62,6 +62,12 @@ jobs:
           LATEST="${{ steps.latest.outputs.version }}"
           while IFS= read -r dockerfile; do
             sed -i -E "s#(FROM (--platform=[^ ]+ )?golang:)[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9]+)?#\1${LATEST}\4#g" "$dockerfile"
+
+            # Docker ignores the tag when there's a digest, so a stale one keeps the old Go.
+            while IFS= read -r tag; do
+              digest="$(docker buildx imagetools inspect "golang:${tag}" --format '{{json .Manifest}}' | jq -r .digest)"
+              sed -i -E "s#(golang:${tag//./\\.})@sha256:[0-9a-f]{64}#\1@${digest}#g" "$dockerfile"
+            done < <(grep -oE 'golang:[^ @]+@sha256:' "$dockerfile" | sed -E 's/^golang:|@sha256:$//g' | sort -u)
           done < <(grep -rlE '^FROM (--platform=[^ ]+ )?golang:' --include=Dockerfile* .)
 
       - name: Create pull request
