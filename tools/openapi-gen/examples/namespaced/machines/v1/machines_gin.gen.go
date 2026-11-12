@@ -32,6 +32,7 @@ var (
 // Machines provides the API handlers.
 type Machines interface {
 	GetMachine(g *gin.Context, id string, status *commonv1.Status) (*Machine, int, error)
+	ListMachines(g *gin.Context, status []commonv1.Status) (*Machine, int, error)
 }
 
 type MachinesHandler struct {
@@ -48,6 +49,7 @@ func RegisterMachines(engine gin.IRouter, service Machines, resp func(*gin.Conte
 
 	group := engine.Group("", middleware...)
 	group.Handle("GET", "/machines/:id", handler.getMachine)
+	group.Handle("GET", "/machines", handler.listMachines)
 }
 
 func (handler *MachinesHandler) getMachine(g *gin.Context) {
@@ -84,6 +86,38 @@ func (handler *MachinesHandler) getMachine(g *gin.Context) {
 		return
 	}
 	resp, code, err := handler.service.GetMachine(g, params.Id,
+		query.Status)
+	if err != nil {
+		if handler.resp != nil {
+			handler.resp(g, code, err)
+		} else {
+			g.JSON(code, gin.H{"message": err.Error()})
+		}
+	} else if handler.resp != nil {
+		handler.resp(g, code, resp)
+	} else {
+		g.JSON(code, resp)
+	}
+}
+
+func (handler *MachinesHandler) listMachines(g *gin.Context) {
+	// Bind query parameters
+	var query struct {
+		Status []commonv1.Status `form:"status"`
+	}
+	if err := g.ShouldBindQuery(&query); err != nil {
+		log.G(g.Request.Context()).
+			Warn().
+			Err(err).
+			Msg("failed to bind query parameters")
+		if handler.resp != nil {
+			handler.resp(g, http.StatusBadRequest, err)
+		} else {
+			g.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		}
+		return
+	}
+	resp, code, err := handler.service.ListMachines(g,
 		query.Status)
 	if err != nil {
 		if handler.resp != nil {
