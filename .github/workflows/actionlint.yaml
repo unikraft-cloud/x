@@ -5,6 +5,7 @@ on:
     branches: [prod-staging]
     paths:
       - '.github/workflows/**'
+      - '.github/actions/actionlint/**'
 
   workflow_call:
 
