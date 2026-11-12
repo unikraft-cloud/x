@@ -111,16 +111,12 @@ require (
 	unikraft.com/cloud/sdk v0.4.1-staging.5 // indirect
 )
 
-replace unikraft.com/x/buildkit => ../buildkit
-
-replace unikraft.com/x/dockerfile => ../dockerfile
-
-replace unikraft.com/x/image-spec => ../image-spec
-
-replace unikraft.com/x/integration => ../integration
-
-replace unikraft.com/x/io => ../io
-
-replace unikraft.com/x/kraftfile => ../kraftfile
-
-replace unikraft.com/x/log => ../log
+replace (
+	unikraft.com/x/buildkit => ../buildkit
+	unikraft.com/x/dockerfile => ../dockerfile
+	unikraft.com/x/image-spec => ../image-spec
+	unikraft.com/x/integration => ../integration
+	unikraft.com/x/io => ../io
+	unikraft.com/x/kraftfile => ../kraftfile
+	unikraft.com/x/log => ../log
+)
