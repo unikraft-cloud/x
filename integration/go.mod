@@ -7,11 +7,13 @@ require (
 	github.com/moby/buildkit v0.34.2
 	github.com/stretchr/testify v1.12.1
 	github.com/unikraft/go-archivefs v0.0.0-20261106133356-c81ad57e55c4
+	unikraft.com/x/dockerfile v0.0.0-20261112155133-6b24cfd8a4fe
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d
 )
 
 require (
+	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -27,6 +29,7 @@ require (
 	github.com/containerd/ttrpc v1.2.10 // indirect
 	github.com/containerd/typeurl/v2 v2.3.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/getsentry/sentry-go v0.41.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
@@ -41,6 +44,7 @@ require (
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.31 // indirect
+	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
@@ -52,6 +56,7 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.11.0 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
+	github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect
@@ -79,6 +84,8 @@ require (
 	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624 // indirect
 	unikraft.com/x/log v0.0.0-20260126094137-ab6e717e5679 // indirect
 )
+
+replace unikraft.com/x/dockerfile => ../dockerfile
 
 replace unikraft.com/x/image-spec => ../image-spec
 

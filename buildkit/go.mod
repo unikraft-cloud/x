@@ -15,6 +15,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.3-0.20251027160822-ad3df93bed29 // indirect
+	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -61,6 +62,7 @@ require (
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/tonistiigi/fsutil v0.0.0-20261103091533-a72de9dcf763 // indirect
+	github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0 // indirect
 	github.com/unikraft/go-archivefs v0.0.0-20261106133356-c81ad57e55c4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect
@@ -87,9 +89,12 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 	mvdan.cc/sh/v3 v3.14.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
+	unikraft.com/x/dockerfile v0.0.0-20261112155133-6b24cfd8a4fe // indirect
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4 // indirect
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d // indirect
 )
+
+replace unikraft.com/x/dockerfile => ../dockerfile
 
 replace unikraft.com/x/integration => ../integration
 
