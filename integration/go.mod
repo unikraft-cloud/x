@@ -84,8 +84,8 @@ require (
 	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8 // indirect
 )
 
-replace unikraft.com/x/dockerfile => ../dockerfile
-
-replace unikraft.com/x/image-spec => ../image-spec
-
-replace unikraft.com/x/kraftfile => ../kraftfile
+replace (
+	unikraft.com/x/dockerfile => ../dockerfile
+	unikraft.com/x/image-spec => ../image-spec
+	unikraft.com/x/kraftfile => ../kraftfile
+)
