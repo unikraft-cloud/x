@@ -20,6 +20,7 @@ type cli struct {
 	Var                 map[string]string `short:"v" help:"Set a template variable (e.g. --var package=myapi)." mapsep:","`
 	Templates           string            `short:"t" help:"Directory or Git ref (host/org/repo@ref#dir=path) with template overrides." required:""`
 	Tag                 []string          `help:"Filter to only include operations carrying one of these tags." sep:"none"`
+	ModelsOnly          bool              `name:"models-only" help:"Generate only models, with no operations. Cannot be combined with --tag."`
 	Namespace           []string          `help:"Filter to only include schemas in one of these namespaces (e.g. Instances)." sep:"none"`
 	NamespaceImportPath map[string]string `name:"namespace-import-path" help:"Import a namespace from another Go package, as <namespace>=<import path> (e.g. Org.Common=github.com/org/repo/api/common/v1). Those schemas are not generated here and references to them use the package at that path." mapsep:"none"`
 	Flatten             string            `name:"namespace-flatten" help:"Rewrite namespaced schema names: 'strip' drops the namespace prefix, 'join' concatenates segments." enum:",strip,join" default:""`
@@ -39,6 +40,7 @@ func main() {
 		Var:                 cli.Var,
 		Templates:           cli.Templates,
 		Tag:                 cli.Tag,
+		ModelsOnly:          cli.ModelsOnly,
 		Namespace:           cli.Namespace,
 		NamespaceImportPath: cli.NamespaceImportPath,
 		Flatten:             cli.Flatten,

@@ -91,8 +91,9 @@ func (p *preprocessor) hoistSchema(schema *openapi3.Schema, name string) {
 }
 
 // hoistValue rewrites a single property/body slot whose value is an anonymous
-// schema into a $ref to a new component named name. Slots that already hold a $ref (including the allOf-wrapped
-// "$ref plus description" form) or a scalar are left untouched.
+// schema into a $ref to a new component named name. Slots that already hold a
+// $ref (including the allOf-wrapped "$ref plus description" form) or a scalar
+// are left untouched.
 func (p *preprocessor) hoistValue(slot *openapi3.SchemaRef, name string) {
 	if slot == nil || slot.Ref != "" || slot.Value == nil {
 		return
