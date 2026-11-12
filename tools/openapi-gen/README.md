@@ -49,6 +49,7 @@ go run unikraft.com/x/tools/openapi-gen@latest \
 | `--var`              | `-v`  | Set a template variable as `key=value` (repeatable)                       |
 | `--templates`        | `-t`  | Directory or Git ref to template overrides (required)                    |
 | `--tag`              |       | Filter to operations carrying one of these tags (repeatable)              |
+| `--models-only`      |       | Generate only models, with no operations. Cannot be combined with `--tag` |
 | `--namespace`        |       | Filter to schemas in one of these namespaces, e.g. `Instances` (repeatable) |
 | `--namespace-flatten`|       | Rewrite namespaced schema names: `strip` drops the prefix, `join` concatenates segments |
 | `--namespace-import-path`| | Namespace whose schemas live in another Go package, as `<namespace>=<import path>` (repeatable) |
@@ -112,11 +113,10 @@ selecting the namespace and nothing else:
 
 ```sh
 openapi-gen -i api.yaml -o ./api/common/v1 -v package=commonv1 \
-  -t ./templates/go-server --tag=NoOperations --namespace=Org --namespace-flatten=strip
+  -t ./templates/go-server --models-only --namespace=Org --namespace-flatten=strip
 ```
 
-`--tag=NoOperations` matches no tag, which is how a models-only run asks for no
-handlers.
+`--models-only` drops every operation, so the run generates no handlers.
 
 Then generate each consumer, mapping that namespace to the shared package:
 
@@ -141,9 +141,9 @@ The OpenAPI generator can be used as a package:
 import "unikraft.com/x/tools/openapi-gen/generator"
 
 err := generator.Run(generator.Options{
-	Input:     "path/to/openapi.yaml",
-	Output:    "path/to/output/directory",
-	Var:       map[string]string{
+	Input:  "path/to/openapi.yaml",
+	Output: "path/to/output/directory",
+	Var: map[string]string{
 		"var1": "value1",
 		"var2": "value2",
 	},
@@ -153,7 +153,7 @@ err := generator.Run(generator.Options{
 	NamespaceImportPath: map[string]string{
 		"Org.Common": "github.com/org/repo/api/common/v1",
 	},
-	Flatten:   "strip",
+	Flatten: "strip",
 })
 ```
 
@@ -161,7 +161,7 @@ err := generator.Run(generator.Options{
 
 1. **Parse** — Load the OpenAPI spec with `kin-openapi`, extract YAML property ordering from the raw document.
 2. **Preprocess** — Hoist inline object/enum schemas (found via properties, composition, or array items) to top-level `components/schemas` entries, so every type a generator needs has a name.
-3. **Filter/flatten** — Apply `--tag` and `--namespace` filtering, drop the models `--namespace-import-path` imports from elsewhere, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
+3. **Filter/flatten** — Apply `--tag` (or `--models-only`) and `--namespace` filtering, drop the models `--namespace-import-path` imports from elsewhere, then `--namespace-flatten` to rewrite namespaced schema names into valid Go identifiers.
 4. **Generate** — Execute each template against a `TemplateData` value, `gofmt` the output, and write files.
 
 ### Template data

@@ -94,10 +94,10 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 // ImportNamespace marks every schema declared under namespace as imported
 // from the Go package at importPath. It drops those models, so references to
 // them resolve to that package and the schemas are not generated again here.
-func (g *Generator) ImportNamespace(namespace, importPath string) {
-	stamped := g.parser.SetSchemaImportPath(namespace, importPath)
-	if len(stamped) == 0 {
-		return
+func (g *Generator) ImportNamespace(namespace, importPath string) error {
+	stamped, err := g.parser.SetSchemaImportPath(namespace, importPath)
+	if err != nil {
+		return err
 	}
 	dropped := make(map[string]bool, len(stamped))
 	for _, name := range stamped {
@@ -110,14 +110,15 @@ func (g *Generator) ImportNamespace(namespace, importPath string) {
 		}
 	}
 	g.models = filtered
+	return nil
 }
 
 // Flatten rewrites namespaced schema names (e.g. "Instances.Instance") into
 // valid Go identifiers per mode ("strip", "join", or "" for no-op). It runs
 // after any namespace/tag filtering so those filters can match on the original
 // "Namespace.Name" form.
-func (g *Generator) Flatten(mode string) {
-	g.parser.Flatten(g.models, mode)
+func (g *Generator) Flatten(mode string) error {
+	return g.parser.Flatten(g.models, mode)
 }
 
 func loadTemplates(parser *openapi.Parser, templateDir string, models *[]openapi.Model, vars *map[string]string) (*template.Template, []string, error) {

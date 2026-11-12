@@ -28,14 +28,13 @@ type GoUnionVariant struct {
 	Declare bool
 	// Doc is the description of the branch, if the spec gives one.
 	Doc string
-	// Package is the package name --namespace-import-path assigns, and Namespace the
-	// "Namespace.Name" prefix, of a schema that lives outside the package being
-	// generated.  Union discovery
-	// spans the whole document, so a branch may name a schema that
-	// package/namespace filtering left in another package; such a variant is a
-	// local wrapper (Declare is true) whose Underlying type templates qualify
-	// with these, since a method cannot be attached to a foreign type.  Both are
-	// empty for every other variant.
+	// Package is the package name --namespace-import-path assigns, and Namespace
+	// the "Namespace.Name" prefix, of a schema that lives outside the package
+	// being generated.  Union discovery spans the whole document, so a branch
+	// may name a schema that namespace filtering left in another package; such
+	// a variant is a local wrapper (Declare is true) whose Underlying type
+	// templates qualify with these, since a method cannot be attached to a
+	// foreign type.  Both are empty for every other variant.
 	Package string
 	// Namespace is the "Namespace.Name" prefix of a foreign variant's schema.
 	Namespace string
@@ -330,9 +329,13 @@ func (tf *templateFuncs) goUnionSchemas() map[string]goUnionSchema {
 		if name == "" || schemaIsEmpty(schema) {
 			return
 		}
+		var pkg string
+		if components := tf.components(); components != nil {
+			pkg = tf.parser.SchemaPackage(components.Schemas[name])
+		}
 		schemas[name] = goUnionSchema{
 			schema:    schema,
-			pkg:       tf.parser.SchemaPackage(schema),
+			pkg:       pkg,
 			selected:  selected,
 			namespace: namespace,
 		}

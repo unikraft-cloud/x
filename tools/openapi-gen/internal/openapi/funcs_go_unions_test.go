@@ -61,13 +61,13 @@ func resolvedRef(name string, schema *openapi3.Schema) *openapi3.SchemaRef {
 	return &openapi3.SchemaRef{Ref: "#/components/schemas/" + name, Value: schema}
 }
 
-// withImportPath assigns schema to the Go import path importPath, as
-// --namespace-import-path does.
-func withImportPath(tf *templateFuncs, schema *openapi3.Schema, importPath string) *templateFuncs {
+// withImportPath assigns the component name to the Go import path importPath,
+// as --namespace-import-path does.
+func withImportPath(tf *templateFuncs, name, importPath string) *templateFuncs {
 	if tf.parser.importPaths == nil {
-		tf.parser.importPaths = map[*openapi3.Schema]string{}
+		tf.parser.importPaths = map[*openapi3.SchemaRef]string{}
 	}
-	tf.parser.importPaths[schema] = importPath
+	tf.parser.importPaths[tf.parser.doc.Components.Schemas[name]] = importPath
 	return tf
 }
 
@@ -395,11 +395,12 @@ func TestGoUnionsWrapsBranchOfAnotherPackage(t *testing.T) {
 	foreign := imageSpec().Schema
 
 	// Only Thing survived filtering; ImageSpec is generated in another package.
-	tf := withImportPath(unionFuncs(objectModel("Thing", prop{"image", anyOf(
+	tf := unionFuncs(objectModel("Thing", prop{"image", anyOf(
 		inline(&openapi3.Schema{Type: strType("string")}),
 		resolvedRef("ImageSpec", foreign),
-	)})), foreign, "example.com/api/images")
+	)}))
 	tf.parser.doc.Components.Schemas["ImageSpec"] = &openapi3.SchemaRef{Value: foreign}
+	withImportPath(tf, "ImageSpec", "example.com/api/images")
 
 	unions := tf.goUnions()
 
@@ -509,7 +510,7 @@ func TestGoUnionsVariantKeepsNamespaceAfterFlatten(t *testing.T) {
 		{SchemaName: thing.SchemaName, Schema: thing.Schema, Namespace: "Core"},
 	}
 	tf := generating(unionFuncs(models...), map[string]string{"current_package": "core"})
-	tf.parser.Flatten(*tf.models, "strip")
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
 
 	unions := tf.goUnions()
 
@@ -538,8 +539,8 @@ func TestGoUnionsVariantKeepsNamespaceAfterRepeatedFlatten(t *testing.T) {
 		{SchemaName: thing.SchemaName, Schema: thing.Schema, Namespace: "Core"},
 	}
 	tf := generating(unionFuncs(models...), map[string]string{"current_package": "core"})
-	tf.parser.Flatten(*tf.models, "strip")
-	tf.parser.Flatten(*tf.models, "strip")
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
 
 	require.Equal(t, "Images", tf.parser.schemaNamespaceOf("ImageSpec"))
 
@@ -809,7 +810,7 @@ func TestGoUnionsSkipsInlineListOfForeignRef(t *testing.T) {
 			inline(&openapi3.Schema{Type: strType("array"), Items: resolvedRef("FooSpec", foreign)}),
 			ref("ImageSpec"),
 		)}),
-	), foreign, "example.com/api/other")
+	), "FooSpec", "example.com/api/other")
 
 	require.Empty(t, unionNames(tf.goUnions()))
 }
