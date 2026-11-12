@@ -173,6 +173,30 @@ func requireSameState(t *testing.T, want, got llb.State) {
 	require.Equal(t, wantDef.Def, gotDef.Def)
 }
 
+func TestApplyBuildOptsFrontendSource(t *testing.T) {
+	attrs := map[string]string{}
+	localDirs := map[string]string{}
+	inputs := map[string]llb.State{}
+
+	err := applyBuildOpts(
+		attrs,
+		localDirs,
+		inputs,
+		new([]session.Attachable),
+		BuildOpts{
+			Contexts: map[string]Source{
+				"remote": FrontendSource{Ref: "https://example.com/context.tar.gz"},
+			},
+		},
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, "https://example.com/context.tar.gz", attrs["context:remote"])
+	require.Equal(t, "moby.buildkit.frontend.contexts+forward", attrs["frontend.caps"])
+	require.NotContains(t, localDirs, "remote")
+	require.NotContains(t, inputs, "remote")
+}
+
 func TestApplyBuildOptsContexts(t *testing.T) {
 	st := llb.Git("https://example.com/repo.git", "")
 	files := llb.Git("https://example.com/files.git", "")
