@@ -36,6 +36,7 @@ it somewhere Dependabot can see it, so it doesn't need bumping by hand.
   - Go code `go:embed`s it and reads it back with
     `unikraft.com/x/dockerfile` (see `integration/image.go`).
 
-  Then add its directory to the `docker` entry in `.github/dependabot.yml`.
+  Outside `.github/`, add its directory to the `docker` entry in
+  `.github/dependabot.yml`.
 - **Tools and scripts**: no `@latest`, no `curl … | bash` from a branch. Prefer
   an image as above, or a Go module version that Dependabot tracks.
