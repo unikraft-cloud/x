@@ -8,6 +8,7 @@ use (
 	./build
 	./buildkit
 	./colors
+	./dockerfile
 	./filters
 	./fingerprint
 	./guesstermwidth
