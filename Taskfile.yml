@@ -90,6 +90,7 @@ tasks:
       - ./joinerrgroup
       - ./kingkong
       - ./kraftfile
+      - ./lineage
       - ./log
       - ./ptr
       - ./ringbuffer
@@ -123,6 +124,7 @@ tasks:
       - ./joinerrgroup
       - ./kingkong
       - ./kraftfile
+      - ./lineage
       - ./log
       - ./ptr
       - ./shell

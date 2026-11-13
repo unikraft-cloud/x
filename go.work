@@ -19,6 +19,7 @@ use (
 	./kingkong
 	./kraftfile
 	./limiter
+	./lineage
 	./log
 	./middleware
 	./oidext
