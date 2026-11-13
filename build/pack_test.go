@@ -47,8 +47,7 @@ var busyboxDockerfile []byte
 var busybox = dockerfile.MustImage(busyboxDockerfile)
 
 // TestPackInSolve builds a Dockerfile rootfs on the buildkitd at BUILDKIT_HOST,
-// packed by DefaultPacker, which the daemon pulls with the credentials of the
-// docker config.
+// packed by the packer of cmd/packer.
 func TestPackInSolve(t *testing.T) {
 	addr := os.Getenv("BUILDKIT_HOST")
 	if addr == "" {
@@ -71,9 +70,9 @@ func TestPackInSolve(t *testing.T) {
 			creds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
 			return []session.Attachable{creds.Attachable()}, nil
 		},
-		Progress: rec,
-		TempDir:  t.TempDir(),
-		Packer:   DefaultPacker,
+		Progress:  rec,
+		TempDir:   t.TempDir(),
+		PackerDir: packerDir(t),
 	}
 	opts := BuildOpts{
 		Rootfs:   FSOpts{Path: filepath.Join(dir, "Dockerfile"), Type: kraftfile.SourceTypeDockerfile, Format: kraftfile.FsTypeErofs},
@@ -129,8 +128,7 @@ func TestPackInSolve(t *testing.T) {
 }
 
 // TestPackOwners packs a directory of each LLB source built on the buildkitd at
-// BUILDKIT_HOST, on the caller and in the solve, with the packer image or the
-// packer of a directory.
+// BUILDKIT_HOST, on the caller and in the solve.
 func TestPackOwners(t *testing.T) {
 	addr := os.Getenv("BUILDKIT_HOST")
 	if addr == "" {
@@ -153,9 +151,8 @@ func TestPackOwners(t *testing.T) {
 	state := llb.Scratch().File(llb.Mkfile("/file.txt", 0o644, []byte("state\n"), llb.WithUIDGID(1000, 1000)))
 
 	packers := map[string]Builder{
-		"on the caller":                 {},
-		"in the solve":                  {Packer: DefaultPacker},
-		"in the solve from a directory": {PackerDir: packerDir(t)},
+		"on the caller": {},
+		"in the solve":  {PackerDir: packerDir(t)},
 	}
 	for where, b := range packers {
 		b.Buildkit = func(context.Context) (*client.Client, func(), error) { return c, nil, nil }
@@ -205,8 +202,8 @@ func TestPackOncePerSource(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { c.Close() })
 
-	packers := map[string]string{"on the caller": "", "in the solve": DefaultPacker}
-	for where, packer := range packers {
+	packers := map[string]string{"on the caller": "", "in the solve": packerDir(t)}
+	for where, dir := range packers {
 		t.Run("packed "+where, func(t *testing.T) {
 			b := Builder{
 				Buildkit: func(context.Context) (*client.Client, func(), error) { return c, nil, nil },
@@ -214,8 +211,8 @@ func TestPackOncePerSource(t *testing.T) {
 					creds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
 					return []session.Attachable{creds.Attachable()}, nil
 				},
-				TempDir: t.TempDir(),
-				Packer:  packer,
+				TempDir:   t.TempDir(),
+				PackerDir: dir,
 			}
 			imgs, err := b.BuildRootfs(t.Context(), BuildOpts{
 				Rootfs:   FSOpts{Path: busybox, Type: kraftfile.SourceTypeOCI, Format: kraftfile.FsTypeErofs},

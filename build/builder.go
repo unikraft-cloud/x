@@ -51,9 +51,9 @@ type Builder struct {
 	MaxRootfsSize int64
 
 	// Packer is the image with the packer command that a solve runs on each
-	// rootfs it builds, pulled with the session's credentials, DefaultPacker
-	// being the published one. When it and PackerDir are empty, the build packs
-	// each rootfs that it gets from a solve itself.
+	// rootfs it builds, pulled with the session's credentials. When it and
+	// PackerDir are empty, the build packs each rootfs that it gets from a solve
+	// itself.
 	Packer string
 
 	// PackerDir holds the root filesystem of the packer image for each platform,

@@ -40,10 +40,6 @@ import (
 	"unikraft.com/x/build/progress"
 )
 
-// DefaultPacker is the packer image for Builder.Packer that publish-packer
-// builds from cmd/packer/Dockerfile.
-const DefaultPacker = "index.unikraft.io/official/utils/image-packer:latest"
-
 // pack writes srcFS to destFS in format, as the step that packs part for
 // platform p.
 func (b Builder) pack(ctx context.Context, part string, p ocispec.Platform, opts BuildOpts, format kraftfile.FsType, destFS *os.File, srcFS fs.FS) error {
