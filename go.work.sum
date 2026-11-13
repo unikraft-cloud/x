@@ -212,7 +212,6 @@ github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.5.5/go.mod h1:iHVx2J9p
 github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.8.4/go.mod h1:b17At0o8inygF+c6FOD3rNyYZufPw62o9XJbSfQPgbo=
 github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.3/go.mod h1:JLuCKu5VfiLBBBl/5IzZILU7rxS0koQpHzMOCzycOJU=
 github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.22/go.mod h1:4Pzhyz8hJOm2bepgl+NjvRx8vlUFAIIvJnZ/MkcNPpU=
-github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.2/go.mod h1:cBAjVUKBr+5wnx1K3XWS8u5AZsqpA2S/0z7YtI6BGFc=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.12/go.mod h1:usVdWJaosa66NMvmCrr08NcWDBRv4E6+YFG2pUdw1Lk=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.4/go.mod h1:nLEfLnVMmLvyIG58/6gsSA03F1voKGaCfHV7+lR8S7s=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.16/go.mod h1:iRSNGgOYmiYwSCXxXaKb9HfOEj40+oTKn8pTxMlYkRM=
@@ -224,12 +223,10 @@ github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.12/go.mod h1:dIVlqu
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.4/go.mod h1:DnbBOv4FlIXHj2/xmrUQYtawRFC9L9ZmQPz+DBc6X5I=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.12/go.mod h1:XEttbEr5yqsw8ebi7vlDoGJJjMXRez4/s9pibpJyL5s=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.29/go.mod h1:G7RP+uhagpKtKhd1BM9N6JQqjCcGEU47K5lBVZQyRQw=
-github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.2/go.mod h1:Ldmll8/2VqaVerWWDf8IGG+6pAvZY04gs3tevq3nIFs=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.75.3/go.mod h1:FHSHmyEUkzRbaFFqqm6bkLAOQHgqhsLmfCahvCBMiyA=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.87.1/go.mod h1:w5PC+6GHLkvMJKasYGVloB3TduOtROEMqm15HSuIbw4=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.89.1/go.mod h1:MbKLznDKpf7PnSonNRUVYZzfP0CeLkRIUexeblgKcU4=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.103.3/go.mod h1:77ZAgynvx1txMvDG8gGWoWkO1augYDxkp9JElWFgjQU=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.112.0/go.mod h1:6ZFrmv/qIAYFmG+2WhA7mFU8+edldRlISwT+tNnyLuA=
 github.com/aws/aws-sdk-go-v2/service/signin v1.0.5/go.mod h1:k029+U8SY30/3/ras4G/Fnv/b88N4mAfliNn08Dem4M=
 github.com/aws/aws-sdk-go-v2/service/signin v1.1.5/go.mod h1:LxYujSTLPRlp2vTtcUO/+1ilrew8ytt6SvQyOgejzFQ=
 github.com/aws/aws-sdk-go-v2/service/signin v1.9.0/go.mod h1:AGIoQg99fBrOIQnF78TLx4lj18mc4gZ0hJx1UaLIFM4=
@@ -1699,6 +1696,7 @@ golang.org/x/telemetry v0.0.0-20260708182218-49f421fb7959/go.mod h1:LV7u5Oco+Z/g
 golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5/go.mod h1:LVehoXe41cL5SCVQilsV7Gg6BNG+Js6P9PhSbYTIUkQ=
 golang.org/x/telemetry v0.0.0-20260908163034-4bcc4b2ee518/go.mod h1:i+ivNqjDnTF3WTElsdk5g9V5DTSBYgdNo7xTU9SDwYA=
 golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157/go.mod h1:i+ivNqjDnTF3WTElsdk5g9V5DTSBYgdNo7xTU9SDwYA=
+golang.org/x/telemetry v0.0.0-20261009151841-97e8ea77aa2a/go.mod h1:i+ivNqjDnTF3WTElsdk5g9V5DTSBYgdNo7xTU9SDwYA=
 golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
 golang.org/x/term v0.5.0/go.mod h1:jMB1sMXY+tzblOD4FWmEbocvup2/aLOaQEp7JmGp78k=
 golang.org/x/term v0.8.0/go.mod h1:xPskH00ivmX89bAKVGSKKtLOWNx2+17Eiy94tnKShWo=

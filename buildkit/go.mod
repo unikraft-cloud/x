@@ -15,6 +15,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.3-0.20251027160822-ad3df93bed29 // indirect
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.112.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -28,7 +29,7 @@ require (
 	github.com/containerd/platforms v1.0.0-rc.5 // indirect
 	github.com/containerd/ttrpc v1.2.10 // indirect
 	github.com/containerd/typeurl/v2 v2.3.0 // indirect
-	github.com/docker/cli v29.8.2+incompatible // indirect
+	github.com/docker/cli v29.9.3+incompatible // indirect
 	github.com/docker/go-connections v0.8.2 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
@@ -79,8 +80,8 @@ require (
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
