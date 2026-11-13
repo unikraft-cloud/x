@@ -256,8 +256,8 @@ func (s *state) runInteractive(ctx context.Context) (int, error) {
 	stop := s.captureInterrupts()
 	defer stop()
 	defer s.plainKeys()()
-	if s.terminal {
-		defer s.followSize()()
+	if out, ok := s.console.Out.(interface{ Fd() uintptr }); ok && s.terminal {
+		defer FollowSize(out.Fd(), s.resize)()
 	}
 
 	if s.cfg.Banner != "" {
