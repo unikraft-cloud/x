@@ -21,6 +21,7 @@ require (
 	golang.org/x/mod v0.42.0
 	google.golang.org/grpc v1.85.0
 	unikraft.com/x/buildkit v0.0.0-20261104124328-5c22d4e1ce0f
+	unikraft.com/x/dockerfile v0.0.0-20261112155133-6b24cfd8a4fe
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
 	unikraft.com/x/integration v0.0.0-20261029083025-f2d161e6abc8
 	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624
@@ -30,6 +31,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.3-0.20251027160822-ad3df93bed29 // indirect
+	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -109,14 +111,12 @@ require (
 	unikraft.com/cloud/sdk v0.4.1-staging.5 // indirect
 )
 
-replace unikraft.com/x/buildkit => ../buildkit
-
-replace unikraft.com/x/image-spec => ../image-spec
-
-replace unikraft.com/x/integration => ../integration
-
-replace unikraft.com/x/io => ../io
-
-replace unikraft.com/x/kraftfile => ../kraftfile
-
-replace unikraft.com/x/log => ../log
+replace (
+	unikraft.com/x/buildkit => ../buildkit
+	unikraft.com/x/dockerfile => ../dockerfile
+	unikraft.com/x/image-spec => ../image-spec
+	unikraft.com/x/integration => ../integration
+	unikraft.com/x/io => ../io
+	unikraft.com/x/kraftfile => ../kraftfile
+	unikraft.com/x/log => ../log
+)

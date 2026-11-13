@@ -8,6 +8,7 @@ package build
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"io"
 	"io/fs"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"github.com/tonistiigi/fsutil"
 	"github.com/tonistiigi/fsutil/types"
 	goerofs "github.com/unikraft/go-archivefs/erofs"
+	"unikraft.com/x/dockerfile"
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/image-spec/schemes"
@@ -38,6 +40,11 @@ import (
 
 	"unikraft.com/x/build/registryauth"
 )
+
+//go:embed testdata/busybox.Dockerfile
+var busyboxDockerfile []byte
+
+var busybox = dockerfile.MustImage(busyboxDockerfile)
 
 // TestPackInSolve builds a Dockerfile rootfs on the buildkitd at BUILDKIT_HOST,
 // packed by DefaultPacker, which the daemon pulls with the credentials of the
@@ -103,7 +110,7 @@ func TestPackInSolve(t *testing.T) {
 	_, err = b.BuildRootfs(t.Context(), opts)
 	require.ErrorIs(t, err, ErrTooLarge, "the packer's refusal comes back as ErrTooLarge")
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM busybox\nRUN exit 3\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM "+busybox+"\nRUN exit 3\n"), 0o644))
 	_, err = b.BuildRootfs(t.Context(), opts)
 	require.Error(t, err)
 	require.NotErrorIs(t, err, ErrTooLarge, "a step that exits as the packer refuses is not ErrTooLarge")
@@ -211,7 +218,7 @@ func TestPackOncePerSource(t *testing.T) {
 				Packer:  packer,
 			}
 			imgs, err := b.BuildRootfs(t.Context(), BuildOpts{
-				Rootfs:   FSOpts{Path: "docker.io/library/busybox:latest", Type: kraftfile.SourceTypeOCI, Format: kraftfile.FsTypeErofs},
+				Rootfs:   FSOpts{Path: busybox, Type: kraftfile.SourceTypeOCI, Format: kraftfile.FsTypeErofs},
 				Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}, {OS: "qemu", Architecture: "x86_64"}},
 			})
 			require.NoError(t, err)

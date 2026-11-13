@@ -19,9 +19,6 @@ updates:
     # Intra-repo modules resolve through the workspace, so the tree is the
     # source of truth for their pseudo-versions.
     - dependency-name: unikraft.com/x/*
-    # The CLI holds buildkit at v0.34.2 through image-spec and build.  Bump it
-    # by hand, together with the CLI.
-    - dependency-name: github.com/moby/buildkit
   groups:
     go-deps:
       applies-to: version-updates
@@ -33,7 +30,9 @@ updates:
       - '*'
 
 - package-ecosystem: github-actions
-  directory: /
+  directories:
+  - /
+  - /.github/actions/*
   schedule:
     interval: weekly
     day: sunday
@@ -44,6 +43,28 @@ updates:
       patterns:
       - '*'
     github-security:
+      applies-to: security-updates
+      patterns:
+      - '*'
+
+# Each image lives in a Dockerfile of one FROM line, next to where it's used.
+- package-ecosystem: docker
+  directories:
+  - /.github/actions/*
+  - /.github/workflows
+  - /.github/workflows/*
+  - /build/testdata
+  - /integration
+  schedule:
+    interval: weekly
+    day: sunday
+    time: '09:00'
+  groups:
+    docker-deps:
+      applies-to: version-updates
+      patterns:
+      - '*'
+    docker-security:
       applies-to: security-updates
       patterns:
       - '*'
