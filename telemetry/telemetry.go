@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	otellog "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -106,7 +105,7 @@ func Init(ctx context.Context) (func(context.Context) error, error) {
 			sdklog.WithResource(res),
 			sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
 		)
-		otellog.SetLoggerProvider(logProvider)
+		otel.SetLoggerProvider(logProvider)
 		shutdownFuncs = append(shutdownFuncs, logProvider.Shutdown)
 	case "none":
 		// No log exporter

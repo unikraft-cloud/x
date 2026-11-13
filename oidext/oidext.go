@@ -40,8 +40,8 @@ import (
 )
 
 var (
-	ErrNotStructPointer = errors.New("value must be a non-nil pointer to a struct")
-	ErrNotStruct        = errors.New("value must be a struct or pointer to struct")
+	ErrNotStructPointer = errors.New("value must be a non-nil pointer")
+	ErrNotStruct        = errors.New("value must be non-nil")
 	ErrNotFieldPointer  = errors.New("value must be a non-nil pointer to a struct field")
 	ErrFieldNotFound    = errors.New("value must point to a tagged field in the provided struct")
 )
@@ -49,6 +49,9 @@ var (
 // Encode encodes exported struct fields into pkix.Extensions. Each exported
 // field must have an `oid:"<suffix>"` tag unless WithEncodeIgnoreUntagged() is
 // passed as an option.
+//
+// Any other value (an integer, string, enum, ...) is encoded as a single
+// extension at prefixOID itself, critical if WithEncodeCritical() is passed.
 //
 // The full OID is prefixOID + suffixOID (concatenation of arcs).
 //
@@ -77,7 +80,15 @@ func Encode(prefixOID asn1.ObjectIdentifier, v any, opts ...EncodeOption) ([]pki
 		rv = rv.Elem()
 	}
 	if rv.Kind() != reflect.Struct {
-		return nil, ErrNotStruct
+		der, err := marshalFieldValue(rv)
+		if err != nil {
+			return nil, err
+		}
+		return []pkix.Extension{{
+			Id:       slices.Clone(prefixOID),
+			Critical: cfg.critical,
+			Value:    der,
+		}}, nil
 	}
 
 	rt := rv.Type()
@@ -155,6 +166,10 @@ func Encode(prefixOID asn1.ObjectIdentifier, v any, opts ...EncodeOption) ([]pki
 // Decode populates out (pointer to struct) from pkix.Extensions. It matches
 // extensions by full OID = prefixOID + suffixOID for each tagged field.
 //
+// When out points to any other value, it is decoded from the single extension
+// at prefixOID itself, as Encode produces it, and left untouched when that
+// extension is absent.
+//
 // Behavior:
 //   - Unknown extensions are ignored (by default).
 //   - Missing fields: if WithDecodeRequireAll() is used, missing required
@@ -171,8 +186,17 @@ func Decode(prefixOID asn1.ObjectIdentifier, exts []pkix.Extension, out any, opt
 		return ErrNotStructPointer
 	}
 	rv = rv.Elem()
+
 	if rv.Kind() != reflect.Struct {
-		return ErrNotStructPointer
+		for _, e := range exts {
+			if e.Id.Equal(prefixOID) {
+				return unmarshalIntoField(e.Value, rv)
+			}
+		}
+		if cfg.requireAll {
+			return fmt.Errorf("missing required extension (oid %s)", prefixOID.String())
+		}
+		return nil
 	}
 
 	extMap := make(map[string]pkix.Extension, len(exts))

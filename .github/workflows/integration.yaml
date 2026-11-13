@@ -1,0 +1,80 @@
+name: integration
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [prod-staging]
+    paths:
+      - '**'
+      - '!.github/**'
+      - .github/workflows/integration.yaml
+
+# A cancelled run would skip the test cleanup and leave its builder behind.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request_target' && github.head_ref || github.ref }}
+
+jobs:
+  go:
+    # Pull requests from forks get no secrets.
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    # The internal metros are reachable from the ARC runners only.
+    runs-on: arc-ubuntu24.04-standard
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [STAGING, STABLE, PROD]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup go
+        uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
+
+      - name: Login to Docker Hub
+        uses: ./.github/actions/login-docker-hub
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Run integration tests
+        shell: bash
+        run: |
+          # The tests skip themselves without a token.
+          test -n "$UKC_TOKEN"
+          test -n "$UKC_METRO"
+          task ci/integration
+        env:
+          UKC_TOKEN: ${{ secrets.UNIKRAFT_TOKEN }}
+          UKC_METRO: >-
+            ${{ matrix.target == 'STAGING' && secrets.UNIKRAFT_ENDPOINT_STAGING
+            || matrix.target == 'STABLE' && secrets.UNIKRAFT_ENDPOINT_STABLE
+            || matrix.target == 'PROD' && secrets.UNIKRAFT_ENDPOINT_PROD || '' }}
+          UKC_INSECURE: ${{ matrix.target != 'PROD' }}
+          # A cached pass would not reach the metro.
+          GOFLAGS: -count=1
+
+      # The pack tests dial the buildkitd of BUILDKIT_HOST, and its steps pull
+      # the packer with the docker config. They do not use the metro.
+      - name: Start buildkitd and a registry
+        if: ${{ matrix.target == 'STAGING' }}
+        shell: bash
+        run: |
+          docker run --detach --name buildkitd --privileged --network host \
+            moby/buildkit:v0.34.2 --addr tcp://127.0.0.1:1234 --oci-worker-net host
+          docker run --detach --name registry --network host \
+            --env REGISTRY_HTTP_ADDR=127.0.0.1:5000 registry:3
+          auth="$(base64 --decode <<<"$UKC_TOKEN")"
+          echo "::add-mask::${auth#*:}"
+          docker login index.unikraft.io --username "${auth%%:*}" --password-stdin <<<"${auth#*:}"
+        env:
+          UKC_TOKEN: ${{ secrets.UNIKRAFT_TOKEN }}
+
+      - name: Run pack tests
+        if: ${{ matrix.target == 'STAGING' }}
+        shell: bash
+        run: |
+          task forone module=./build gotask=test
+        env:
+          BUILDKIT_HOST: tcp://127.0.0.1:1234
+          PUSH_REGISTRY: localhost:5000
+          GOFLAGS: -count=1

@@ -3,6 +3,8 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
+//go:build !windows
+
 package shell
 
 import (
@@ -422,6 +424,15 @@ func TestPrompt(t *testing.T) {
 		term.await("needle")
 	})
 
+	t.Run("completes-a-path-on-the-instance", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.send("cat hostna\t")
+		term.await("hostname")
+		term.send("\r")
+		term.await("fakebox")
+	})
+
 	t.Run("keeps-reading-an-incomplete-line", func(t *testing.T) {
 		term := newTerminal(t, root)
 
@@ -441,6 +452,15 @@ func TestPrompt(t *testing.T) {
 
 		term.run("echo after")
 		term.await("after")
+	})
+
+	t.Run("follows-the-window-size", func(t *testing.T) {
+		term := newTerminal(t, root)
+
+		term.run("sh -c 'stty size; sleep 1; stty size'")
+		term.await("24 120")
+		require.NoError(t, pty.Setsize(term.ptmx, &pty.Winsize{Rows: 30, Cols: 100}))
+		term.await("30 100", "the window's new size reached the command")
 	})
 
 	t.Run("prints-one-ctrl-c-at-the-prompt", func(t *testing.T) {

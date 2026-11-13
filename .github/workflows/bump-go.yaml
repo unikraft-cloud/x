@@ -61,8 +61,8 @@ jobs:
         run: |
           LATEST="${{ steps.latest.outputs.version }}"
           while IFS= read -r dockerfile; do
-            sed -i -E "s#(FROM golang:)[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9]+)?#\1${LATEST}\3#g" "$dockerfile"
-          done < <(grep -rlE '^FROM golang:' --include=Dockerfile* .)
+            sed -i -E "s#(FROM (--platform=[^ ]+ )?golang:)[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9]+)?#\1${LATEST}\4#g" "$dockerfile"
+          done < <(grep -rlE '^FROM (--platform=[^ ]+ )?golang:' --include=Dockerfile* .)
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v8

@@ -24,6 +24,7 @@ const base = {
                 "revert",
                 "gomod",
                 "chore",
+                "promote",
             ],
         ],
         // enforce sentence case for subject

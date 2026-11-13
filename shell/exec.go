@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"sync/atomic"
+	"syscall"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
@@ -74,6 +75,9 @@ func (s *state) runRemote(ctx context.Context, args []string) error {
 	defer done()
 
 	streams := stdio.Stdio{Stdin: hc.Stdin, Stdout: hc.Stdout, Stderr: hc.Stderr}
+	// The terminal is released after its reader is reclaimed: defers run last in, first out.
+	terminal, release := s.lendTerminal(streams)
+	defer release()
 	in, reclaim := s.commandStdin(ctx, streams.Stdin)
 	streams.Stdin = in
 	// Hand the terminal back before the prompt reads it again, not whenever the
@@ -84,11 +88,15 @@ func (s *state) runRemote(ctx context.Context, args []string) error {
 	streams.Stdout = out
 
 	code, err := s.cfg.Transport.Exec(ctx, Command{
-		Args:    args,
-		Dir:     hc.Dir,
-		Env:     envList(hc.Env),
-		Streams: streams,
+		Args:     args,
+		Dir:      hc.Dir,
+		Env:      envList(hc.Env),
+		Streams:  streams,
+		Terminal: terminal,
 	})
+	// Restore the terminal before printing an error below.
+	reclaim()
+	release()
 	switch {
 	case capture.filled():
 		fmt.Fprintln(hc.Stderr, errorStyle.Render(captureFull))
@@ -98,6 +106,12 @@ func (s *state) runRemote(ctx context.Context, args []string) error {
 	case err != nil:
 		fmt.Fprintln(hc.Stderr, errorStyle.Render(sanitised(err).Error()))
 		return interp.ExitStatus(1)
+	case terminal != nil && code == -int(syscall.SIGINT):
+		// The pty delivered the ^C; the rest of the line goes as it would here.
+		if interrupt, ok := ctx.Value(interruptedKey{}).(func()); ok {
+			interrupt()
+		}
+		return interp.ExitStatus(StatusInterrupted)
 	}
 	return codeToExitStatus(code)
 }
@@ -105,7 +119,7 @@ func (s *state) runRemote(ctx context.Context, args []string) error {
 // capturing is the interpreter keeping a command's output in memory, as it does
 // for $(...) and nowhere else: a pipe or a file answers for its own size.
 func capturing(w io.Writer, stop context.CancelFunc) (io.Writer, *cappedCapture) {
-	held, ok := w.(*strings.Builder)
+	held, ok := w.(captureWriter)
 	if !ok {
 		return w, nil
 	}
@@ -113,10 +127,18 @@ func capturing(w io.Writer, stop context.CancelFunc) (io.Writer, *cappedCapture)
 	return capture, capture
 }
 
+// captureWriter is the interpreter's [strings.Builder] for a command substitution,
+// wrapped to report the expansion's nesting.
+type captureWriter interface {
+	io.Writer
+	Len() int
+	Nesting() int
+}
+
 // cappedCapture holds a command substitution to [maxCapture], however many
 // commands write into it, and stops the one that filled it.
 type cappedCapture struct {
-	held *strings.Builder
+	held captureWriter
 	stop context.CancelFunc
 	full atomic.Bool
 }

@@ -107,6 +107,7 @@ func Telemetry(cfg TelemetryConfig) gin.HandlerFunc {
 
 		ctx, span := tracer.Start(ctx, spanName(c), trace.WithSpanKind(trace.SpanKindServer))
 		span.SetAttributes(reqAttrs...)
+		span.SetAttributes(clientAttrs(c)...)
 		if _, known := requestMethods[c.Request.Method]; !known {
 			span.SetAttributes(semconv.HTTPRequestMethodOriginal(c.Request.Method))
 		}
@@ -177,6 +178,27 @@ func serverAttrs(r *http.Request) []attribute.KeyValue {
 	}
 	if port, err := strconv.Atoi(rawPort); err == nil && port > 0 {
 		attrs = append(attrs, semconv.ServerPort(port))
+	}
+
+	return attrs
+}
+
+// clientAttrs are unbounded, and so belong only on spans.
+func clientAttrs(c *gin.Context) []attribute.KeyValue {
+	var attrs []attribute.KeyValue
+	if ip := c.ClientIP(); ip != "" {
+		attrs = append(attrs, semconv.ClientAddress(ip))
+	}
+
+	if addr, rawPort, err := net.SplitHostPort(c.Request.RemoteAddr); err == nil {
+		attrs = append(attrs, semconv.NetworkPeerAddress(addr))
+		if port, err := strconv.Atoi(rawPort); err == nil && port > 0 {
+			attrs = append(attrs, semconv.NetworkPeerPort(port))
+		}
+	}
+
+	if ua := c.Request.UserAgent(); ua != "" {
+		attrs = append(attrs, semconv.UserAgentOriginal(ua))
 	}
 
 	return attrs
