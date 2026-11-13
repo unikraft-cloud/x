@@ -13,13 +13,15 @@ import (
 	"syscall"
 )
 
-// followSize hands the terminal's size to the running command whenever it changes.
-func (s *state) followSize() func() {
+// FollowSize hands resize the size of the terminal at fd at once and whenever it changes, until stopped.
+func FollowSize(fd uintptr, resize func(WinSize)) (stop func()) {
 	winch := make(chan os.Signal, 1)
 	signal.Notify(winch, syscall.SIGWINCH)
 	go func() {
+		// The size may have changed before Notify.
+		resize(sizeOf(fd))
 		for range winch {
-			s.resize(s.measure())
+			resize(sizeOf(fd))
 		}
 	}()
 	return func() {

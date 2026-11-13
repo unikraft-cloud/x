@@ -18,10 +18,14 @@ import (
 
 // measure is the terminal's size, read off the output: windows sizes only that handle.
 func (s *state) measure() WinSize {
-	var size WinSize
 	if out, ok := s.console.Out.(interface{ Fd() uintptr }); ok {
-		size.Cols, size.Rows, _ = term.GetSize(out.Fd())
+		return sizeOf(out.Fd())
 	}
+	return WinSize{}
+}
+
+func sizeOf(fd uintptr) (size WinSize) {
+	size.Cols, size.Rows, _ = term.GetSize(fd)
 	return size
 }
 

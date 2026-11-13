@@ -3,9 +3,9 @@
 // Licensed under the BSD-3-Clause License (the "License").
 // You may not use this file except in compliance with the License.
 
-//go:build js || windows
+//go:build js
 
 package shell
 
-// followSize has no SIGWINCH to follow: the size is the one measured at the start.
-func (s *state) followSize() func() { return func() {} }
+// FollowSize has no SIGWINCH to follow: the size is the one measured at the start.
+func FollowSize(fd uintptr, resize func(WinSize)) (stop func()) { return func() {} }
