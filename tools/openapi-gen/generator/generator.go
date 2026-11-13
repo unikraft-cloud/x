@@ -53,34 +53,6 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 	return g, nil
 }
 
-// FilterByPackage keeps only operations and models whose x-package matches
-// the given package name.
-//
-// Deprecated: x-package is a legacy extension emitted only by our proto-based
-// generation pipeline. Prefer FilterByTag (operations) and FilterByNamespace
-// (models), which work against any OpenAPI document, including specs
-// generated from platform-api's TypeSpec definitions.
-func (g *Generator) FilterByPackage(pkg string) {
-	var filteredOps []openapi.PathOperation
-	for _, op := range g.operations {
-		if op.Operation == nil {
-			continue
-		}
-		if opPkg, _ := op.Operation.Extensions["x-package"].(string); opPkg == pkg {
-			filteredOps = append(filteredOps, op)
-		}
-	}
-	g.operations = filteredOps
-
-	var filteredModels []openapi.Model
-	for _, m := range g.models {
-		if m.Package == pkg {
-			filteredModels = append(filteredModels, m)
-		}
-	}
-	g.models = filteredModels
-}
-
 // FilterByTag keeps only operations carrying at least one of the given tags.
 // Models are left untouched (filter them separately via FilterByNamespace).
 func (g *Generator) FilterByTag(tags []string) {
@@ -119,12 +91,34 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 	g.models = filtered
 }
 
+// ImportNamespace marks every schema declared under namespace as imported
+// from the Go package at importPath. It drops those models, so references to
+// them resolve to that package and the schemas are not generated again here.
+func (g *Generator) ImportNamespace(namespace, importPath string) error {
+	stamped, err := g.parser.SetSchemaImportPath(namespace, importPath)
+	if err != nil {
+		return err
+	}
+	dropped := make(map[string]bool, len(stamped))
+	for _, name := range stamped {
+		dropped[name] = true
+	}
+	var filtered []openapi.Model
+	for _, m := range g.models {
+		if !dropped[m.SchemaName] {
+			filtered = append(filtered, m)
+		}
+	}
+	g.models = filtered
+	return nil
+}
+
 // Flatten rewrites namespaced schema names (e.g. "Instances.Instance") into
 // valid Go identifiers per mode ("strip", "join", or "" for no-op). It runs
 // after any namespace/tag filtering so those filters can match on the original
 // "Namespace.Name" form.
-func (g *Generator) Flatten(mode string) {
-	g.parser.Flatten(g.models, mode)
+func (g *Generator) Flatten(mode string) error {
+	return g.parser.Flatten(g.models, mode)
 }
 
 func loadTemplates(parser *openapi.Parser, templateDir string, models *[]openapi.Model, vars *map[string]string) (*template.Template, []string, error) {

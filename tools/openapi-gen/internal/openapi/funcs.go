@@ -59,6 +59,7 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 
 	// Custom extensions
 	funcs["getTypePackage"] = tf.getTypePackage
+	funcs["getTypeImportPath"] = tf.getTypeImportPath
 
 	// Add go helpers
 	funcs["schemaToGoType"] = tf.schemaToGoType
@@ -261,34 +262,27 @@ func (tf *templateFuncs) wrapComment(text string, width int, prefix string) stri
 	return strings.Join(lines, "\n")
 }
 
-// getTypePackage returns the x-package value for a type reference.
+// getTypePackage returns the package name that qualifies a type reference
+// imported with --namespace-import-path (e.g. "commonv1").
 // Accepts *openapi3.Schema, *openapi3.SchemaRef, *openapi3.Parameter, or string ($ref).
-// Returns empty string if no x-package is found.
-//
-// Deprecated: x-package is only emitted by our proto-based generation
-// pipeline. New templates that need to distinguish local from foreign type
-// references should compare against the "current_package" var (set from
-// --namespace) instead.
+// Returns empty string for a type of the package being generated.
 func (tf *templateFuncs) getTypePackage(v any) string {
-	ref := tf.extractRef(v)
-	if ref == "" {
-		return ""
-	}
+	return tf.parser.SchemaPackage(tf.refComponent(v))
+}
 
-	typeName := extractTypeFromRef(ref)
+// getTypeImportPath returns the Go import path of a type reference imported
+// with --namespace-import-path, or empty string for a local type.
+func (tf *templateFuncs) getTypeImportPath(v any) string {
+	return tf.parser.SchemaImportPath(tf.refComponent(v))
+}
+
+// refComponent returns the component a type reference points to, or nil.
+func (tf *templateFuncs) refComponent(v any) *openapi3.SchemaRef {
+	typeName := extractTypeFromRef(tf.extractRef(v))
 	if typeName == "" {
-		return ""
+		return nil
 	}
-
-	if schemaRef, ok := tf.parser.doc.Components.Schemas[typeName]; ok {
-		if schemaRef.Value != nil {
-			if pkg, _ := schemaRef.Value.Extensions["x-package"].(string); pkg != "" {
-				return pkg
-			}
-		}
-	}
-
-	return ""
+	return tf.parser.doc.Components.Schemas[typeName]
 }
 
 // extractRef extracts a $ref string from various OpenAPI types.
@@ -320,6 +314,9 @@ func (tf *templateFuncs) extractRef(v any) string {
 		// Array items ref
 		if val.Items != nil && val.Items.Ref != "" {
 			return val.Items.Ref
+		}
+		if ap := val.AdditionalProperties.Schema; ap != nil && ap.Ref != "" {
+			return ap.Ref
 		}
 		return ""
 	case *openapi3.Parameter:

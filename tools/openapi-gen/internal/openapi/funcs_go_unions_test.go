@@ -61,10 +61,14 @@ func resolvedRef(name string, schema *openapi3.Schema) *openapi3.SchemaRef {
 	return &openapi3.SchemaRef{Ref: "#/components/schemas/" + name, Value: schema}
 }
 
-// withPackage tags a schema with the legacy x-package extension.
-func withPackage(schema *openapi3.Schema, pkg string) *openapi3.Schema {
-	schema.Extensions = map[string]any{"x-package": pkg}
-	return schema
+// withImportPath assigns the component name to the Go import path importPath,
+// as --namespace-import-path does.
+func withImportPath(tf *templateFuncs, name, importPath string) *templateFuncs {
+	if tf.parser.importPaths == nil {
+		tf.parser.importPaths = map[*openapi3.SchemaRef]string{}
+	}
+	tf.parser.importPaths[tf.parser.doc.Components.Schemas[name]] = importPath
+	return tf
 }
 
 func imageSpec() Model {
@@ -512,14 +516,15 @@ func TestGoUnionsSortedByName(t *testing.T) {
 // another package, it joins the union through a local wrapper: the marker method
 // cannot be attached to a type declared elsewhere.
 func TestGoUnionsWrapsBranchOfAnotherPackage(t *testing.T) {
-	foreign := withPackage(imageSpec().Schema, "images")
+	foreign := imageSpec().Schema
 
 	// Only Thing survived filtering; ImageSpec is generated in another package.
-	tf := generating(unionFuncs(objectModel("Thing", prop{"image", anyOf(
+	tf := unionFuncs(objectModel("Thing", prop{"image", anyOf(
 		inline(&openapi3.Schema{Type: strType("string")}),
 		resolvedRef("ImageSpec", foreign),
-	)})), map[string]string{"x-package": "instances"})
+	)}))
 	tf.parser.doc.Components.Schemas["ImageSpec"] = &openapi3.SchemaRef{Value: foreign}
+	withImportPath(tf, "ImageSpec", "example.com/api/images")
 
 	unions := tf.goUnions()
 
@@ -538,15 +543,15 @@ func TestGoUnionsWrapsBranchOfAnotherPackage(t *testing.T) {
 // A branch of the package being generated is generated already: the marker method
 // goes on the schema's own type, with nothing to qualify.
 func TestGoUnionsBranchOfSamePackageNeedsNoWrapper(t *testing.T) {
-	local := withPackage(imageSpec().Schema, "images")
+	local := imageSpec().Schema
 
-	tf := generating(unionFuncs(
+	tf := unionFuncs(
 		Model{SchemaName: "ImageSpec", Schema: local},
 		objectModel("Thing", prop{"image", anyOf(
 			inline(&openapi3.Schema{Type: strType("string")}),
 			resolvedRef("ImageSpec", local),
 		)}),
-	), map[string]string{"x-package": "images"})
+	)
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
@@ -629,7 +634,7 @@ func TestGoUnionsVariantKeepsNamespaceAfterFlatten(t *testing.T) {
 		{SchemaName: thing.SchemaName, Schema: thing.Schema, Namespace: "Core"},
 	}
 	tf := generating(unionFuncs(models...), map[string]string{"current_package": "core"})
-	tf.parser.Flatten(*tf.models, "strip")
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
 
 	unions := tf.goUnions()
 
@@ -658,8 +663,8 @@ func TestGoUnionsVariantKeepsNamespaceAfterRepeatedFlatten(t *testing.T) {
 		{SchemaName: thing.SchemaName, Schema: thing.Schema, Namespace: "Core"},
 	}
 	tf := generating(unionFuncs(models...), map[string]string{"current_package": "core"})
-	tf.parser.Flatten(*tf.models, "strip")
-	tf.parser.Flatten(*tf.models, "strip")
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
 
 	require.Equal(t, "Images", tf.parser.schemaNamespaceOf("ImageSpec"))
 
@@ -920,16 +925,16 @@ func TestGoUnionsInlineListOfLocalRef(t *testing.T) {
 // inline shape reaching a schema of another package is left alone rather than
 // described by a type name that does not resolve in the generated package.
 func TestGoUnionsSkipsInlineListOfForeignRef(t *testing.T) {
-	foreign := withPackage(objectModel("FooSpec", prop{"foo", &openapi3.Schema{Type: strType("string")}}).Schema, "other")
+	foreign := objectModel("FooSpec", prop{"foo", &openapi3.Schema{Type: strType("string")}}).Schema
 
-	tf := generating(unionFuncs(
+	tf := withImportPath(unionFuncs(
 		imageSpec(),
 		namedModel("FooSpec", foreign),
 		objectModel("Thing", prop{"image", anyOf(
 			inline(&openapi3.Schema{Type: strType("array"), Items: resolvedRef("FooSpec", foreign)}),
 			ref("ImageSpec"),
 		)}),
-	), map[string]string{"x-package": "mine"})
+	), "FooSpec", "example.com/api/other")
 
 	require.Empty(t, unionNames(tf.goUnions()))
 }

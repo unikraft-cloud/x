@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"runtime"
+	"slices"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
@@ -33,21 +34,23 @@ type Options struct {
 	// template overrides.
 	Templates string
 
-	// Package, when set, filters schemas and operations to this x-package
-	// value and is exposed to templates as the "x-package" variable.
-	//
-	// Deprecated: x-package is emitted only by our proto-based generation
-	// pipeline. Prefer Tag and Namespace, which work against any OpenAPI
-	// document.
-	Package string
-
 	// Tag filters operations to those carrying one of these tags.
 	Tag []string
+
+	// ModelsOnly drops every operation, so only models are generated. It
+	// cannot be combined with Tag.
+	ModelsOnly bool
 
 	// Namespace filters models to those in one of these namespaces (e.g.
 	// "Instances"). When exactly one namespace is given, its lowercased value
 	// is exposed to templates as the "current_package" variable.
 	Namespace []string
+
+	// NamespaceImportPath maps a namespace to the import path of the Go
+	// package its schemas are generated into elsewhere, dropping them from this
+	// run so that references to them use that package (e.g.
+	// "Org.Common": "github.com/org/repo/api/common/v1").
+	NamespaceImportPath map[string]string
 
 	// Flatten rewrites namespaced schema names into valid Go identifiers:
 	// "strip" drops the namespace prefix, "join" concatenates the segments,
@@ -58,12 +61,12 @@ type Options struct {
 // Run generates code from an OpenAPI spec and a set of templates according to
 // opts. It is the programmatic equivalent of the openapi-gen command.
 func Run(opts Options) error {
-	vars := make(map[string]string, len(opts.Var)+2)
-	maps.Copy(vars, opts.Var)
-
-	if opts.Package != "" {
-		vars["x-package"] = opts.Package
+	if opts.ModelsOnly && len(opts.Tag) > 0 {
+		return fmt.Errorf("models-only and tag filters cannot be combined")
 	}
+
+	vars := make(map[string]string, len(opts.Var)+1)
+	maps.Copy(vars, opts.Var)
 
 	if len(opts.Namespace) == 1 {
 		vars["current_package"] = strings.ToLower(opts.Namespace[0])
@@ -84,21 +87,33 @@ func Run(opts Options) error {
 		return fmt.Errorf("error creating generator: %w", err)
 	}
 
-	if opts.Package != "" {
-		generator.FilterByPackage(opts.Package)
-	}
-	if len(opts.Tag) > 0 {
+	switch {
+	case opts.ModelsOnly:
+		generator.FilterByTag(nil)
+	case len(opts.Tag) > 0:
 		generator.FilterByTag(opts.Tag)
 	}
 	if len(opts.Namespace) > 0 {
 		generator.FilterByNamespace(opts.Namespace)
 	}
 
+	for _, namespace := range slices.Sorted(maps.Keys(opts.NamespaceImportPath)) {
+		importPath := opts.NamespaceImportPath[namespace]
+		if importPath == "" {
+			return fmt.Errorf("namespace %q has no import path", namespace)
+		}
+		if err := generator.ImportNamespace(namespace, importPath); err != nil {
+			return fmt.Errorf("importing namespace: %w", err)
+		}
+	}
+
 	// Flatten namespaced schema names last, after filtering has matched on the
 	// original "Namespace.Name" form.
 	switch opts.Flatten {
 	case "", "strip", "join":
-		generator.Flatten(opts.Flatten)
+		if err := generator.Flatten(opts.Flatten); err != nil {
+			return fmt.Errorf("flattening namespaces: %w", err)
+		}
 	default:
 		return fmt.Errorf("invalid namespace flatten mode %q", opts.Flatten)
 	}
