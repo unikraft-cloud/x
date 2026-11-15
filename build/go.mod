@@ -7,7 +7,7 @@ require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v29.8.2+incompatible
+	github.com/docker/cli v29.9.3+incompatible
 	github.com/google/go-containerregistry v0.22.1
 	github.com/in-toto/in-toto-golang v0.11.0
 	github.com/moby/buildkit v0.34.2
@@ -17,8 +17,8 @@ require (
 	github.com/tonistiigi/fsutil v0.0.0-20261103091533-a72de9dcf763
 	github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0
 	github.com/unikraft/go-archivefs v0.0.0-20261106133356-c81ad57e55c4
-	golang.org/x/crypto v0.58.0
-	golang.org/x/mod v0.42.0
+	golang.org/x/crypto v0.59.0
+	golang.org/x/mod v0.43.0
 	google.golang.org/grpc v1.85.0
 	unikraft.com/x/buildkit v0.0.0-20261104124328-5c22d4e1ce0f
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
@@ -30,6 +30,8 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.3-0.20251027160822-ad3df93bed29 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.2 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -59,9 +61,9 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/in-toto/attestation v1.2.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
-	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
-	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
@@ -97,16 +99,16 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	mvdan.cc/sh/v3 v3.14.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-	unikraft.com/cloud/sdk v0.4.1-staging.5 // indirect
+	unikraft.com/cloud/sdk v0.4.1-staging.10 // indirect
 )
 
 replace unikraft.com/x/buildkit => ../buildkit

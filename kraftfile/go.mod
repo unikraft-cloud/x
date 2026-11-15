@@ -6,7 +6,7 @@ require (
 	github.com/invopop/jsonschema v0.14.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/mod v0.42.0
+	golang.org/x/mod v0.43.0
 	mvdan.cc/sh/v3 v3.14.1
 	sigs.k8s.io/yaml v1.6.0
 )

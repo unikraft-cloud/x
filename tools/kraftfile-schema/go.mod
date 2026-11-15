@@ -33,11 +33,11 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v4 v4.0.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
-	golang.org/x/mod v0.42.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/mod v0.43.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 	mvdan.cc/sh/v3 v3.14.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-	unikraft.com/x/colors v0.0.0-20260813113709-544c471e0bc9 // indirect
-	unikraft.com/x/guesstermwidth v0.0.0-20260813113709-544c471e0bc9 // indirect
+	unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1 // indirect
+	unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1 // indirect
 )
