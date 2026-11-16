@@ -1,6 +1,6 @@
 module unikraft.com/x/buildkit
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/distribution/reference v0.6.0

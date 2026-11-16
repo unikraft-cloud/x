@@ -1,6 +1,6 @@
 module unikraft.com/x/middleware
 
-go 1.27.3
+go 1.27.4
 
 require (
 	codeberg.org/gruf/go-byteutil v1.3.0

@@ -1,6 +1,6 @@
 module unikraft.com/x/tools/license-check
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/alecthomas/kong v1.17.0
