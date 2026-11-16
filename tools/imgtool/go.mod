@@ -21,6 +21,7 @@ require (
 	unikraft.com/x/image-spec v0.0.0-00010101000000-000000000000
 	unikraft.com/x/io v0.0.0-20261119150955-11d3e843ccd6
 	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
+	unikraft.com/x/mergefs v0.0.0-20261119184907-6068245c54f2
 	unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8
 )
 
@@ -67,5 +68,4 @@ require (
 	google.golang.org/grpc v1.85.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
-	unikraft.com/x/mergefs v0.0.0-20261119184907-6068245c54f2 // indirect
 )
