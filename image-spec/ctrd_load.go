@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"maps"
 	"path/filepath"
 
 	"github.com/containerd/containerd/v2/core/content"
@@ -27,7 +26,7 @@ func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descr
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
 	}
-	annotations, err := indexAnnotations(ctx, store, desc)
+	idx, err := readIndex(ctx, store, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +34,11 @@ func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descr
 	if err != nil {
 		return nil, err
 	}
-	img.IndexAnnotations = annotations
+	if idx != nil {
+		idx.loaded = mfsts[:1]
+		img.IndexAnnotations = idx.annotations()
+		img.index = idx
+	}
 	return img, nil
 }
 
@@ -45,9 +48,12 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
 	}
 
-	annotations, err := indexAnnotations(ctx, store, desc)
+	idx, err := readIndex(ctx, store, desc)
 	if err != nil {
 		return nil, err
+	}
+	if idx != nil {
+		idx.loaded = mfsts
 	}
 
 	imgs := make([]*Image, len(mfsts))
@@ -59,7 +65,10 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 			if err != nil {
 				return fmt.Errorf("failed to load image manifest: %w", err)
 			}
-			img.IndexAnnotations = maps.Clone(annotations)
+			if idx != nil {
+				img.IndexAnnotations = idx.annotations()
+				img.index = idx
+			}
 			imgs[i] = img
 			return nil
 		})
@@ -74,14 +83,20 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 // loadCtrdImageMfst loads the image whose manifest is desc, recording root as
 // what it was loaded from.
 func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec.Descriptor, desc ocispec.Descriptor) (*Image, error) {
-	mfst, err := readManifest(ctx, store, desc)
+	raw, err := readVerifiedBlob(ctx, store, desc)
 	if err != nil {
+		return nil, fmt.Errorf("failed to read image manifest: %w", err)
+	}
+	var mfst ocispec.Manifest
+	if err := json.Unmarshal(raw, &mfst); err != nil {
 		return nil, fmt.Errorf("failed to read image manifest: %w", err)
 	}
 	img := &Image{
 		Descriptor:         root,
 		ManifestDescriptor: desc,
 		Annotations:        mfst.Annotations,
+		provider:           store,
+		manifest:           raw,
 	}
 
 	dt, err := readVerifiedBlob(ctx, store, mfst.Config)

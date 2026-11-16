@@ -6,15 +6,19 @@
 package imagespec
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -51,24 +55,111 @@ func readManifest(ctx context.Context, provider content.Provider, desc ocispec.D
 	return manifest, nil
 }
 
-// indexAnnotations returns the annotations of the image index at desc, if any.
-func indexAnnotations(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) (map[string]string, error) {
+// loadedIndex is an image index as it was loaded.
+type loadedIndex struct {
+	desc  ocispec.Descriptor
+	raw   []byte
+	index ocispec.Index
+	// inner is the only entry of the index if it is an index, as an archive's index.json can list.
+	inner *loadedIndex
+	// loaded is the manifests that the load returned, in its order.
+	loaded []ocispec.Descriptor
+}
+
+// readIndex reads the image index at desc, or returns nil for a manifest.
+func readIndex(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) (*loadedIndex, error) {
 	if !images.IsIndexType(desc.MediaType) {
 		return nil, nil
 	}
-	p, err := readVerifiedBlob(ctx, provider, desc)
+	raw, err := readVerifiedBlob(ctx, provider, desc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read image index: %w", err)
 	}
-	var idx ocispec.Index
-	if err := json.Unmarshal(p, &idx); err != nil {
+	idx := &loadedIndex{desc: ocispec.Descriptor{MediaType: desc.MediaType, Digest: desc.Digest, Size: desc.Size}, raw: raw}
+	if err := json.Unmarshal(raw, &idx.index); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal image index: %w", err)
 	}
-	// An archive's own index.json lists the image index.
-	if len(idx.Manifests) == 1 && images.IsIndexType(idx.Manifests[0].MediaType) {
-		return indexAnnotations(ctx, provider, idx.Manifests[0])
+	if len(idx.index.Manifests) == 1 {
+		if idx.inner, err = readIndex(ctx, provider, idx.index.Manifests[0]); err != nil {
+			return nil, err
+		}
 	}
-	return idx.Annotations, nil
+	return idx, nil
+}
+
+// annotations returns a copy of the annotations of the innermost index.
+func (l *loadedIndex) annotations() map[string]string {
+	for l.inner != nil {
+		l = l.inner
+	}
+	return maps.Clone(l.index.Annotations)
+}
+
+// sourceIndex returns the index that imgs were loaded from if they are all its manifests, in the order that the load returned them, so a save copies it.
+func sourceIndex(imgs []*Image, mfsts []ocispec.Descriptor, annotations map[string]string) *loadedIndex {
+	if len(imgs) == 0 || imgs[0].index == nil {
+		return nil
+	}
+	idx := imgs[0].index
+	for _, img := range imgs {
+		if !img.byManifest() || img.manifest == nil || img.index == nil || img.index.desc.Digest != idx.desc.Digest {
+			return nil
+		}
+	}
+	if !maps.Equal(idx.index.Annotations, annotations) {
+		return nil
+	}
+	want, err := json.Marshal(idx.loaded)
+	if err != nil {
+		return nil
+	}
+	got, err := json.Marshal(mfsts)
+	if err != nil || !bytes.Equal(got, want) {
+		return nil
+	}
+	// The load must have returned every manifest of the index.
+	src, err := descriptorKeys(idx.index.Manifests)
+	if err != nil {
+		return nil
+	}
+	dst, err := descriptorKeys(idx.loaded)
+	if err != nil || !slices.Equal(src, dst) {
+		return nil
+	}
+	return idx
+}
+
+// descriptorKeys returns descs as sorted JSON, to compare them in any order.
+func descriptorKeys(descs []ocispec.Descriptor) ([]string, error) {
+	keys := make([]string, len(descs))
+	for i, desc := range descs {
+		key, err := json.Marshal(desc)
+		if err != nil {
+			return nil, err
+		}
+		keys[i] = string(key)
+	}
+	slices.Sort(keys)
+	return keys, nil
+}
+
+// copyableBlobs returns the config and the layers of mfst that a registry serves, each once.
+// A config or layer of a manifest or index type is an error: a pusher puts those to the tag.
+func copyableBlobs(mfst ocispec.Manifest) ([]ocispec.Descriptor, error) {
+	for _, desc := range append([]ocispec.Descriptor{mfst.Config}, mfst.Layers...) {
+		if images.IsManifestType(desc.MediaType) || images.IsIndexType(desc.MediaType) {
+			return nil, fmt.Errorf("blob %s of the manifest has the media type %s", desc.Digest, desc.MediaType)
+		}
+	}
+	blobs := []ocispec.Descriptor{mfst.Config}
+	seen := map[digest.Digest]bool{mfst.Config.Digest: true}
+	for _, layer := range mfst.Layers {
+		if !images.IsNonDistributable(layer.MediaType) && !seen[layer.Digest] {
+			seen[layer.Digest] = true
+			blobs = append(blobs, layer)
+		}
+	}
+	return blobs, nil
 }
 
 // ConfigPlatform is a forked version of images.ConfigPlatform that checks the

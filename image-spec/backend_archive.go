@@ -57,7 +57,7 @@ func LoadAllTarballs(ctx context.Context, tarballPath string, desc ocispec.Descr
 // LoadTarballReader loads an image from a tarball reader (OCI or Docker
 // format), from desc if it is set, or else from the tarball's own index.json.
 func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
-	store, root, cleanup, err := importTarball(ctx, r, desc)
+	store, root, ownIndex, cleanup, err := importTarball(ctx, r, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -67,13 +67,16 @@ func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor
 		return nil, errors.Join(fmt.Errorf("failed to load image from imported tarball: %w", err), cleanup())
 	}
 	img.cleanup = append(img.cleanup, cleanup)
+	if ownIndex {
+		unwrapIndex(img)
+	}
 	return img, nil
 }
 
 // LoadAllTarballReaders loads all images from a tarball reader (OCI or Docker
 // format), from desc if it is set, or else from the tarball's own index.json.
 func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
-	store, root, cleanup, err := importTarball(ctx, r, desc)
+	store, root, ownIndex, cleanup, err := importTarball(ctx, r, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -84,17 +87,29 @@ func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descri
 	}
 	for _, img := range imgs {
 		img.cleanup = append(img.cleanup, cleanup)
+		if ownIndex {
+			unwrapIndex(img)
+		}
 	}
 	return imgs, nil
 }
 
-// importTarball imports the tarball r into a temporary store, which cleanup
-// removes, and returns the root to load from: desc if it is set, or else the
-// tarball's own index.json.
-func importTarball(ctx context.Context, r io.Reader, desc ocispec.Descriptor) (_ content.Store, _ ocispec.Descriptor, _ func() error, rerr error) {
+// unwrapIndex makes a save of img copy the image index that the tarball's own index.json lists, if it lists only that.
+func unwrapIndex(img *Image) {
+	if img.index == nil {
+		return
+	}
+	if inner := img.index.inner; inner != nil {
+		inner.loaded = img.index.loaded
+	}
+	img.index = img.index.inner
+}
+
+// importTarball imports r into a temporary store that cleanup removes, and returns the root to load: desc, or else the tarball's index.json.
+func importTarball(ctx context.Context, r io.Reader, desc ocispec.Descriptor) (_ content.Store, _ ocispec.Descriptor, ownIndex bool, _ func() error, rerr error) {
 	tmpDir, err := os.MkdirTemp("", "imagespec-tarball-*")
 	if err != nil {
-		return nil, ocispec.Descriptor{}, nil, fmt.Errorf("failed to create temp directory: %w", err)
+		return nil, ocispec.Descriptor{}, false, nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
 	cleanup := func() error {
 		return os.RemoveAll(tmpDir)
@@ -107,20 +122,20 @@ func importTarball(ctx context.Context, r io.Reader, desc ocispec.Descriptor) (_
 
 	store, err := local.NewStore(tmpDir)
 	if err != nil {
-		return nil, ocispec.Descriptor{}, nil, fmt.Errorf("failed to create local store: %w", err)
+		return nil, ocispec.Descriptor{}, false, nil, fmt.Errorf("failed to create local store: %w", err)
 	}
 
 	root, err := archive.ImportIndex(ctx, store, r)
 	if err != nil {
-		return nil, ocispec.Descriptor{}, nil, fmt.Errorf("failed to import tarball: %w", err)
+		return nil, ocispec.Descriptor{}, false, nil, fmt.Errorf("failed to import tarball: %w", err)
 	}
-	if desc.Digest != "" {
-		if _, err := store.Info(ctx, desc.Digest); err != nil {
-			return nil, ocispec.Descriptor{}, nil, fmt.Errorf("tarball does not contain %s: %w", desc.Digest, err)
-		}
-		root = desc
+	if desc.Digest == "" {
+		return store, root, true, cleanup, nil
 	}
-	return store, root, cleanup, nil
+	if _, err := store.Info(ctx, desc.Digest); err != nil {
+		return nil, ocispec.Descriptor{}, false, nil, fmt.Errorf("tarball does not contain %s: %w", desc.Digest, err)
+	}
+	return store, desc, desc.Digest == root.Digest, cleanup, nil
 }
 
 // SaveTarball saves an image to a tarball file.
@@ -167,7 +182,7 @@ func SaveTarballWriter(ctx context.Context, w io.Writer, image ...*Image) (ocisp
 		_ = pr.CloseWithError(err)
 		index <- desc
 	}()
-	err = archive.Export(ctx, infoStore, io.MultiWriter(w, pw), archive.WithManifest(desc))
+	err = archive.Export(ctx, infoStore, io.MultiWriter(w, pw), archive.WithManifest(desc), archive.WithSkipNonDistributableBlobs())
 	_ = pw.CloseWithError(err)
 	root := <-index
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/containerd/containerd/v2/core/content"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"unikraft.com/x/image-spec/reference"
@@ -34,7 +35,18 @@ type Image struct {
 	Annotations      map[string]string
 	IndexAnnotations map[string]string
 
+	// Where a loaded image came from, so that a save can copy it.
+	provider content.Provider
+	manifest []byte
+	index    *loadedIndex
+
 	cleanup []func() error
+}
+
+// byManifest reports whether the image has no parts and is saved as the manifest it names.
+func (i *Image) byManifest() bool {
+	return i.Kernel == nil && i.KernelDebug == nil && i.Initrd == nil && len(i.Roms) == 0 &&
+		i.ManifestDescriptor.Digest != ""
 }
 
 // source returns the registry repository the image's layers can be mounted
