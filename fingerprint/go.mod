@@ -7,8 +7,8 @@ require (
 	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/shirou/gopsutil/v4 v4.26.10
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/sys v0.49.0
-	tailscale.com v1.104.5
+	golang.org/x/sys v0.50.0
+	tailscale.com v1.104.6
 	unikraft.com/x/ptr v0.0.0-20260126094137-ab6e717e5679
 )
 
@@ -25,7 +25,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
-	golang.org/x/mod v0.42.0 // indirect
+	golang.org/x/mod v0.43.0 // indirect
 )
