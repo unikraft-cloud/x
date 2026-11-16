@@ -24,8 +24,8 @@ import (
 	"unikraft.com/x/image-spec/rootfs"
 )
 
-// isGeneric reports if a manifest is an image with layers, no Unikraft annotations and only tar layers.
-func isGeneric(mfst ocispec.Manifest) bool {
+// IsGeneric reports if a manifest is an image with layers, no Unikraft annotations and only tar layers.
+func IsGeneric(mfst ocispec.Manifest) bool {
 	config := mfst.Config.MediaType
 	if config != ocispec.MediaTypeImageConfig && config != images.MediaTypeDockerSchema2Config {
 		return false
@@ -127,6 +127,11 @@ func (f *rootfsFile) Clone() (File, error) {
 // Source returns no descriptor, as no blob holds the EROFS image.
 func (f *rootfsFile) Source() (ocispec.Descriptor, content.Provider) {
 	return ocispec.Descriptor{}, nil
+}
+
+// GenericPlatforms returns a matcher of the linux platforms (base variant) whose generic images run on the Unikraft platforms that platform matches.
+func GenericPlatforms(platform platforms.MatchComparer) platforms.MatchComparer {
+	return genericPlatforms{platform}
 }
 
 // genericPlatforms matches linux/amd64 and linux/arm64 when the Unikraft platforms of the architecture match.

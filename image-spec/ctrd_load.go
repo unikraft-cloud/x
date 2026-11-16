@@ -120,7 +120,7 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 	}
 
 	// A build that loads an OCI rootfs asks for linux, thus only a load for a Unikraft platform converts the image.
-	img.Generic = isGeneric(mfst)
+	img.Generic = IsGeneric(mfst)
 	if img.Generic && platform != nil && !platform.Match(config.Platform) &&
 		(genericPlatforms{platform}).Match(config.Platform) {
 		img.Initrd = newRootfsFile(store, mfst.Layers)

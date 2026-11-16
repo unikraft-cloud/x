@@ -298,6 +298,23 @@ func TestIsGeneric(t *testing.T) {
 		"other annotation": {ocispec.Manifest{Config: image, Layers: []ocispec.Descriptor{layer}, Annotations: map[string]string{ocispec.AnnotationCreated: "now"}}, true},
 		"kraftkit":         {ocispec.Manifest{Config: image, Layers: []ocispec.Descriptor{layer}, Annotations: map[string]string{AnnotationName: "x"}}, false},
 	} {
-		require.Equal(t, tc.want, isGeneric(tc.mfst), name)
+		require.Equal(t, tc.want, IsGeneric(tc.mfst), name)
+	}
+}
+
+func TestGenericPlatforms(t *testing.T) {
+	m := GenericPlatforms(platforms.Only(ocispec.Platform{OS: PlatformKraftcloud, Architecture: ArchitectureIntel}))
+	for _, tc := range []struct {
+		p    ocispec.Platform
+		want bool
+	}{
+		{ocispec.Platform{OS: "linux", Architecture: "amd64"}, true},
+		{ocispec.Platform{OS: "linux", Architecture: "amd64", Variant: "v1"}, true},
+		{ocispec.Platform{OS: "linux", Architecture: "x86_64"}, true},
+		{ocispec.Platform{OS: "linux", Architecture: "amd64", Variant: "v3"}, false},
+		{ocispec.Platform{OS: "linux", Architecture: "arm64"}, false},
+		{ocispec.Platform{OS: "windows", Architecture: "amd64"}, false},
+	} {
+		require.Equal(t, tc.want, m.Match(tc.p), platforms.Format(tc.p))
 	}
 }
