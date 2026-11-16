@@ -76,7 +76,7 @@ require (
 	mvdan.cc/sh/v3 v3.14.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624 // indirect
-	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1 // indirect
+	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8 // indirect
 )
 
 replace unikraft.com/x/image-spec => ../image-spec

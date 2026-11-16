@@ -25,7 +25,7 @@ require (
 	unikraft.com/x/integration v0.0.0-20261029083025-f2d161e6abc8
 	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d
-	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1
+	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
 )
 
 require (

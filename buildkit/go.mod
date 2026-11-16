@@ -10,7 +10,7 @@ require (
 	google.golang.org/grpc v1.85.0
 	unikraft.com/cloud/sdk v0.4.1-staging.10
 	unikraft.com/x/integration v0.0.0-20261029083025-f2d161e6abc8
-	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1
+	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
 )
 
 require (

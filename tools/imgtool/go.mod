@@ -12,7 +12,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
 	unikraft.com/x/image-spec v0.0.0-00010101000000-000000000000
-	unikraft.com/x/log v0.0.0-20261001175239-9a0204088d3c
+	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
 	unikraft.com/x/version v0.0.0-20260820125443-440a3baf80b8
 )
 

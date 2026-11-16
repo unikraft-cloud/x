@@ -175,5 +175,5 @@ sigs.k8s.io/yaml v1.6.0 h1:G8fkbMSAFqgEFgh4b1wmtzDnioxFCUgTZhlbj5P9QYs=
 sigs.k8s.io/yaml v1.6.0/go.mod h1:796bPqUfzR/0jLAl6XjHl3Ck7MiyVv8dbTdyT3/pMf4=
 unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624 h1:aNS+lX92H5pBhMo3srxyX1iQGwylYKegzrpJy5B0ns4=
 unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624/go.mod h1:kIUpmhaVEiZdxrTYAGIcythxPbPdVzAvuH4KEn8T1rE=
-unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1 h1:DH20nLl8GmOqVB3u33RT5eC3lF29stNBQPShPmgiDyw=
-unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1/go.mod h1:ZjQzJJ01mh+h5ISIxbh0TzOmO9Bweq/1gYSIjLU4QKo=
+unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8 h1:bWuK++umow5Ua8JRjD5TWkB0H0hbiupmGQvl1d9Iq1M=
+unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8/go.mod h1:XCwOFKbAMvfdyLfU/pRVtW5lqHu60urteiLHDmsj7tc=

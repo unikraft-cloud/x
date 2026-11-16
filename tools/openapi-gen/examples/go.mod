@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/stretchr/testify v1.12.1
-	unikraft.com/x/log v0.0.0-20260904140856-1944f6df62e1
+	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
 )
 
 require (
