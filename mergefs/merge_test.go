@@ -18,6 +18,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unsafe"
@@ -792,6 +793,95 @@ func opaqueBelowPendingLinks(n int, opaque bool) [][]ent {
 	return [][]ent{lower, middle, upper}
 }
 
+func TestMergeLimits(t *testing.T) {
+	t.Parallel()
+
+	layers, _ := tarLayers(t, [][]ent{{dir("d"), reg("d/a", "12345"), reg("d/b", "67890")}})
+	for _, tc := range []struct {
+		name string
+		opts []Option
+		err  error
+	}{
+		{"size at the limit", []Option{WithMaxSize(10)}, nil},
+		{"size over the limit", []Option{WithMaxSize(9)}, ErrTooLarge},
+		{"size over the limit in memory", []Option{WithMaxSize(9), InMemory()}, ErrTooLarge},
+		{"entries at the limit", []Option{WithMaxEntries(3)}, nil},
+		{"entries over the limit", []Option{WithMaxEntries(2)}, ErrTooManyEntries},
+		{"implied directories at the limit", []Option{WithMaxEntries(5)}, nil},
+		{"implied directories over the limit", []Option{WithMaxEntries(4)}, ErrTooManyEntries},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			layers := layers
+			if strings.HasPrefix(tc.name, "implied") {
+				// One entry that implies the directories a, a/b, a/b/c and a/b/c/d.
+				layers, _ = tarLayers(t, [][]ent{{reg("a/b/c/d/f", "x")}})
+			}
+			f, err := Merge(t.Context(), layers, append(tc.opts, WithSpoolDir(t.TempDir()))...)
+			if tc.err != nil {
+				require.ErrorIs(t, err, tc.err)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, f.Close())
+		})
+	}
+}
+
+func TestMergeLimitLinkToHiddenFile(t *testing.T) {
+	t.Parallel()
+
+	// The result has 10 bytes of data, as b links to the hidden a of layer 0 with 6 bytes.
+	layers, _ := tarLayers(t, [][]ent{{reg("a", "123456"), link("b", "a")}, {reg("a", "7890")}})
+	for _, tc := range []struct {
+		name string
+		opts []Option
+		err  error
+	}{
+		{"at the limit", []Option{WithMaxSize(10)}, nil},
+		{"at the limit in memory", []Option{WithMaxSize(10), InMemory()}, nil},
+		{"over the limit", []Option{WithMaxSize(9)}, ErrTooLarge},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, err := Merge(t.Context(), layers, tc.opts...)
+			if tc.err != nil {
+				require.ErrorIs(t, err, tc.err)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, f.Close())
+		})
+	}
+}
+
+func TestMergeLimitHugeSparseFile(t *testing.T) {
+	t.Parallel()
+
+	// A sparse file can declare a size near MaxInt64 without data, and the sum with the stored data must not overflow.
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	require.NoError(t, tw.WriteHeader(&tar.Header{Typeflag: tar.TypeReg, Name: "small", Mode: 0o644, Size: 10, Format: tar.FormatPAX}))
+	_, err := tw.Write([]byte("0123456789"))
+	require.NoError(t, err)
+	require.NoError(t, tw.Flush())
+	data := append(buf.Bytes(), sparseTar(t, "big", math.MaxInt64-5)...)
+	base := func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(data)), nil }
+	upper, _ := tarLayers(t, [][]ent{{reg("big", "new")}})
+	for _, tc := range []struct {
+		name   string
+		layers []Layer
+	}{
+		{"visible", []Layer{base}},
+		{"hidden by an upper layer", []Layer{base, upper[0]}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			_, err := Merge(ctx, tc.layers, WithMaxSize(100), WithSpoolDir(t.TempDir()))
+			require.ErrorIs(t, err, ErrTooLarge)
+		})
+	}
+}
+
 // withXattrs returns e with the xattrs.
 func withXattrs(e ent, xs map[string]string) ent {
 	e.h.PAXRecords = map[string]string{}
@@ -956,4 +1046,118 @@ func TestKeptHeader(t *testing.T) {
 	require.Equal(t, hdr.FileInfo().Mode(), h.FileInfo().Mode())
 	require.Equal(t, []any{hdr.Uid, hdr.Gid, hdr.Size, hdr.ModTime}, []any{h.Uid, h.Gid, h.Size, h.ModTime})
 	require.Empty(t, h.Uname)
+}
+
+func TestMergeLimitLinkTargets(t *testing.T) {
+	t.Parallel()
+
+	// The link targets count for WithMaxMetaSize: 100 bytes of symlink target, 100 of hard link target and 2 of names.
+	target := strings.Repeat("t", 100)
+	layers, _ := tarLayers(t, [][]ent{{sym("s", target), link("h", target)}})
+	f, err := Merge(t.Context(), layers, WithMaxMetaSize(202), WithMaxSize(1), InMemory())
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	_, err = Merge(t.Context(), layers, WithMaxMetaSize(201), InMemory())
+	require.ErrorIs(t, err, ErrMetaTooLarge)
+}
+
+func TestMergeLimitXattrs(t *testing.T) {
+	t.Parallel()
+
+	// The xattrs count for WithMaxMetaSize, and not for WithMaxSize: 6 bytes of xattr name, 100 bytes of value and 1 of file name.
+	layers, _ := tarLayers(t, [][]ent{{withXattrs(reg("f", ""), map[string]string{"user.a": strings.Repeat("v", 100)})}})
+	f, err := Merge(t.Context(), layers, WithMaxMetaSize(107), WithMaxSize(1), InMemory())
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	_, err = Merge(t.Context(), layers, WithMaxMetaSize(106), InMemory())
+	require.ErrorIs(t, err, ErrMetaTooLarge)
+}
+
+func TestMergeLimitHiddenNames(t *testing.T) {
+	t.Parallel()
+
+	// The names of hidden entries count for WithMaxMetaSize: the upper layer hides the 100-byte name of layer 0.
+	name := strings.Repeat("n", 100)
+	layers, _ := tarLayers(t, [][]ent{{reg(name, "")}, {reg(name, "")}})
+	f, err := Merge(t.Context(), layers, WithMaxMetaSize(200), InMemory())
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	_, err = Merge(t.Context(), layers, WithMaxMetaSize(199), InMemory())
+	require.ErrorIs(t, err, ErrMetaTooLarge)
+}
+
+func TestMergeLimitImpliedPaths(t *testing.T) {
+	t.Parallel()
+
+	// The paths of the implied directories count for WithMaxMetaSize: 7 bytes of name, and 1, 3 and 5 for a, a/b and a/b/c.
+	layers, _ := tarLayers(t, [][]ent{{reg("a/b/c/f", "")}})
+	f, err := Merge(t.Context(), layers, WithMaxMetaSize(16), InMemory())
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	_, err = Merge(t.Context(), layers, WithMaxMetaSize(15), InMemory())
+	require.ErrorIs(t, err, ErrMetaTooLarge)
+}
+
+func TestMergeLimitPendingTargets(t *testing.T) {
+	t.Parallel()
+
+	// The link of the upper layer waits for a target below 6 directories in a lower layer: with the root, 7 directories count.
+	layers, _ := tarLayers(t, [][]ent{{reg("y", "")}, {link("l", "a/b/c/d/e/f/x")}})
+	f, err := Merge(t.Context(), layers, WithMaxEntries(9), InMemory())
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	_, err = Merge(t.Context(), layers, WithMaxEntries(8), InMemory())
+	require.ErrorIs(t, err, ErrTooManyEntries)
+}
+
+func TestMergeLimitRead(t *testing.T) {
+	t.Parallel()
+
+	skipped := ent{h: &tar.Header{Typeflag: 'Z', Name: "skipped", Size: 1 << 20, ModTime: t0}, data: make([]byte, 1<<20)}
+	for _, tc := range []struct {
+		name  string
+		layer []byte
+	}{
+		{"zeros after the archive", append(tarOf(t, []ent{reg("f", "x")}), make([]byte, 1<<20)...)},
+		{"data of a skipped entry", tarOf(t, []ent{skipped, reg("f", "x")})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			layer := func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(tc.layer)), nil }
+			f, err := Merge(t.Context(), []Layer{layer}, WithMaxReadSize(2<<20), InMemory())
+			require.NoError(t, err)
+			require.NoError(t, f.Close())
+			_, err = Merge(t.Context(), []Layer{layer}, WithMaxReadSize(512<<10), InMemory())
+			require.ErrorIs(t, err, ErrLayersTooLarge)
+		})
+	}
+
+	t.Run("headers only", func(t *testing.T) {
+		// 2048 directories are 1 MiB of headers, and the read stops at the limit.
+		var ents []ent
+		for i := range 2048 {
+			ents = append(ents, dir(fmt.Sprintf("d%d", i)))
+		}
+		data := tarOf(t, ents)
+		var read atomic.Int64
+		layer := func() (io.ReadCloser, error) { return io.NopCloser(countReader{bytes.NewReader(data), &read}), nil }
+		f, err := Merge(t.Context(), []Layer{layer}, WithMaxReadSize(2<<20), InMemory())
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		read.Store(0)
+		_, err = Merge(t.Context(), []Layer{layer}, WithMaxReadSize(64<<10), InMemory())
+		require.ErrorIs(t, err, ErrLayersTooLarge)
+		require.LessOrEqual(t, read.Load(), int64(96<<10))
+	})
+}
+
+// countReader adds the bytes that it reads from r to n.
+type countReader struct {
+	r io.Reader
+	n *atomic.Int64
+}
+
+func (c countReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n.Add(int64(n))
+	return n, err
 }
