@@ -79,7 +79,11 @@ func Run(opts Options) error {
 		templateDir = resolved
 	}
 
-	generator, err := NewGenerator(opts.Input, vars, templateDir)
+	if templateDir == "" {
+		return fmt.Errorf("template directory not specified")
+	}
+
+	generator, err := NewGenerator(opts.Input, vars, os.DirFS(templateDir))
 	if err != nil {
 		return fmt.Errorf("error creating generator: %w", err)
 	}
