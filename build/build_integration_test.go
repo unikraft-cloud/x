@@ -371,7 +371,7 @@ var localBuildkit = buildkit.Fallback{buildkit.Host{}, buildkit.Docker{}}
 // daemon answers.
 func integrationBuilder(t *testing.T, ctx context.Context) build.Builder {
 	t.Helper()
-	creds := tokenCredentials(t)
+	creds := tokenCredentials(t).Or(registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard)))
 	d, err := localBuildkit.Acquire(ctx, buildkit.Key{})
 	if err != nil {
 		t.Skipf("buildkit unavailable: %v", err)
