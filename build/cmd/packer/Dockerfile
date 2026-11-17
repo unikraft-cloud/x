@@ -1,9 +1,7 @@
-# syntax=docker/dockerfile:1
-
 # Build from the repository root, as the module replaces its siblings:
 #   docker build -f build/cmd/packer/Dockerfile .
 # Go cross-compiles on the build platform, so arm64 needs no emulation.
-FROM --platform=$BUILDPLATFORM golang:1.27.4 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.4@sha256:fe517acaa580cc7915457080f850c37e618b3c1e750f98b58fc6429b605147a1 AS build
 ARG TARGETOS TARGETARCH
 WORKDIR /src/build
 RUN --mount=target=/src,rw \
