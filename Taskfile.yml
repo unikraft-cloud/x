@@ -42,10 +42,16 @@ tasks:
     vars:
       package: ./tools/license-check
 
+  dockerfile-check:
+  - task: go:build
+    vars:
+      package: ./tools/dockerfile-check
+
   tools:
   - task: protoc-gen-go-struct
   - task: imgtool
   - task: license-check
+  - task: dockerfile-check
 
   openapi-gen-examples-check:
     desc: "Verify tools/openapi-gen/examples is regenerated from api.yaml"
