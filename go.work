@@ -41,6 +41,7 @@ use (
 // This list is alphabetical and should not be reordered.
 use (
 	./tools/csv-enum-gen
+	./tools/dockerfile-check
 	./tools/imgtool
 	./tools/kraftfile-schema
 	./tools/license-check
