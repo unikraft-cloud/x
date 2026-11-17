@@ -1,0 +1,37 @@
+name: dockerfile-check
+
+description: Check that every Dockerfile pins its images by tag and digest. Needs Go on the runner.
+
+inputs:
+  allow:
+    description: Newline-separated prefixes of normalized image references, such as ghcr.io/acme/, that need not be pinned
+    required: false
+    default: ''
+  paths:
+    description: Newline-separated files or directories to check
+    required: false
+    default: .
+
+runs:
+  using: composite
+  steps:
+  - name: Build dockerfile-check
+    shell: bash
+    working-directory: ${{ github.action_path }}/../../../tools/dockerfile-check
+    run: |
+      go build -o "$RUNNER_TEMP/dockerfile-check" .
+
+  - name: Check that all Dockerfiles are pinned
+    shell: bash
+    env:
+      ALLOW: ${{ inputs.allow }}
+      PATHS: ${{ inputs.paths }}
+    run: |
+      args=()
+      while read -r prefix; do
+        if [ -n "$prefix" ]; then args+=("--allow=$prefix"); fi
+      done <<<"$ALLOW"
+      while read -r path; do
+        if [ -n "$path" ]; then args+=("$path"); fi
+      done <<<"$PATHS"
+      "$RUNNER_TEMP/dockerfile-check" "${args[@]}"
