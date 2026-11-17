@@ -228,7 +228,7 @@ func (c *DeleteCmd) Run(ctx context.Context) error {
 }
 
 func name(ref reference.Reference, desc ocispec.Descriptor) string {
-	result := ref.Format(reference.FormatOpts{})
+	result := ref.Format(reference.FormatOpts{OmitDigest: true})
 	if desc.Digest != "" {
 		if result != "" {
 			result += "@"
