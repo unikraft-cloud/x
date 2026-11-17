@@ -44,7 +44,7 @@ func TestNewGenerator(t *testing.T) {
 		"nested/other.tmpl": {Data: []byte(`{{ .Var "package" "" }}`)},
 	}
 
-	g, err := NewGenerator(writeSpec(t), map[string]string{"package": "pkg"}, fsys)
+	g, err := NewGenerator(writeSpec(t), map[string]string{"package": "pkg"}, &Pack{FS: fsys})
 	require.NoError(t, err)
 
 	files, err := g.Render()

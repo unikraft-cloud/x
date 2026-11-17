@@ -102,6 +102,11 @@ func NewParser(input string) (*Parser, error) {
 	}, nil
 }
 
+// Doc returns the parsed OpenAPI document.
+func (p *Parser) Doc() *openapi3.T {
+	return p.doc
+}
+
 // GetPropertyOrder returns the ordered property names for a schema
 func (p *Parser) GetPropertyOrder(schemaName string) []string {
 	return p.propertyOrders[schemaName]

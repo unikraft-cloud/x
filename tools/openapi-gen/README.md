@@ -222,6 +222,44 @@ may include subdirectories (e.g. `subdir/foo.gen.go`); parent directories
 are created automatically. Absolute paths and paths that escape the output
 directory are rejected.
 
+## Template packs
+
+A template directory is fine until two repos want the same templates with a
+few changes - then they end up forking them. A `generator.Pack` bundles
+templates with the template funcs they need, as a Go value that other packs
+(in other repos) can build on:
+
+```golang
+//go:embed templates
+var templates embed.FS
+
+var Pack = &generator.Pack{
+	Name: "my-sdk",
+	FS:   templates,
+	Funcs: func(s *generator.Spec) template.FuncMap {
+		return template.FuncMap{"hasWebSocket": func() bool { ... }}
+	},
+	Imports: []*generator.Pack{other.Lib},
+	Extends: other.Client,
+}
+```
+
+- `FS` holds the pack's templates. Each `*.tmpl` file is an output template,
+  as for a template directory.
+- `Funcs` adds template funcs, written in Go. They're handed a
+  `generator.Spec`, which reads the models and operations after any
+  filtering, so call its methods from inside the funcs.
+- `Imports` adds another pack's `define` blocks and funcs, but none of its
+  output files.
+- `Extends` adds all of that, plus its output files. A file of the same name
+  replaces the inherited one, and a `define` replaces an inherited `block` of
+  the same name.
+
+Any other name defined twice - a func (including the built-in ones), a
+`define`, or a file - is an error, rather than one silently winning.
+
+Render a pack with `generator.NewGenerator`.
+
 ## License
 
 See [LICENSE.md](../../LICENSE.md) for details.

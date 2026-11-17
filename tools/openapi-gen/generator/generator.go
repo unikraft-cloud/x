@@ -8,7 +8,6 @@ package generator
 import (
 	"fmt"
 	"io/fs"
-	"path"
 	"sort"
 	"strings"
 	"text/template"
@@ -27,9 +26,9 @@ type Generator struct {
 	models        []spec.Model
 }
 
-// NewGenerator creates a Generator for the spec at specPath, reading templates
-// from fsys.
-func NewGenerator(specPath string, vars map[string]string, fsys fs.FS) (*Generator, error) {
+// NewGenerator creates a Generator for the spec at specPath, rendering the
+// templates of pack.
+func NewGenerator(specPath string, vars map[string]string, pack *Pack) (*Generator, error) {
 	parser, err := openapi.NewParser(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating parser: %w", err)
@@ -46,12 +45,9 @@ func NewGenerator(specPath string, vars map[string]string, fsys fs.FS) (*Generat
 		models:     parser.ParseModels(),
 	}
 
-	tmpl, templateNames, err := loadTemplates(parser, fsys, &g.models, &g.vars)
-	if err != nil {
+	if err := g.loadPack(pack); err != nil {
 		return nil, err
 	}
-	g.templates = tmpl
-	g.templateNames = templateNames
 
 	return g, nil
 }
@@ -128,34 +124,6 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 // "Namespace.Name" form.
 func (g *Generator) Flatten(mode string) {
 	g.parser.Flatten(g.models, mode)
-}
-
-func loadTemplates(parser *openapi.Parser, fsys fs.FS, models *[]spec.Model, vars *map[string]string) (*template.Template, []string, error) {
-	files, err := findTemplateFiles(fsys)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if len(files) == 0 {
-		return nil, nil, fmt.Errorf("no templates found")
-	}
-
-	tmpl := template.New("").Funcs(openapi.Funcs(parser, models, vars))
-
-	names := make([]string, 0, len(files))
-	for _, file := range files {
-		data, err := fs.ReadFile(fsys, file)
-		if err != nil {
-			return nil, nil, fmt.Errorf("reading template %s: %w", file, err)
-		}
-		name := path.Base(file)
-		if _, err := tmpl.New(name).Parse(string(data)); err != nil {
-			return nil, nil, fmt.Errorf("loading template overrides: %w", err)
-		}
-		names = append(names, name)
-	}
-
-	return tmpl, names, nil
 }
 
 func findTemplateFiles(fsys fs.FS) ([]string, error) {
