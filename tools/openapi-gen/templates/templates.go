@@ -36,6 +36,12 @@ var GoClient = &generator.Pack{Name: "go-client", FS: sub(goClientFS, "go-client
 // GoServer renders Go models and gin handlers.
 var GoServer = &generator.Pack{Name: "go-server", FS: sub(goServerFS, "go-server"), Extends: Shared}
 
+// Packs are the packs openapi-gen's --templates can name.
+var Packs = map[string]*generator.Pack{
+	GoClient.Name: GoClient,
+	GoServer.Name: GoServer,
+}
+
 func sub(fsys fs.FS, dir string) fs.FS {
 	s, err := fs.Sub(fsys, dir)
 	if err != nil {

@@ -29,9 +29,12 @@ type Options struct {
 	// Var sets template variables (e.g. "package": "myapi").
 	Var map[string]string
 
-	// Templates is the directory or Git ref (host/org/repo@ref#dir=path) with
-	// template overrides.
+	// Templates names one of Packs, or else is the directory or Git ref
+	// (host/org/repo@ref#dir=path) with templates.
 	Templates string
+
+	// Packs are the template packs Templates can name.
+	Packs map[string]*Pack
 
 	// Package, when set, filters schemas and operations to this x-package
 	// value and is exposed to templates as the "x-package" variable.
@@ -69,21 +72,13 @@ func Run(opts Options) error {
 		vars["current_package"] = strings.ToLower(opts.Namespace[0])
 	}
 
-	templateDir := opts.Templates
-	if g := gitref.Parse(templateDir); g != nil && g.Dir() != "" {
-		resolved, cleanup, err := gitref.ResolveDir(g)
-		if err != nil {
-			return fmt.Errorf("error resolving templates from git: %w", err)
-		}
-		defer cleanup()
-		templateDir = resolved
+	pack, cleanup, err := resolveTemplates(opts.Templates, opts.Packs)
+	if err != nil {
+		return err
 	}
+	defer cleanup()
 
-	if templateDir == "" {
-		return fmt.Errorf("template directory not specified")
-	}
-
-	generator, err := NewGenerator(opts.Input, vars, &Pack{FS: os.DirFS(templateDir)})
+	generator, err := NewGenerator(opts.Input, vars, pack)
 	if err != nil {
 		return fmt.Errorf("error creating generator: %w", err)
 	}
@@ -108,6 +103,26 @@ func Run(opts Options) error {
 	}
 
 	return generator.WriteAll(opts.Output)
+}
+
+func resolveTemplates(templates string, packs map[string]*Pack) (*Pack, func(), error) {
+	if pack, ok := packs[templates]; ok {
+		return pack, func() {}, nil
+	}
+
+	dir := templates
+	cleanup := func() {}
+	if g := gitref.Parse(dir); g != nil && g.Dir() != "" {
+		resolved, c, err := gitref.ResolveDir(g)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error resolving templates from git: %w", err)
+		}
+		dir, cleanup = resolved, c
+	}
+	if dir == "" {
+		return nil, nil, fmt.Errorf("template directory not specified")
+	}
+	return &Pack{Name: templates, FS: os.DirFS(dir)}, cleanup, nil
 }
 
 // Render generates every file in memory and returns them, formatted. It is the

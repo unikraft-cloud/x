@@ -9,8 +9,12 @@ go run unikraft.com/x/tools/openapi-gen@latest \
   -i openapi.yaml \
   -o ./gen \
   -v package=myapi \
-  -t ./templates/go-client
+  -t go-client
 ```
+
+`--templates` names one of the built-in [template packs](#template-packs),
+`go-client` or `go-server`, or else is a directory of templates. To use a
+directory that shares a pack's name, write it as a path (`./go-client`).
 
 The `--input` flag also accepts an HTTP(S) URL:
 
@@ -47,7 +51,7 @@ go run unikraft.com/x/tools/openapi-gen@latest \
 | `--input`            | `-i`  | Path, URL, or Git ref to the OpenAPI spec (required)                      |
 | `--output`           | `-o`  | Output directory for generated files (required)                           |
 | `--var`              | `-v`  | Set a template variable as `key=value` (repeatable)                       |
-| `--templates`        | `-t`  | Directory or Git ref to template overrides (required)                    |
+| `--templates`        | `-t`  | Template pack, or a directory or Git ref with templates (required)       |
 | `--package`          |       | Deprecated: use `--tag`/`--namespace` instead. Filter to schemas/operations whose `x-package` matches this value |
 | `--tag`              |       | Filter to operations carrying one of these tags (repeatable)              |
 | `--namespace`        |       | Filter to schemas in one of these namespaces, e.g. `Instances` (repeatable) |
@@ -259,6 +263,19 @@ Any other name defined twice - a func (including the built-in ones), a
 `define`, or a file - is an error, rather than one silently winning.
 
 Render a pack with `generator.NewGenerator`.
+
+To use packs from the command line, give them to `generator.Main`, which runs
+the same command line as `openapi-gen`, with `--templates` able to name them:
+
+```golang
+func main() {
+	generator.Main(map[string]*generator.Pack{"client": Pack})
+}
+```
+
+That's all `openapi-gen` itself is, with the built-in packs from
+[`templates`](./templates). Keep a binary like this in its own module, so
+that its dependencies don't end up in the `go.mod` of whatever it generates.
 
 ## License
 
