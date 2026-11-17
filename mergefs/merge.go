@@ -94,6 +94,11 @@ type merger struct {
 	seen        map[string]*seenRec
 	cands       map[string]*Inode
 	above       map[string]aboveLinks // the answers of pendingAbove in the current layer
+	stored      int64                 // bytes of file data in the spool or in memory, for WithMaxSize
+	moved       int64                 // bytes of hidden data that a link copied to the spool or to memory, counted in stored
+	entries     int64                 // tar entries of the layers and the directories that their names imply, for WithMaxEntries
+	meta        int64                 // bytes of the xattrs and the link targets of all the entries, for WithMaxSize
+	read        int64                 // bytes read from the layers, for WithMaxReadSize
 }
 
 func newMerger(layers []Layer, o options) (*merger, error) {
@@ -191,12 +196,27 @@ func (m *merger) open(ctx context.Context, l int32) (*tar.Reader, io.ReadCloser,
 	if err != nil {
 		return nil, nil, err
 	}
-	return tar.NewReader(xio.ContextReader(ctx, rc)), rc, nil
+	return tar.NewReader(readCounter{xio.ContextReader(ctx, rc), m}), rc, nil
+}
+
+// readCounter counts the bytes that Merge reads from the layers, for WithMaxReadSize.
+type readCounter struct {
+	r io.Reader
+	m *merger
+}
+
+func (c readCounter) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.m.read += int64(n)
+	if limit := c.m.opts.maxRead; limit > 0 && c.m.read > limit {
+		return n, fmt.Errorf("%w: more than %d bytes", ErrLayersTooLarge, limit)
+	}
+	return n, err
 }
 
 // finish reads the stream to the end, so that a verifying reader sees EOF.
 func (m *merger) finish(ctx context.Context, rc io.ReadCloser) error {
-	_, err := io.CopyBuffer(io.Discard, xio.ContextReader(ctx, rc), m.cpBuf)
+	_, err := io.CopyBuffer(io.Discard, readCounter{xio.ContextReader(ctx, rc), m}, m.cpBuf)
 	if cerr := rc.Close(); err == nil {
 		err = cerr
 	}
@@ -220,9 +240,24 @@ func (m *merger) readLayer(ctx context.Context, l int32) error {
 			_ = rc.Close()
 			return err
 		}
+		m.entries++
+		if err := m.checkEntries(); err != nil {
+			_ = rc.Close()
+			return err
+		}
+		m.meta += metaBytes(hdr)
+		if err := m.checkSize(0); err != nil {
+			_ = rc.Close()
+			return err
+		}
 		if err := m.entry(tr, hdr, l, i); err != nil {
 			_ = rc.Close()
 			return fmt.Errorf("%s: %w", hdr.Name, err)
+		}
+		// The directories that the name implies count too.
+		if err := m.checkEntries(); err != nil {
+			_ = rc.Close()
+			return err
 		}
 	}
 	m.resolvePending(l)
@@ -456,6 +491,7 @@ func (m *merger) dirFor(dir string, l, i int32) *node {
 		switch {
 		case c == nil:
 			c = m.newDir(n, strings.Clone(comp), l)
+			m.entries++
 		case c.kind != kDir:
 			if c.layer > l {
 				return nil
@@ -470,6 +506,25 @@ func (m *merger) dirFor(dir string, l, i int32) *node {
 		return nil
 	}
 	return n
+}
+
+// metaBytes returns the bytes of a header that the merge can keep: the names and the values of its xattrs, and its link target.
+func metaBytes(hdr *tar.Header) int64 {
+	n := int64(len(hdr.Linkname))
+	for k, v := range hdr.PAXRecords {
+		if name, ok := strings.CutPrefix(k, "SCHILY.xattr."); ok {
+			n += int64(len(name) + len(v))
+		}
+	}
+	return n
+}
+
+// checkEntries returns ErrTooManyEntries when the entries are over the limit of WithMaxEntries.
+func (m *merger) checkEntries() error {
+	if limit := m.opts.maxEntries; limit > 0 && m.entries > limit {
+		return fmt.Errorf("%w: more than %d", ErrTooManyEntries, limit)
+	}
+	return nil
 }
 
 func (m *merger) newDir(parent *node, name string, l int32) *node {
@@ -838,7 +893,19 @@ func (m *merger) fill(ino *Inode, r io.Reader, hdr *tar.Header, rank int64) erro
 	return nil
 }
 
+// checkSize fails when size more bytes of data go over WithMaxSize.
+func (m *merger) checkSize(size int64) error {
+	if limit := m.opts.maxSize; limit > 0 && size > limit-m.stored-m.meta-(m.kept-m.moved) {
+		return fmt.Errorf("%w: more than %d bytes", ErrTooLarge, limit)
+	}
+	return nil
+}
+
 func (m *merger) store(ino *Inode, r io.Reader, size int64) error {
+	if err := m.checkSize(size); err != nil {
+		return err
+	}
+	m.stored += size
 	// tar.Reader makes the holes of a sparse file without a read of the layer, so check the context here too.
 	r = xio.ContextReader(m.ctx, r)
 	if m.opts.inMemory {
@@ -876,6 +943,9 @@ func (m *merger) keep(r *seenRec, tr *tar.Reader) error {
 	if !hasData(r.hdr) {
 		return nil
 	}
+	if err := m.checkSize(r.hdr.Size); err != nil {
+		return err
+	}
 	src := io.LimitReader(xio.ContextReader(m.ctx, tr), r.hdr.Size)
 	if m.opts.inMemory {
 		data, err := io.ReadAll(src)
@@ -908,13 +978,16 @@ func (m *merger) fillHidden(r *seenRec, l int32) error {
 	if m.scratch != nil && hasData(r.hdr) {
 		data = io.NewSectionReader(m.scratch, r.off, r.hdr.Size)
 	}
+	if hasData(r.hdr) {
+		m.moved += r.hdr.Size
+	}
 	return m.fill(find(r.ino), data, r.hdr, rankOf(l, r.index))
 }
 
 // clearScratch drops the hidden data at the end of a layer.
 func (m *merger) clearScratch() error {
 	n := m.kept
-	m.kept = 0
+	m.kept, m.moved = 0, 0
 	if m.scratch == nil || n == 0 {
 		return nil
 	}
