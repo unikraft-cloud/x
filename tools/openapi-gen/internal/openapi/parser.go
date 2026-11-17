@@ -19,6 +19,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"unikraft.com/x/tools/openapi-gen/internal/gitref"
+	"unikraft.com/x/tools/openapi-gen/spec"
 )
 
 // Parser handles parsing OpenAPI specs into our template data structures
@@ -26,20 +27,6 @@ type Parser struct {
 	doc            *openapi3.T
 	propertyOrders map[string][]string // schemaName -> ordered property names
 	namespaces     map[string]string   // flattened schema name -> original namespace
-}
-
-// Model represents a single model file to be generated
-type Model struct {
-	SchemaName string
-	Schema     *openapi3.Schema
-	// Package is derived from the x-package extension.
-	//
-	// Deprecated: x-package is only emitted by our proto-based generation
-	// pipeline. Prefer Namespace, which works for any OpenAPI document.
-	Package string
-	// Namespace is derived from the "Namespace.Name" schema name prefix
-	// (e.g. as emitted by platform-api's TypeSpec compiler).
-	Namespace string
 }
 
 // isURL reports whether s looks like an HTTP(S) URL.
@@ -127,8 +114,8 @@ func (p *Parser) SetPropertyOrder(schemaName string, order []string) {
 }
 
 // ParseModels extracts all models from the OpenAPI spec
-func (p *Parser) ParseModels() []Model {
-	var models []Model
+func (p *Parser) ParseModels() []spec.Model {
+	var models []spec.Model
 
 	// Iterate through schemas in the order they appear
 	// After preprocessing, all inline schemas are now top-level schemas
@@ -138,10 +125,10 @@ func (p *Parser) ParseModels() []Model {
 			continue
 		}
 		pkg, _ := schema.Extensions["x-package"].(string)
-		models = append(models, Model{
+		models = append(models, spec.Model{
 			SchemaName: name,
 			Schema:     schema,
-			Package:    pkg,
+			Package:    pkg, //nolint:staticcheck // still populated for the deprecated --package filter
 			Namespace:  schemaNamespace(name),
 		})
 	}
@@ -289,33 +276,10 @@ func extractPropertiesFromSchema(node *yaml.Node) []string {
 	return props
 }
 
-// PathOperation pairs an openapi3.Operation with its path and method
-type PathOperation struct {
-	Path      string
-	Method    string
-	Operation *openapi3.Operation
-	// PathItem is the parent path item, retained so parameter helpers can merge
-	// path-level parameters that every operation on the path inherits.
-	PathItem *openapi3.PathItem
-	vars     map[string]string
-}
-
-func (o PathOperation) Var(key, fallback string) string {
-	if v, ok := o.vars[key]; ok {
-		return v
-	}
-	return fallback
-}
-
-// SetVars sets the template variables exposed to this operation via Var.
-func (o *PathOperation) SetVars(vars map[string]string) {
-	o.vars = vars
-}
-
 // ParseOperations extracts all operations from the OpenAPI spec
 // Sorted by tag (alphabetically) then by operation ID (alphabetically)
-func (p *Parser) ParseOperations() []PathOperation {
-	var operations []PathOperation
+func (p *Parser) ParseOperations() []spec.PathOperation {
+	var operations []spec.PathOperation
 
 	// HACK: we need to ensure operations are processed in a consistent order
 	// it just so turns out our input schemas are already sorted alphabetically
@@ -338,7 +302,7 @@ func (p *Parser) ParseOperations() []PathOperation {
 			if o.op == nil || o.op.OperationID == "" {
 				continue
 			}
-			operations = append(operations, PathOperation{
+			operations = append(operations, spec.PathOperation{
 				Path:      path,
 				Method:    o.method,
 				Operation: o.op,

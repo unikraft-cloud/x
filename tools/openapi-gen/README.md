@@ -125,6 +125,7 @@ The first argument is the variable name (matching a `-s key=value` flag), the se
 The `.Var` method is available on both `TemplateData` (top-level) and `PathOperation` (inside `define` blocks).
 
 `PathOperation` pairs an `*openapi3.Operation` with its HTTP path and method. `Model` pairs a schema name with its `*openapi3.Schema`.
+Both live in [`spec`](./spec).
 
 Operations are sorted by tag then by operation ID.
 Models are sorted alphabetically by schema name.
