@@ -12,6 +12,8 @@ package dockerfile
 
 import (
 	"bytes"
+	// go-digest can only parse a digest whose hash is linked in.
+	_ "crypto/sha256"
 	"fmt"
 	"maps"
 	"slices"
