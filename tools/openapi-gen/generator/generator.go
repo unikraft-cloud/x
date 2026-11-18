@@ -8,12 +8,12 @@ package generator
 import (
 	"fmt"
 	"io/fs"
-	"path"
 	"sort"
 	"strings"
 	"text/template"
 
 	"unikraft.com/x/tools/openapi-gen/internal/openapi"
+	"unikraft.com/x/tools/openapi-gen/spec"
 )
 
 // Generator handles code generation from OpenAPI specs
@@ -22,13 +22,13 @@ type Generator struct {
 	templates     *template.Template
 	templateNames []string
 	vars          map[string]string
-	operations    []openapi.PathOperation
-	models        []openapi.Model
+	operations    []spec.PathOperation
+	models        []spec.Model
 }
 
-// NewGenerator creates a Generator for the spec at specPath, reading templates
-// from fsys.
-func NewGenerator(specPath string, vars map[string]string, fsys fs.FS) (*Generator, error) {
+// NewGenerator creates a Generator for the spec at specPath, rendering the
+// templates of pack.
+func NewGenerator(specPath string, vars map[string]string, pack *Pack) (*Generator, error) {
 	parser, err := openapi.NewParser(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating parser: %w", err)
@@ -45,12 +45,9 @@ func NewGenerator(specPath string, vars map[string]string, fsys fs.FS) (*Generat
 		models:     parser.ParseModels(),
 	}
 
-	tmpl, templateNames, err := loadTemplates(parser, fsys, &g.models, &g.vars)
-	if err != nil {
+	if err := g.loadPack(pack); err != nil {
 		return nil, err
 	}
-	g.templates = tmpl
-	g.templateNames = templateNames
 
 	return g, nil
 }
@@ -63,7 +60,7 @@ func NewGenerator(specPath string, vars map[string]string, fsys fs.FS) (*Generat
 // (models), which work against any OpenAPI document, including specs
 // generated from platform-api's TypeSpec definitions.
 func (g *Generator) FilterByPackage(pkg string) {
-	var filteredOps []openapi.PathOperation
+	var filteredOps []spec.PathOperation
 	for _, op := range g.operations {
 		if op.Operation == nil {
 			continue
@@ -74,7 +71,7 @@ func (g *Generator) FilterByPackage(pkg string) {
 	}
 	g.operations = filteredOps
 
-	var filteredModels []openapi.Model
+	var filteredModels []spec.Model
 	for _, m := range g.models {
 		if m.Package == pkg {
 			filteredModels = append(filteredModels, m)
@@ -90,7 +87,7 @@ func (g *Generator) FilterByTag(tags []string) {
 	for _, t := range tags {
 		want[t] = true
 	}
-	var filtered []openapi.PathOperation
+	var filtered []spec.PathOperation
 	for _, op := range g.operations {
 		if op.Operation == nil {
 			continue
@@ -112,7 +109,7 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 	for _, ns := range namespaces {
 		want[ns] = true
 	}
-	var filtered []openapi.Model
+	var filtered []spec.Model
 	for _, m := range g.models {
 		if want[m.Namespace] {
 			filtered = append(filtered, m)
@@ -127,34 +124,6 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 // "Namespace.Name" form.
 func (g *Generator) Flatten(mode string) {
 	g.parser.Flatten(g.models, mode)
-}
-
-func loadTemplates(parser *openapi.Parser, fsys fs.FS, models *[]openapi.Model, vars *map[string]string) (*template.Template, []string, error) {
-	files, err := findTemplateFiles(fsys)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if len(files) == 0 {
-		return nil, nil, fmt.Errorf("no templates found")
-	}
-
-	tmpl := template.New("").Funcs(openapi.Funcs(parser, models, vars))
-
-	names := make([]string, 0, len(files))
-	for _, file := range files {
-		data, err := fs.ReadFile(fsys, file)
-		if err != nil {
-			return nil, nil, fmt.Errorf("reading template %s: %w", file, err)
-		}
-		name := path.Base(file)
-		if _, err := tmpl.New(name).Parse(string(data)); err != nil {
-			return nil, nil, fmt.Errorf("loading template overrides: %w", err)
-		}
-		names = append(names, name)
-	}
-
-	return tmpl, names, nil
 }
 
 func findTemplateFiles(fsys fs.FS) ([]string, error) {
@@ -207,8 +176,8 @@ func (g *Generator) GenerateAll() []GeneratedFile {
 
 type TemplateData struct {
 	vars       map[string]string
-	Operations []openapi.PathOperation
-	Models     []openapi.Model
+	Operations []spec.PathOperation
+	Models     []spec.Model
 }
 
 func (d TemplateData) Var(key, fallback string) string {

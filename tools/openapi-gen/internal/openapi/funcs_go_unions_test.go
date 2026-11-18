@@ -10,11 +10,13 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
+
+	"unikraft.com/x/tools/openapi-gen/spec"
 )
 
 // unionFuncs returns template funcs over a document holding just the given
 // models, with property order taken from the models themselves.
-func unionFuncs(models ...Model) *templateFuncs {
+func unionFuncs(models ...spec.Model) *templateFuncs {
 	schemas := openapi3.Schemas{}
 	for _, model := range models {
 		schemas[model.SchemaName] = &openapi3.SchemaRef{Value: model.Schema}
@@ -30,12 +32,12 @@ func unionFuncs(models ...Model) *templateFuncs {
 
 // objectModel returns a named object schema with the given properties, in the
 // order they are given.
-func objectModel(name string, props ...prop) Model {
+func objectModel(name string, props ...prop) spec.Model {
 	schema := &openapi3.Schema{Type: strType("object"), Properties: openapi3.Schemas{}}
 	for _, p := range props {
 		schema.Properties[p.name] = &openapi3.SchemaRef{Value: p.schema}
 	}
-	return Model{SchemaName: name, Schema: schema}
+	return spec.Model{SchemaName: name, Schema: schema}
 }
 
 type prop struct {
@@ -67,28 +69,28 @@ func withPackage(schema *openapi3.Schema, pkg string) *openapi3.Schema {
 	return schema
 }
 
-func imageSpec() Model {
+func imageSpec() spec.Model {
 	return objectModel("ImageSpec", prop{"url", &openapi3.Schema{Type: strType("string")}})
 }
 
-func fooSpec() Model {
+func fooSpec() spec.Model {
 	return objectModel("FooSpec", prop{"foo", &openapi3.Schema{Type: strType("string")}})
 }
 
-func barSpec() Model {
+func barSpec() spec.Model {
 	return objectModel("BarSpec", prop{"bar", &openapi3.Schema{Type: strType("string")}})
 }
 
 // namedModel returns a model for a named schema of any shape, for the branches
 // whose kind is derived from something other than a written type.
-func namedModel(name string, schema *openapi3.Schema) Model {
-	return Model{SchemaName: name, Schema: schema}
+func namedModel(name string, schema *openapi3.Schema) spec.Model {
+	return spec.Model{SchemaName: name, Schema: schema}
 }
 
 // scalarModel returns a named schema that is a scalar rather than an object, so
 // that a union can hold two named branches without them sharing a JSON kind.
-func scalarModel(name, openAPIType string) Model {
-	return Model{SchemaName: name, Schema: &openapi3.Schema{Type: strType(openAPIType)}}
+func scalarModel(name, openAPIType string) spec.Model {
+	return spec.Model{SchemaName: name, Schema: &openapi3.Schema{Type: strType(openAPIType)}}
 }
 
 // generating tells tf which package it is generating, which is how a named
@@ -196,7 +198,7 @@ func TestGoUnionsRejectsSharedObjectKind(t *testing.T) {
 
 // sourceSpec is an object marked by one of `git` and `url`, as a oneOf of
 // required members.
-func sourceSpec() Model {
+func sourceSpec() spec.Model {
 	source := objectModel("SourceSpec",
 		prop{"git", &openapi3.Schema{Type: strType("string")}},
 		prop{"url", &openapi3.Schema{Type: strType("string")}},
@@ -210,7 +212,7 @@ func sourceSpec() Model {
 }
 
 // fileObject is a named object of any members, which declares none of its own.
-func fileObject() Model {
+func fileObject() spec.Model {
 	return namedModel("FileObject", &openapi3.Schema{
 		Type:                 strType("object"),
 		AdditionalProperties: openapi3.AdditionalProperties{Schema: inline(&openapi3.Schema{})},
@@ -541,7 +543,7 @@ func TestGoUnionsBranchOfSamePackageNeedsNoWrapper(t *testing.T) {
 	local := withPackage(imageSpec().Schema, "images")
 
 	tf := generating(unionFuncs(
-		Model{SchemaName: "ImageSpec", Schema: local},
+		spec.Model{SchemaName: "ImageSpec", Schema: local},
 		objectModel("Thing", prop{"image", anyOf(
 			inline(&openapi3.Schema{Type: strType("string")}),
 			resolvedRef("ImageSpec", local),
@@ -582,7 +584,7 @@ func TestGoUnionsBranchOfSameNamespaceNeedsNoWrapper(t *testing.T) {
 	local := imageSpec().Schema
 
 	tf := generating(unionFuncs(
-		Model{SchemaName: "Images.ImageSpec", Schema: local, Namespace: "Images"},
+		spec.Model{SchemaName: "Images.ImageSpec", Schema: local, Namespace: "Images"},
 		objectModel("Images.Thing", prop{"image", anyOf(
 			inline(&openapi3.Schema{Type: strType("string")}),
 			resolvedRef("Images.ImageSpec", local),
@@ -624,7 +626,7 @@ func TestGoUnionsVariantKeepsNamespaceAfterFlatten(t *testing.T) {
 		resolvedRef("Images.ImageSpec", foreign),
 	)})
 
-	models := []Model{
+	models := []spec.Model{
 		{SchemaName: "Images.ImageSpec", Schema: foreign, Namespace: "Images"},
 		{SchemaName: thing.SchemaName, Schema: thing.Schema, Namespace: "Core"},
 	}
@@ -653,7 +655,7 @@ func TestGoUnionsVariantKeepsNamespaceAfterRepeatedFlatten(t *testing.T) {
 		resolvedRef("Images.ImageSpec", foreign),
 	)})
 
-	models := []Model{
+	models := []spec.Model{
 		{SchemaName: "Images.ImageSpec", Schema: foreign, Namespace: "Images"},
 		{SchemaName: thing.SchemaName, Schema: thing.Schema, Namespace: "Core"},
 	}

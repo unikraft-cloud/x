@@ -10,6 +10,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
+
+	"unikraft.com/x/tools/openapi-gen/spec"
 )
 
 func strType(t string) *openapi3.Types {
@@ -121,7 +123,7 @@ func TestSchemaToTsTypeComposition(t *testing.T) {
 }
 
 func TestQualifyModels(t *testing.T) {
-	models := []Model{{SchemaName: "Instance"}, {SchemaName: "Volume"}}
+	models := []spec.Model{{SchemaName: "Instance"}, {SchemaName: "Volume"}}
 	tf := &templateFuncs{models: &models}
 	cases := []struct {
 		in, want string

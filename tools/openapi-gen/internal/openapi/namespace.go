@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+
+	"unikraft.com/x/tools/openapi-gen/spec"
 )
 
 // flattenMode controls how namespaced schema names (e.g. "Instances.Instance")
@@ -43,7 +45,7 @@ func flattenModeFromString(s string) flattenMode {
 // no-op). It runs after any namespace/tag filtering so those filters can match
 // on the original "Namespace.Name" form, and it updates the given models in
 // place to stay in sync with the rewritten document.
-func (p *Parser) Flatten(models []Model, mode string) {
+func (p *Parser) Flatten(models []spec.Model, mode string) {
 	m := flattenModeFromString(mode)
 	if m == flattenNone {
 		return

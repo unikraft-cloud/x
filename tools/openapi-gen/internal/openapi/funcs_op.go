@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+
+	"unikraft.com/x/tools/openapi-gen/spec"
 )
 
 // jsonMediaType is the request/response content type generators care about.
@@ -40,7 +42,7 @@ func (tf *templateFuncs) resolveParam(ref *openapi3.ParameterRef) *openapi3.Para
 // Parameters declared on the PathItem are inherited by every operation on the
 // path unless an operation-level parameter with the same (name, in) overrides
 // them; inherited parameters are listed before operation-specific ones.
-func (tf *templateFuncs) paramsIn(po PathOperation, in string) []*openapi3.Parameter {
+func (tf *templateFuncs) paramsIn(po spec.PathOperation, in string) []*openapi3.Parameter {
 	if po.Operation == nil {
 		return nil
 	}
@@ -80,13 +82,13 @@ func (tf *templateFuncs) paramsIn(po PathOperation, in string) []*openapi3.Param
 
 // pathParameters returns an operation's path parameters (required, positional),
 // including those inherited from the PathItem.
-func (tf *templateFuncs) pathParameters(po PathOperation) []*openapi3.Parameter {
+func (tf *templateFuncs) pathParameters(po spec.PathOperation) []*openapi3.Parameter {
 	return tf.paramsIn(po, "path")
 }
 
 // queryParameters returns an operation's query parameters, including those
 // inherited from the PathItem.
-func (tf *templateFuncs) queryParameters(po PathOperation) []*openapi3.Parameter {
+func (tf *templateFuncs) queryParameters(po spec.PathOperation) []*openapi3.Parameter {
 	return tf.paramsIn(po, "query")
 }
 

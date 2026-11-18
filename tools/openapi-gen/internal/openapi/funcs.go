@@ -18,18 +18,20 @@ import (
 	"github.com/ettle/strcase"
 	"github.com/getkin/kin-openapi/openapi3"
 	wordwrap "github.com/mitchellh/go-wordwrap"
+
+	"unikraft.com/x/tools/openapi-gen/spec"
 )
 
 // templateFuncs holds the parser and provides template helper functions
 type templateFuncs struct {
 	parser *Parser
-	models *[]Model
+	models *[]spec.Model
 	vars   *map[string]string
 }
 
 // Funcs returns the template function map bound to the given parser, models
 // and variables. It is the entry point used by callers outside this package.
-func Funcs(parser *Parser, models *[]Model, vars *map[string]string) template.FuncMap {
+func Funcs(parser *Parser, models *[]spec.Model, vars *map[string]string) template.FuncMap {
 	return templateFuncs{parser: parser, models: models, vars: vars}.Funcs()
 }
 
@@ -428,7 +430,7 @@ func sortedContentTypes(content openapi3.Content) []ContentEntry {
 }
 
 // uniqueTags returns deduplicated, sorted tags from operations.
-func uniqueTags(operations []PathOperation) []string {
+func uniqueTags(operations []spec.PathOperation) []string {
 	seen := make(map[string]bool)
 	var tags []string
 	for _, op := range operations {
