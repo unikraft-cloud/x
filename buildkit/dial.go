@@ -21,6 +21,7 @@ import (
 	"github.com/moby/buildkit/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 )
 
 // Acquire implements Backend. It creates the builder for key with a cache
@@ -79,6 +80,8 @@ func dial(ctx context.Context, addr string, t TLS, edge func(context.Context) (n
 		}),
 		client.WithGRPCDialOption(grpc.WithTransportCredentials(credentials.NewTLS(inner))),
 		client.WithGRPCDialOption(grpc.WithAuthority(t.ServerName)),
+		// A builder that is gone answers no ping. buildkitd refuses more than one each 5 minutes.
+		client.WithGRPCDialOption(grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 5 * time.Minute, Timeout: 20 * time.Second})),
 	)
 }
 
