@@ -93,7 +93,7 @@ func WithCacheSize(mb uint64) Option {
 }
 
 // WithCooldown sets how long new builders stay idle before they scale to zero,
-// 500 milliseconds by default.
+// 90 seconds by default.
 func WithCooldown(d time.Duration) Option {
 	return func(p *Platform) { p.cooldown = d }
 }
@@ -111,7 +111,8 @@ func NewPlatform(c platform.Client, opts ...Option) *Platform {
 		vcpus:    4,
 		memoryMB: 8192,
 		cacheMB:  20480,
-		cooldown: 500 * time.Millisecond,
+		// buildkitd collects garbage 1 second after a build, but at most once a minute.
+		cooldown: 90 * time.Second,
 	}
 	for _, opt := range opts {
 		opt(p)
