@@ -9,6 +9,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -17,6 +18,7 @@ import (
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/platforms"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 )
@@ -109,18 +111,26 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 	}
 	img.Image = &config
 
-	for _, layer := range mfst.Layers {
+	for i, layer := range mfst.Layers {
+		part := func(p string) *ContentStoreFile {
+			f := NewContentStoreFile(store, layer, p)
+			if len(config.RootFS.DiffIDs) == len(mfst.Layers) {
+				f.DiffID = config.RootFS.DiffIDs[i]
+			}
+			return f
+		}
 		switch layer.MediaType {
-		// Classic OCI layer (old-style image layer).
-		case ocispec.MediaTypeImageLayer, images.MediaTypeDockerSchema2Layer:
+		// Classic OCI layer (old-style image layer), which can be compressed.
+		case ocispec.MediaTypeImageLayer, images.MediaTypeDockerSchema2Layer, ocispec.MediaTypeImageLayerGzip,
+			ocispec.MediaTypeImageLayerZstd, images.MediaTypeDockerSchema2LayerGzip:
 			if p := layer.Annotations[AnnotationKernelPath]; p != "" {
-				img.Kernel = NewContentStoreFile(store, layer, p)
+				img.Kernel = part(p)
 			}
 			if p := layer.Annotations[AnnotationKernelDbgPath]; p != "" {
-				img.KernelDebug = NewContentStoreFile(store, layer, p)
+				img.KernelDebug = part(p)
 			}
 			if p := layer.Annotations[AnnotationKernelInitrdPath]; p != "" {
-				img.Initrd = NewContentStoreFile(store, layer, p)
+				img.Initrd = part(p)
 			}
 
 		case MediaTypeRom:
@@ -131,11 +141,20 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 	return img, nil
 }
 
+// closerFunc is a Closer that calls itself.
+type closerFunc func() error
+
+func (f closerFunc) Close() error { return f() }
+
 // ContentStoreFile is a File backed by a content.Provider and OCI descriptor.
 type ContentStoreFile struct {
 	Store content.Provider
 	Desc  ocispec.Descriptor
 	Path_ string
+	// DiffID is the digest of the uncompressed layer, if it is known.
+	DiffID digest.Digest
+
+	maxSize int64 // the limit of the decompressed bytes that Open reads, maxLayerSize if 0
 }
 
 // NewContentStoreFile creates a new ContentStoreFile.
@@ -174,13 +193,25 @@ func (f *ContentStoreFile) Open(ctx context.Context) (rc io.ReadCloser, size int
 
 	target := filepath.Join("/", f.Path_)
 
-	tr := tar.NewReader(vr.blob)
+	blob, err := decompressLayer(f.Desc.MediaType, vr.blob)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to decompress layer %s: %w", f.Desc.Digest, err)
+	}
+	limit := f.maxSize
+	if limit == 0 {
+		limit = maxLayerSize
+	}
+	tr := tar.NewReader(&boundedReader{ctx: ctx, r: blob, limit: limit})
 	hdr, rr, err := readTarFile(tr, target)
 	if err != nil {
+		blob.Close()
 		return nil, 0, err
 	}
 	vr.entry, vr.remaining = rr, hdr.Size
-	return vr, hdr.Size, nil
+	return struct {
+		io.Reader
+		io.Closer
+	}{vr, closerFunc(func() error { return errors.Join(blob.Close(), vr.Close()) })}, hdr.Size, nil
 }
 
 func (f *ContentStoreFile) Cleanup() error {
@@ -188,7 +219,13 @@ func (f *ContentStoreFile) Cleanup() error {
 }
 
 func (f *ContentStoreFile) Clone() (File, error) {
-	return NewContentStoreFile(f.Store, f.Desc, f.Path_), nil
+	c := NewContentStoreFile(f.Store, f.Desc, f.Path_)
+	c.DiffID, c.maxSize = f.DiffID, f.maxSize
+	return c, nil
+}
+
+func (f *ContentStoreFile) layerDiffID() digest.Digest {
+	return f.DiffID
 }
 
 func (f *ContentStoreFile) Source() (ocispec.Descriptor, content.Provider) {

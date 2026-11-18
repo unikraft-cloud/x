@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/containerd/containerd/v2/core/content"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -61,6 +62,13 @@ func (s *fileShared) Clone() (File, error) {
 
 func (s *fileShared) Source() (ocispec.Descriptor, content.Provider) {
 	return s.inner.Source()
+}
+
+func (s *fileShared) layerDiffID() digest.Digest {
+	if f, ok := s.inner.(diffIDFile); ok {
+		return f.layerDiffID()
+	}
+	return ""
 }
 
 type staticFile struct {
