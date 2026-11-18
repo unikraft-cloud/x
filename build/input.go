@@ -35,7 +35,7 @@ func LoadBuildOpts(ctx context.Context, path string) (BuildOpts, error) {
 
 	// A Dockerfile is not a Kraftfile document. The name must select it before
 	// the Kraftfile parser reads the file.
-	if !fi.IsDir() && isDockerfile(filepath.Base(path)) {
+	if !fi.IsDir() && IsDockerfile(filepath.Base(path)) {
 		return BuildOpts{
 			Rootfs: FSOpts{
 				Path: path,

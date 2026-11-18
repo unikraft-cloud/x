@@ -73,9 +73,11 @@ func applyConfigOverrides(base ocispec.ImageConfig, opts BuildOpts) ocispec.Imag
 	return cfg
 }
 
-// isDockerfile reports whether the file name names a Dockerfile.
-func isDockerfile(name string) bool {
-	return slices.Contains(strings.Split(name, "."), defaultDockerfileName)
+// IsDockerfile reports whether the file name names a Dockerfile or a Containerfile, in any case.
+func IsDockerfile(name string) bool {
+	return slices.ContainsFunc(strings.Split(name, "."), func(part string) bool {
+		return strings.EqualFold(part, defaultDockerfileName) || strings.EqualFold(part, "Containerfile")
+	})
 }
 
 // DetectSourceType inspects path and returns the detected RootfsType.
@@ -84,7 +86,7 @@ func DetectSourceType(path string) (kraftfile.SourceType, error) {
 		return "", fmt.Errorf("empty rootfs path")
 	}
 
-	if isDockerfile(filepath.Base(path)) {
+	if IsDockerfile(filepath.Base(path)) {
 		return kraftfile.SourceTypeDockerfile, nil
 	}
 
@@ -156,7 +158,7 @@ func resolveSource(fsOpts *FSOpts) error {
 	if fromLLB(fsOpts.Source) {
 		if fsOpts.Type == "" {
 			fsOpts.Type = kraftfile.SourceTypeDirectory
-			if isDockerfile(path.Base(fsOpts.Path)) {
+			if IsDockerfile(path.Base(fsOpts.Path)) {
 				fsOpts.Type = kraftfile.SourceTypeDockerfile
 			}
 		}

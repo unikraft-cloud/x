@@ -135,13 +135,13 @@ func TestDetectSourceTypeDockerfileName(t *testing.T) {
 	dir := t.TempDir()
 
 	// A Dockerfile name is detected from the name only, before any stat.
-	for _, name := range []string{"Dockerfile", "app.Dockerfile", "Dockerfile.dev", "a.Dockerfile.b"} {
+	for _, name := range []string{"Dockerfile", "app.Dockerfile", "Dockerfile.dev", "a.Dockerfile.b", "dockerfile", "Containerfile", "app.containerfile"} {
 		typ, err := DetectSourceType(filepath.Join(dir, name))
 		require.NoError(t, err, name)
 		require.Equal(t, kraftfile.SourceTypeDockerfile, typ, name)
 	}
 
-	for _, name := range []string{"dockerfile", "Kraftfile", "MyDockerfile", "Dockerfiles", "Containerfile"} {
+	for _, name := range []string{"Kraftfile", "MyDockerfile", "Dockerfiles", "Containerfiles"} {
 		_, err := DetectSourceType(filepath.Join(dir, name))
 		require.ErrorContains(t, err, "does not exist", name)
 	}
