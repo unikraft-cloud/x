@@ -16,8 +16,8 @@ on:
         default: prod-stable
     secrets:
       gh_pat:
-        description: GitHub PAT used to open the PR, so that its checks run
-        required: true
+        description: GitHub PAT used to open the PR, so that its checks run without approval. Defaults to github.token.
+        required: false
 
 permissions:
   contents: read
@@ -26,13 +26,17 @@ jobs:
   promote:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      pull-requests: write
+
     concurrency:
       group: promote-${{ inputs.to || 'prod-stable' }}
 
     steps:
       - name: Open promotion PR
         env:
-          GH_TOKEN: ${{ secrets.gh_pat }}
+          GH_TOKEN: ${{ secrets.gh_pat || github.token }}
           GH_REPO: ${{ github.repository }}
           FROM: ${{ inputs.from || 'prod-staging' }}
           TO: ${{ inputs.to || 'prod-stable' }}
