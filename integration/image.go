@@ -17,6 +17,13 @@ import (
 	"unikraft.com/x/dockerfile"
 )
 
+// Image is the base image of every integration test. It is multi-arch and
+// has absolute symlinks in its own layers.
+var Image = dockerfile.MustImage(debianDockerfile)
+
+//go:embed debian.Dockerfile
+var debianDockerfile []byte
+
 // HelloWorld is a regular OCI image, with plain layers and no unikraft
 // components.
 var HelloWorld = &MirroredImage{
