@@ -90,7 +90,7 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 	mvdan.cc/sh/v3 v3.14.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-	unikraft.com/x/dockerfile v0.0.0-20261112155133-6b24cfd8a4fe // indirect
+	unikraft.com/x/dockerfile v0.0.0-20261117112737-6700b805fc2e // indirect
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4 // indirect
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d // indirect
 )

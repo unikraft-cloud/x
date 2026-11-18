@@ -21,7 +21,7 @@ require (
 	golang.org/x/mod v0.43.0
 	google.golang.org/grpc v1.85.0
 	unikraft.com/x/buildkit v0.0.0-20261104124328-5c22d4e1ce0f
-	unikraft.com/x/dockerfile v0.0.0-20261112155133-6b24cfd8a4fe
+	unikraft.com/x/dockerfile v0.0.0-20261117112737-6700b805fc2e
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
 	unikraft.com/x/integration v0.0.0-20261029083025-f2d161e6abc8
 	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624

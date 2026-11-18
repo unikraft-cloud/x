@@ -7,7 +7,7 @@ require (
 	github.com/moby/buildkit v0.34.2
 	github.com/stretchr/testify v1.12.1
 	github.com/unikraft/go-archivefs v0.0.0-20261106133356-c81ad57e55c4
-	unikraft.com/x/dockerfile v0.0.0-20261112155133-6b24cfd8a4fe
+	unikraft.com/x/dockerfile v0.0.0-20261117112737-6700b805fc2e
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d
 )
