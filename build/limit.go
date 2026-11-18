@@ -17,6 +17,9 @@ import (
 // Builder.MaxRootfsSize.
 var ErrTooLarge = buildfs.ErrTooLarge
 
+// ErrNoSpace tells that the packer found no space left on the builder.
+var ErrNoSpace = errors.New("no space left on the builder")
+
 // limitWriter writes to w until max bytes, then refuses each write with
 // ErrTooLarge. A max of 0 is no limit.
 type limitWriter struct {

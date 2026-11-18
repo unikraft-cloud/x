@@ -27,6 +27,9 @@ func main() {
 		if errors.Is(err, buildfs.ErrTooLarge) {
 			os.Exit(buildfs.ExitCodeTooLarge)
 		}
+		if errors.Is(err, syscall.ENOSPC) {
+			os.Exit(buildfs.ExitCodeNoSpace)
+		}
 		os.Exit(1)
 	}
 }

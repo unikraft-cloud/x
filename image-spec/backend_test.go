@@ -208,6 +208,27 @@ func TestBuildImageMultiPlatform(t *testing.T) {
 	}
 }
 
+func TestPackageLayerTar(t *testing.T) {
+	for _, size := range []int{0, 5, 512, 513} {
+		data := bytes.Repeat([]byte("x"), size)
+		var want bytes.Buffer
+		tw := tar.NewWriter(&want)
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: "initrd", Mode: 0o644, Size: int64(size)}))
+		_, err := tw.Write(data)
+		require.NoError(t, err)
+		require.NoError(t, tw.Close())
+
+		store, err := local.NewStore(t.TempDir())
+		require.NoError(t, err)
+		desc, err := packageLayer(t.Context(), ingestDefaults(store, content.WithRef("latest")), testImage, &staticFile{"initrd.img", data}, ocispec.MediaTypeImageLayer, "/initrd")
+		require.NoError(t, err)
+
+		got, err := content.ReadBlob(t.Context(), store, desc)
+		require.NoError(t, err)
+		require.Equal(t, want.Bytes(), got, "a file of %d bytes", size)
+	}
+}
+
 func TestDeleteImage(t *testing.T) {
 	ctx := t.Context()
 
