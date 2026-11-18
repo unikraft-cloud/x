@@ -12,8 +12,8 @@ on:
         required: false
     secrets:
       gh_pat:
-        description: GitHub PAT used to push the commit and start the pull request checks
-        required: true
+        description: GitHub PAT used to push the commit, so that its checks run without approval. Defaults to github.token.
+        required: false
 
 permissions:
   contents: read
@@ -21,6 +21,9 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
 
     if: >-
       github.actor == 'dependabot[bot]' &&
@@ -33,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ secrets.gh_pat }}
+          token: ${{ secrets.gh_pat || github.token }}
 
       - name: Setup go
         uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
