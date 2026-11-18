@@ -49,6 +49,14 @@ jobs:
         run: |
           go install github.com/bufbuild/buf/cmd/buf@v1.54.0
 
+      # fsck.erofs checks the EROFS images that the image-spec tests write.
+      - name: Install erofs-utils
+        if: github.repository == 'unikraft-cloud/x'
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq erofs-utils
+
       - name: Run tests
         shell: bash
         run: |
