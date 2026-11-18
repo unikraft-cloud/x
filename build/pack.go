@@ -206,9 +206,6 @@ func (b Builder) packState(c gateway.Client, packer, rootfs llb.State, format kr
 		llb.Platform(native),
 		llb.WithCustomName("pack as " + string(format)),
 	}
-	if opts.NoCache {
-		runOpts = append(runOpts, llb.IgnoreCache)
-	}
 	return packer.Run(runOpts...).AddMount("/out", llb.Scratch())
 }
 
@@ -349,7 +346,7 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 			// A copy, as an exec on the synced files takes them over and the
 			// next solve would send them all again.
 			local := llb.Local(name, llb.SessionID(packerSession))
-			packer = llb.Scratch().File(llb.Copy(local, "/", "/"))
+			packer = llb.Scratch().File(llb.Copy(local, "/", "/"), llb.WithCustomName("copy the packer"))
 		}
 		st := b.packState(c, packer, rootfs, format, opts)
 		if opts.push != nil {
@@ -357,7 +354,11 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 				return nil, err
 			}
 		}
-		def, err := st.Marshal(ctx)
+		var co []llb.ConstraintsOpt
+		if opts.NoCache {
+			co = append(co, llb.IgnoreCache)
+		}
+		def, err := st.Marshal(ctx, co...)
 		if err != nil {
 			return nil, fmt.Errorf("marshalling the pack step: %w", err)
 		}
