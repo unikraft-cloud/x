@@ -15,7 +15,6 @@ import (
 	"io"
 	"maps"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 
@@ -344,14 +343,38 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 
 	digester := digest.Canonical.Digester()
 
+	// The tar of one file is its header, the file, then zeros: the padding of
+	// the file to a block and two empty blocks. No copy of the file is kept.
+	var header, trailer []byte
+	if path != "" {
+		var buf bytes.Buffer
+		err = tar.NewWriter(&buf).WriteHeader(&tar.Header{
+			Name: strings.TrimPrefix(path, "/"),
+			Mode: 0o644,
+			Size: size,
+		})
+		if err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to write layer tar header: %w", err)
+		}
+		header = buf.Bytes()
+		trailer = make([]byte, (512-size%512)%512+1024)
+	}
+
 	var reader io.Reader
+	layer := func() {
+		reader = r
+		if path != "" {
+			reader = io.MultiReader(bytes.NewReader(header), r, bytes.NewReader(trailer))
+		}
+	}
 
 	// rewind takes reader back to its start for another write.
 	rewind := func() error {
-		if seeker, ok := reader.(io.Seeker); ok {
+		if seeker, ok := r.(io.Seeker); ok {
 			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
 				return fmt.Errorf("failed to rewind layer content: %w", err)
 			}
+			layer()
 			return nil
 		}
 		if err := r.Close(); err != nil {
@@ -360,62 +383,21 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		r = nil
 		var err error
 		r, _, err = file.Open(ctx)
-		reader = r
+		layer()
 		return err
 	}
 
-	if path == "" {
-		_, err = io.Copy(digester.Hash(), r)
-		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
-		}
-		reader = r
-		if err := rewind(); err != nil {
-			return ocispec.Descriptor{}, err
-		}
-	} else {
-		tmp, err := os.CreateTemp("", "imagespec-layer-*")
-		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to create temp layer file: %w", err)
-		}
-		defer func() {
-			tmp.Close()
-			os.Remove(tmp.Name())
-		}()
-
-		mw := io.MultiWriter(tmp, digester.Hash())
-		tw := tar.NewWriter(mw)
-		err = tw.WriteHeader(&tar.Header{
-			Name: strings.TrimPrefix(path, "/"),
-			Mode: 0o644,
-			Size: size,
-		})
-		if err != nil {
-			tw.Close()
-			return ocispec.Descriptor{}, fmt.Errorf("failed to write layer tar header: %w", err)
-		}
-		_, err = io.Copy(tw, r)
-		if err != nil {
-			tw.Close()
-			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
-		}
-		if err := tw.Close(); err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to finalize layer tar: %w", err)
-		}
-		if err := tmp.Sync(); err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to sync layer tar: %w", err)
-		}
-		if _, err := tmp.Seek(0, io.SeekStart); err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to rewind layer content: %w", err)
-		}
-
-		stat, err := tmp.Stat()
-		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to stat layer tar: %w", err)
-		}
-		size = stat.Size()
-
-		reader = tmp
+	layer()
+	want := int64(len(header)) + size + int64(len(trailer))
+	size, err = io.Copy(digester.Hash(), reader)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to read layer content: %w", err)
+	}
+	if path != "" && size != want {
+		return ocispec.Descriptor{}, fmt.Errorf("layer tar is %d bytes, expected %d: file size changed", size, want)
+	}
+	if err := rewind(); err != nil {
+		return ocispec.Descriptor{}, err
 	}
 
 	desc := ocispec.Descriptor{
