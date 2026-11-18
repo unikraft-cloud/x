@@ -6,10 +6,14 @@
 package build
 
 import (
+	"net"
+	"path/filepath"
 	"testing"
 
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/sshforward"
+	"github.com/moby/buildkit/session/sshforward/sshprovider"
 	"github.com/stretchr/testify/require"
 
 	"unikraft.com/x/kraftfile"
@@ -267,5 +271,27 @@ func TestApplyBuildOptsContexts(t *testing.T) {
 			})
 			require.ErrorContains(t, err, "invalid context name")
 		})
+	}
+}
+
+func TestAddBuildSessionsCallerSSH(t *testing.T) {
+	socket := func(name string) string {
+		l, err := net.Listen("unix", filepath.Join(t.TempDir(), name))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = l.Close() })
+		return l.Addr().String()
+	}
+	caller, err := sshprovider.NewSSHAgentProvider([]sshprovider.AgentConfig{{ID: "work", Paths: []string{socket("work.sock")}, Raw: true}})
+	require.NoError(t, err)
+	sessions := []session.Attachable{caller}
+
+	err = addBuildSessions(&sessions, BuildOpts{push: &packerPush{socket: socket("auth.sock")}})
+	require.NoError(t, err)
+	require.Len(t, sessions, 1)
+
+	ssh := sessions[0].(sshforward.SSHServer)
+	for _, id := range []string{AuthSSHID, "work"} {
+		_, err := ssh.CheckAgent(t.Context(), &sshforward.CheckAgentRequest{ID: id})
+		require.NoError(t, err, id)
 	}
 }
