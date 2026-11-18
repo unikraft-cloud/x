@@ -105,6 +105,15 @@ func TestPackInSolve(t *testing.T) {
 	build()
 	assert.True(t, rec.ended(step).Cached, "the second pack is cached")
 
+	opts.NoCache = true
+	rec = &progressRecorder{}
+	b.Progress = rec
+	build()
+	for _, name := range rec.steps() {
+		assert.False(t, rec.ended(name).Cached, "%s is not cached without the cache", name)
+	}
+	opts.NoCache = false
+
 	b.MaxRootfsSize = 1
 	_, err = b.BuildRootfs(t.Context(), opts)
 	require.ErrorIs(t, err, ErrTooLarge, "the packer's refusal comes back as ErrTooLarge")
