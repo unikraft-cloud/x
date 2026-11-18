@@ -180,7 +180,7 @@ func goUnionTypes(schema *openapi3.Schema, depth int) ([]string, bool) {
 		}
 		return goUnionWithoutNull(types)
 
-	case len(schema.Properties) > 0 || schema.AdditionalProperties.Schema != nil ||
+	case schema.Properties.Len() > 0 || schema.AdditionalProperties.Schema != nil ||
 		schema.AdditionalProperties.Has != nil:
 		return []string{"object"}, true
 
@@ -354,7 +354,7 @@ func (tf *templateFuncs) goUnionSchemas() map[string]goUnionSchema {
 	}
 
 	if components := tf.components(); components != nil {
-		for name, ref := range components.Schemas {
+		for name, ref := range components.Schemas.Iter() {
 			if ref != nil {
 				// Flattening strips the namespace from the component key, so
 				// ask the parser rather than reading the name.
@@ -389,7 +389,7 @@ func (tf *templateFuncs) goUnionReserved() map[string]bool {
 	// Every component name, including those too empty to generate a type of
 	// their own: a name in the document is not ours to take either way.
 	if components := tf.components(); components != nil {
-		for name := range components.Schemas {
+		for _, name := range components.Schemas.Keys() {
 			reserved[name] = true
 		}
 	}
@@ -397,7 +397,7 @@ func (tf *templateFuncs) goUnionReserved() map[string]bool {
 	if tf.models != nil {
 		for _, model := range *tf.models {
 			reserved[model.SchemaName] = true
-			for _, enum := range tf.inlineEnums(model.SchemaName, model.Schema) {
+			for _, enum := range tf.inlineEnums(model.Schema) {
 				reserved[enum.Name] = true
 			}
 		}
@@ -456,8 +456,8 @@ func (tf *templateFuncs) goUnions(overrides ...map[string]any) *GoUnions {
 	namedSeen := map[string]bool{}
 
 	for _, model := range *tf.models {
-		for _, propName := range tf.propertyNamesOrdered(model.SchemaName, model.Schema) {
-			prop := tf.getProperty(model.Schema, propName)
+		for _, p := range tf.properties(model.Schema) {
+			propName, prop := p.Name, p.Schema
 			if prop == nil {
 				continue
 			}
@@ -748,7 +748,7 @@ func goUnionHasProperties(schema *openapi3.Schema, depth int) bool {
 	if schema == nil || depth > goUnionMaxDepth {
 		return false
 	}
-	if len(schema.Properties) > 0 {
+	if schema.Properties.Len() > 0 {
 		return true
 	}
 	for _, member := range slices.Concat(schema.AllOf, schema.OneOf, schema.AnyOf) {

@@ -28,7 +28,7 @@ func (tf *templateFuncs) resolveParam(ref *openapi3.ParameterRef) *openapi3.Para
 			return nil
 		}
 		name := extractTypeFromRef(ref.Ref)
-		if p, ok := tf.parser.doc.Components.Parameters[name]; ok {
+		if p, ok := tf.parser.doc.Components.Parameters.Get(name); ok {
 			return p.Value
 		}
 	}
@@ -119,11 +119,11 @@ func (tf *templateFuncs) responseJSONSchema(op *openapi3.Operation) *openapi3.Sc
 		return nil
 	}
 	// Prefer the lowest 2xx code, then `default`.
+	var chosenCode string
 	var chosen *openapi3.ResponseRef
-	for _, entry := range sortedResponseCodes(op.Responses) {
-		if strings.HasPrefix(entry.Code, "2") {
-			chosen = entry.Ref
-			break
+	for code, ref := range op.Responses.Iter() {
+		if strings.HasPrefix(code, "2") && (chosenCode == "" || code < chosenCode) {
+			chosenCode, chosen = code, ref
 		}
 	}
 	if chosen == nil {

@@ -15,14 +15,13 @@ import (
 // unionFuncs returns template funcs over a document holding just the given
 // models, with property order taken from the models themselves.
 func unionFuncs(models ...Model) *templateFuncs {
-	schemas := openapi3.Schemas{}
+	schemas := openapi3.NewSchemas()
 	for _, model := range models {
-		schemas[model.SchemaName] = &openapi3.SchemaRef{Value: model.Schema}
+		schemas.Set(model.SchemaName, &openapi3.SchemaRef{Value: model.Schema})
 	}
 
 	parser := &Parser{
-		doc:            &openapi3.T{Components: &openapi3.Components{Schemas: schemas}},
-		propertyOrders: map[string][]string{},
+		doc: &openapi3.T{Components: &openapi3.Components{Schemas: schemas}},
 	}
 
 	return &templateFuncs{parser: parser, models: &models}
@@ -31,9 +30,9 @@ func unionFuncs(models ...Model) *templateFuncs {
 // objectModel returns a named object schema with the given properties, in the
 // order they are given.
 func objectModel(name string, props ...prop) Model {
-	schema := &openapi3.Schema{Type: strType("object"), Properties: openapi3.Schemas{}}
+	schema := &openapi3.Schema{Type: strType("object"), Properties: *openapi3.NewSchemas()}
 	for _, p := range props {
-		schema.Properties[p.name] = &openapi3.SchemaRef{Value: p.schema}
+		schema.Properties.Set(p.name, &openapi3.SchemaRef{Value: p.schema})
 	}
 	return Model{SchemaName: name, Schema: schema}
 }
@@ -250,7 +249,7 @@ func TestGoUnionsRejectsObjectsKeysCannotTellApart(t *testing.T) {
 	composed := namedModel("ComposedObject", &openapi3.Schema{
 		Type: strType("object"),
 		AllOf: openapi3.SchemaRefs{inline(&openapi3.Schema{
-			Properties: openapi3.Schemas{"git": inline(&openapi3.Schema{Type: strType("integer")})},
+			Properties: openapi3.SchemasFromMap(map[string]*openapi3.SchemaRef{"git": inline(&openapi3.Schema{Type: strType("integer")})}),
 		})},
 	})
 
@@ -325,7 +324,6 @@ func TestGoUnionsDistinctBranchesShareNoUnion(t *testing.T) {
 			prop{"flags", anyOf(ref("FooSpec"), inline(&openapi3.Schema{Type: strType("boolean")}))},
 		),
 	)
-	tf.parser.propertyOrders["Thing"] = []string{"labels", "flags"}
 
 	unions := tf.goUnions()
 
@@ -350,7 +348,6 @@ func TestGoUnionsDistinctKeysShareNoUnion(t *testing.T) {
 			prop{"url", anyOf(ref("FileObject"), inline(&openapi3.Schema{Type: strType("object"), Required: []string{"url"}}))},
 		),
 	)
-	tf.parser.propertyOrders["Thing"] = []string{"git", "url"}
 
 	unions := tf.goUnions()
 
@@ -499,7 +496,6 @@ func TestGoUnionsSortedByName(t *testing.T) {
 			)},
 		),
 	)
-	tf.parser.propertyOrders["Thing"] = []string{"zeta", "alpha"}
 
 	unions := tf.goUnions()
 
@@ -519,7 +515,7 @@ func TestGoUnionsWrapsBranchOfAnotherPackage(t *testing.T) {
 		inline(&openapi3.Schema{Type: strType("string")}),
 		resolvedRef("ImageSpec", foreign),
 	)})), map[string]string{"x-package": "instances"})
-	tf.parser.doc.Components.Schemas["ImageSpec"] = &openapi3.SchemaRef{Value: foreign}
+	tf.parser.doc.Components.Schemas.Set("ImageSpec", &openapi3.SchemaRef{Value: foreign})
 
 	unions := tf.goUnions()
 
@@ -566,7 +562,7 @@ func TestGoUnionsWrapsBranchOfAnotherNamespace(t *testing.T) {
 		inline(&openapi3.Schema{Type: strType("string")}),
 		resolvedRef("Images.ImageSpec", foreign),
 	)})), map[string]string{"current_package": "core"})
-	tf.parser.doc.Components.Schemas["Images.ImageSpec"] = &openapi3.SchemaRef{Value: foreign}
+	tf.parser.doc.Components.Schemas.Set("Images.ImageSpec", &openapi3.SchemaRef{Value: foreign})
 
 	unions := tf.goUnions()
 
@@ -607,7 +603,7 @@ func TestGoUnionsSkipsUnqualifiableFilteredBranch(t *testing.T) {
 		inline(&openapi3.Schema{Type: strType("string")}),
 		resolvedRef("ImageSpec", absent),
 	)}))
-	tf.parser.doc.Components.Schemas["ImageSpec"] = &openapi3.SchemaRef{Value: absent}
+	tf.parser.doc.Components.Schemas.Set("ImageSpec", &openapi3.SchemaRef{Value: absent})
 
 	unions := tf.goUnions()
 
@@ -741,7 +737,7 @@ func TestGoUnionsSkipsBranchesReferencingEmptySchemas(t *testing.T) {
 			ref("GoogleProtobufValue"),
 		)}),
 	)
-	tf.parser.doc.Components.Schemas["GoogleProtobufValue"] = &openapi3.SchemaRef{Value: &openapi3.Schema{}}
+	tf.parser.doc.Components.Schemas.Set("GoogleProtobufValue", &openapi3.SchemaRef{Value: &openapi3.Schema{}})
 
 	unions := tf.goUnions()
 
@@ -799,7 +795,6 @@ func TestGoUnionsFallbackCollisionProbed(t *testing.T) {
 			)},
 		),
 	)
-	tf.parser.propertyOrders["Thing"] = []string{"foo-bar", "foo_bar"}
 
 	unions := tf.goUnions()
 
@@ -950,11 +945,11 @@ func TestGoUnionsSkipsInlineMapOfFilteredRef(t *testing.T) {
 		)}),
 	)
 	// Gone is a component of the document that this run does not generate.
-	tf.parser.doc.Components.Schemas["Gone"] = &openapi3.SchemaRef{
-		Value: &openapi3.Schema{Type: strType("object"), Properties: openapi3.Schemas{
+	tf.parser.doc.Components.Schemas.Set("Gone", &openapi3.SchemaRef{
+		Value: &openapi3.Schema{Type: strType("object"), Properties: openapi3.SchemasFromMap(map[string]*openapi3.SchemaRef{
 			"gone": inline(&openapi3.Schema{Type: strType("string")}),
-		}},
-	}
+		})},
+	})
 
 	require.Empty(t, unionNames(tf.goUnions()))
 }
@@ -1018,9 +1013,9 @@ func TestGoUnionsTypelessObjectIsObject(t *testing.T) {
 			inline(&openapi3.Schema{Type: strType("string")}),
 			ref("Ref"),
 		)}),
-		namedModel("Ref", &openapi3.Schema{Properties: openapi3.Schemas{
+		namedModel("Ref", &openapi3.Schema{Properties: openapi3.SchemasFromMap(map[string]*openapi3.SchemaRef{
 			"name": inline(&openapi3.Schema{Type: strType("string")}),
-		}}),
+		})}),
 	)
 
 	union := unionByName(t, tf.goUnions(), "RefUnion")

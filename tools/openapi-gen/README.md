@@ -153,26 +153,22 @@ Templates have access to all [Sprig](https://masterminds.github.io/sprig/) funct
 | `getType`        | `schema → string`                   | Return the OpenAPI type string (nil-safe)              |
 | `enumBaseGoType` | `schema → string`                   | Underlying Go type for an enum (`string`, `int`, etc.) |
 | `enumValue`      | `schema, val → string`              | Format an enum constant value (quoted for strings)     |
-| `inlineEnums`    | `schemaName, schema → []inlineEnum` | Collect inline enum properties from a struct schema    |
+| `inlineEnums`    | `schema → []inlineEnum`             | Collect inline enum properties from a struct schema    |
 
 ### Property helpers
 
 | Function               | Signature                       | Description                                                    |
 | ---------------------- | ------------------------------- | -------------------------------------------------------------- |
-| `propertyNamesOrdered`  | `schemaName, schema → []string` | Property names in YAML source order, falling back to sorted composition order |
+| `properties`            | `schema → []Property`           | Every property (name + resolved schema), flattening `allOf`/`oneOf`/`anyOf` composition, in spec order |
 | `getProperty`           | `schema, name → *Schema`        | Get a property schema (traverses `allOf`/`oneOf`/`anyOf`)      |
 | `getPropertyRequired`   | `schema, name → bool`           | True if property is required (traverses `allOf`)               |
 | `getTypePackage`        | `v → string`                    | Deprecated (proto-only): return `x-package` for a type ref (accepts `*Schema`, `*SchemaRef`, `*Parameter`, or `string`) |
 
 ### Iteration helpers
 
-These return sorted slices for deterministic output:
-
 | Function              | Signature                     | Description                               |
 | --------------------- | ----------------------------- | ----------------------------------------- |
 | `uniqueTags`          | `operations → []string`       | Deduplicated, sorted tags from operations |
-| `sortedResponseCodes` | `responses → []ResponseEntry` | Response entries sorted by status code    |
-| `sortedContentTypes`  | `content → []ContentEntry`    | Content entries sorted by media type      |
 
 ### Text helpers
 

@@ -6,12 +6,11 @@
 package openapi
 
 import (
+	"encoding/json"
 	"fmt"
-	"sort"
 
 	"github.com/ettle/strcase"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/mitchellh/copystructure"
 )
 
 // The preprocessor rewrites an OpenAPI document so that every schema a code
@@ -29,8 +28,7 @@ import (
 // This mirrors OpenAPI Generator's InlineModelResolver.
 
 type preprocessor struct {
-	doc    *openapi3.T
-	parser *Parser
+	doc *openapi3.T
 
 	// processed guards against hoisting the same schema twice (schemas can be
 	// reached both as a top-level component and via recursion into a hoisted
@@ -41,29 +39,24 @@ type preprocessor struct {
 // Preprocess hoists all inline schemas in the parser's document into named
 // components/schemas entries, in place.
 func (p *Parser) Preprocess() error {
-	return Preprocess(p.doc, p)
+	return Preprocess(p.doc)
 }
 
 // Preprocess hoists all inline schemas in doc into named components/schemas
 // entries, in place.
-func Preprocess(doc *openapi3.T, parser *Parser) error {
+func Preprocess(doc *openapi3.T) error {
 	p := &preprocessor{
 		doc:       doc,
-		parser:    parser,
 		processed: make(map[string]bool),
 	}
 
 	// Snapshot the author-written schema names before adding any of our own,
 	// so the walk never revisits schemas created during this pass (those are
 	// handled inline, as they are created).
-	names := make([]string, 0, len(doc.Components.Schemas))
-	for name := range doc.Components.Schemas {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := doc.Components.Schemas.Keys()
 
 	for _, name := range names {
-		if ref := doc.Components.Schemas[name]; ref != nil {
+		if ref := doc.Components.Schemas.Value(name); ref != nil {
 			p.hoistSchema(ref.Value, name)
 		}
 	}
@@ -117,9 +110,8 @@ func (p *preprocessor) hoistValue(slot *openapi3.SchemaRef, name, pkg string) {
 }
 
 // promote registers a copy of inline as a top-level component named name,
-// records its property order, recurses into it, and returns a $ref to it. A
-// promoted schema inherits pkg only when it does not explicitly set
-// x-package itself.
+// recurses into it, and returns a $ref to it. A promoted schema inherits pkg
+// only when it does not explicitly set x-package itself.
 func (p *preprocessor) promote(name string, inline *openapi3.Schema, pkg string) *openapi3.SchemaRef {
 	clone := cloneSchema(inline)
 	if pkg != "" {
@@ -130,11 +122,7 @@ func (p *preprocessor) promote(name string, inline *openapi3.Schema, pkg string)
 			clone.Extensions["x-package"] = pkg
 		}
 	}
-	p.doc.Components.Schemas[name] = &openapi3.SchemaRef{Value: clone}
-
-	if order := schemaPropertyNames(clone); len(order) > 0 {
-		p.parser.SetPropertyOrder(name, order)
-	}
+	p.doc.Components.Schemas.Set(name, &openapi3.SchemaRef{Value: clone})
 
 	p.hoistSchema(clone, name)
 
@@ -274,7 +262,7 @@ func isHoistableBody(slot *openapi3.SchemaRef) bool {
 // named Go struct. A missing type is treated as "object", matching how
 // OpenAPI specs commonly omit it.
 func isObject(s *openapi3.Schema) bool {
-	return (s.Type == nil || s.Type.Is("object")) && len(s.Properties) > 0
+	return (s.Type == nil || s.Type.Is("object")) && s.Properties.Len() > 0
 }
 
 // isEnum reports whether s enumerates a fixed set of values.
@@ -305,8 +293,8 @@ type schemaProp struct {
 }
 
 // schemaProperties returns every property contributed by schema, flattening
-// allOf/oneOf/anyOf composition. The first occurrence of a name wins and the
-// result is sorted for determinism.
+// allOf/oneOf/anyOf composition, in the order they appear in the spec. The
+// first occurrence of a name wins.
 //
 // followRefs controls whether composition branches that are $refs are
 // descended into. Pass true to see inherited properties (read-only callers);
@@ -320,7 +308,7 @@ func schemaProperties(schema *openapi3.Schema, followRefs bool) []schemaProp {
 		if owner == nil {
 			return
 		}
-		for name, ref := range owner.Properties {
+		for name, ref := range owner.Properties.Iter() {
 			if !seen[name] {
 				seen[name] = true
 				props = append(props, schemaProp{name: name, ref: ref, owner: owner})
@@ -335,19 +323,7 @@ func schemaProperties(schema *openapi3.Schema, followRefs bool) []schemaProp {
 	}
 	walk(schema)
 
-	sort.Slice(props, func(i, j int) bool { return props[i].name < props[j].name })
 	return props
-}
-
-// schemaPropertyNames returns the sorted names of every property contributed by
-// schema, including via composition.
-func schemaPropertyNames(schema *openapi3.Schema) []string {
-	props := schemaProperties(schema, true)
-	names := make([]string, len(props))
-	for i, prop := range props {
-		names[i] = prop.name
-	}
-	return names
 }
 
 // compositionBranches returns the allOf, oneOf and anyOf sub-schemas of s.
@@ -370,10 +346,19 @@ func refPath(name string) string {
 	return "#/components/schemas/" + name
 }
 
+// cloneSchema deep-copies s via a JSON round-trip. openapi3.Schema carries
+// unexported state inside its ordered-map fields (Properties,
+// PatternProperties, ...) that a reflection-based copier can't see, so the
+// clone must go through the same Marshal/Unmarshal pair the rest of the
+// library uses to move a schema across a document boundary.
 func cloneSchema(s *openapi3.Schema) *openapi3.Schema {
-	clone, err := copystructure.Copy(s)
+	data, err := json.Marshal(s)
 	if err != nil {
 		panic(err)
 	}
-	return clone.(*openapi3.Schema)
+	clone := &openapi3.Schema{}
+	if err := json.Unmarshal(data, clone); err != nil {
+		panic(err)
+	}
+	return clone
 }

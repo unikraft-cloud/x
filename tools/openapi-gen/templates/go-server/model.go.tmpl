@@ -9,10 +9,9 @@ package {{$.Var "package" ""}}
 {{- $extPkgs := dict}}
 {{- range $model := .Models}}
 {{- /* Check each property for external type references */}}
-{{- range $propName := propertyNamesOrdered $model.SchemaName $model.Schema}}
-{{- $prop := getProperty $model.Schema $propName}}
-{{- if $prop}}
-{{- $typePkg := getTypePackage $prop}}
+{{- range $p := properties $model.Schema}}
+{{- if $p.Schema}}
+{{- $typePkg := getTypePackage $p.Schema}}
 {{- if and $typePkg (ne $typePkg $currentPkg)}}
 {{- $_ := set $extPkgs $typePkg true}}
 {{- end}}
