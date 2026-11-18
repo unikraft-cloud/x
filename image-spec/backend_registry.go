@@ -142,7 +142,12 @@ func registryResolvedReference(named distref.Named, desc ocispec.Descriptor) (re
 }
 
 // SaveRegistryImage saves a image to a remote registry.
-func SaveRegistryImage(ctx context.Context, named distref.Named, remote remotes.Resolver, image ...*Image) (distref.Named, ocispec.Descriptor, error) {
+func SaveRegistryImage(ctx context.Context, named distref.Named, remote remotes.Resolver, image *Image, opts ...SaveOpt) (distref.Named, ocispec.Descriptor, error) {
+	return SaveAllRegistryImages(ctx, named, remote, []*Image{image}, opts...)
+}
+
+// SaveAllRegistryImages saves images to a remote registry under one index.
+func SaveAllRegistryImages(ctx context.Context, named distref.Named, remote remotes.Resolver, images []*Image, opts ...SaveOpt) (distref.Named, ocispec.Descriptor, error) {
 	named = distref.TagNameOnly(named)
 
 	pusher, err := remote.Pusher(ctx, named.String())
@@ -151,7 +156,7 @@ func SaveRegistryImage(ctx context.Context, named distref.Named, remote remotes.
 	}
 	ingester := contentutil.FromPusher(pusher)
 
-	desc, err := SaveContent(ctx, ingester, named.Name(), image...)
+	desc, err := SaveAllContent(ctx, ingester, named.Name(), images, opts...)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to save image %q: %w", named, err)
 	}

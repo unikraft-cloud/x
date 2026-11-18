@@ -177,7 +177,7 @@ func TestBuildImageMultiPlatform(t *testing.T) {
 			_, err = packageLayer(ctx, ingestRef(store, "latest"), images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
 			require.NoError(t, err)
 
-			idxDesc, err := SaveContent(ctx, store, "latest", images...)
+			idxDesc, err := SaveAllContent(ctx, store, "latest", images)
 			require.NoError(t, err)
 
 			idxBlob, err := content.ReadBlob(ctx, store, idxDesc)
@@ -386,7 +386,7 @@ func TestIndexAnnotations(t *testing.T) {
 	require.Len(t, loaded, 1)
 	require.Equal(t, annotations, loaded[0].IndexAnnotations)
 
-	resaved, err := SaveContent(ctx, store, "latest", loaded...)
+	resaved, err := SaveAllContent(ctx, store, "latest", loaded)
 	require.NoError(t, err)
 	require.Equal(t, idxDesc.Digest, resaved.Digest)
 }
@@ -447,7 +447,7 @@ func TestSaveByManifest(t *testing.T) {
 		byManifest = append(byManifest, &Image{ManifestDescriptor: desc})
 	}
 
-	idxDesc, err := SaveContent(ctx, store, "latest", byManifest...)
+	idxDesc, err := SaveAllContent(ctx, store, "latest", byManifest)
 	require.NoError(t, err)
 
 	loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.All)
@@ -527,7 +527,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 		requireBlobs(t, dst, append(blobs, idxDesc)...)
@@ -541,7 +541,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 	})
@@ -553,7 +553,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 		data, err := content.ReadBlob(ctx, dst, saved)
@@ -581,7 +581,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, w.Close())
 
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 		got, err := content.ReadBlob(ctx, dst, layer)
@@ -596,7 +596,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
 		store := &resetting{Ingester: dst}
-		saved, err := SaveContent(ctx, store, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, store, "latest", loaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 		requireBlobs(t, dst, append(blobs, idxDesc)...)
@@ -611,7 +611,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
 		store := &failingLayer{Ingester: dst, fail: blobs[0].Digest, manifest: make(chan struct{})}
-		_, err = SaveContent(ctx, store, "latest", loaded...)
+		_, err = SaveAllContent(ctx, store, "latest", loaded)
 		require.Error(t, err)
 		require.False(t, store.wroteManifest.Load(), "a manifest was written before all blobs")
 	})
@@ -623,7 +623,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 	})
@@ -635,7 +635,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 	})
@@ -650,7 +650,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 		require.NotEqual(t, outer.Digest, saved.Digest)
@@ -663,7 +663,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 		requireBlobs(t, dst, blobs[3:]...)
@@ -679,7 +679,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		root, err := SaveTarballWriter(ctx, &buf, loaded...)
+		root, err := SaveAllTarballWriters(ctx, &buf, loaded)
 		require.NoError(t, err)
 
 		reloaded, err := LoadAllTarballReaders(ctx, &buf, root, platforms.All)
@@ -693,7 +693,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", reloaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", reloaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 		require.Empty(t, saved.Annotations)
@@ -714,7 +714,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, digest.FromBytes(index), saved.Digest)
 		data, err := content.ReadBlob(ctx, dst, saved)
@@ -780,7 +780,7 @@ func TestSaveCopiesInlineConfig(t *testing.T) {
 	require.NoError(t, err)
 	dst, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)
-	_, err = SaveContent(ctx, dst, "latest", loaded...)
+	_, err = SaveAllContent(ctx, dst, "latest", loaded)
 	require.NoError(t, err)
 	got, err := content.ReadBlob(ctx, dst, ocispec.Descriptor{Digest: config.Digest, Size: config.Size})
 	require.NoError(t, err)
@@ -851,7 +851,7 @@ func TestSaveDropsSourceLabelsOfManifest(t *testing.T) {
 	dst, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)
 	store := &recording{Ingester: dst}
-	_, err = SaveContent(ctx, store, "latest", loaded...)
+	_, err = SaveAllContent(ctx, store, "latest", loaded)
 	require.NoError(t, err)
 	require.NotEmpty(t, store.descs)
 	for _, desc := range store.descs {
@@ -910,7 +910,7 @@ func TestSaveSkipsForeignLayers(t *testing.T) {
 
 	dst, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)
-	_, err = SaveContent(ctx, dst, "latest", loaded...)
+	_, err = SaveAllContent(ctx, dst, "latest", loaded)
 	require.NoError(t, err)
 	for _, desc := range []ocispec.Descriptor{config, mfst} {
 		_, err := dst.Info(ctx, desc.Digest)
@@ -920,6 +920,6 @@ func TestSaveSkipsForeignLayers(t *testing.T) {
 	require.Error(t, err)
 
 	var buf bytes.Buffer
-	_, err = SaveTarballWriter(ctx, &buf, loaded...)
+	_, err = SaveAllTarballWriters(ctx, &buf, loaded)
 	require.NoError(t, err)
 }

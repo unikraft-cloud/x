@@ -233,17 +233,22 @@ func (accessor *Accessor) pin(ctx context.Context, res Resolved) (Resolved, erro
 	return accessor.Resolve(ctx, &res.Location)
 }
 
-// Save stores img at dest under one index, and returns dest pinned to the
+// Save stores img at dest under one index, as SaveAll does.
+func (accessor *Accessor) Save(ctx context.Context, dest *Location, img *Image, opts ...SaveOpt) (Resolved, error) {
+	return accessor.SaveAll(ctx, dest, []*Image{img}, opts...)
+}
+
+// SaveAll stores imgs at dest under one index, and returns dest pinned to the
 // root it wrote, so that Load reads back exactly what was saved. For an
 // archive, that root is the archive's own index.json, which lists the index.
-func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Image) (Resolved, error) {
+func (accessor *Accessor) SaveAll(ctx context.Context, dest *Location, imgs []*Image, opts ...SaveOpt) (Resolved, error) {
 	switch dest.Scheme {
 	case schemes.OCI:
 		named, err := reference.ParseNormalizedNamed(dest.Path)
 		if err != nil {
 			return Resolved{}, fmt.Errorf("parsing image reference %q: %w", dest, err)
 		}
-		named, desc, err := SaveRegistryImage(ctx, named, accessor.remote, img...)
+		named, desc, err := SaveAllRegistryImages(ctx, named, accessor.remote, imgs, opts...)
 		if err != nil {
 			return Resolved{}, err
 		}
@@ -270,13 +275,13 @@ func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Imag
 		if tag == "" {
 			tag = "latest"
 		}
-		desc, err := SaveOCILayoutNamed(ctx, path, tag, img...)
+		desc, err := SaveAllOCILayoutsNamed(ctx, path, tag, imgs, opts...)
 		if err != nil {
 			return Resolved{}, err
 		}
 		return Resolved{Location: *dest, Descriptor: desc}, nil
 	case schemes.OCIArchive:
-		desc, err := SaveTarball(ctx, dest.Path, img...)
+		desc, err := SaveAllTarballs(ctx, dest.Path, imgs, opts...)
 		if err != nil {
 			return Resolved{}, err
 		}

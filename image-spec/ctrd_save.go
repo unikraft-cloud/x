@@ -29,8 +29,20 @@ import (
 	"unikraft.com/x/log"
 )
 
-func SaveContent(ctx context.Context, store content.Ingester, ref string, images ...*Image) (ocispec.Descriptor, error) {
-	mfstDescs, err := saveManifests(ctx, store, ref, images...)
+// SaveOpt sets an option of a save.
+type SaveOpt func(*saveOptions)
+
+// saveOptions are the options of a save.
+type saveOptions struct{}
+
+// SaveContent saves image to store under one index.
+func SaveContent(ctx context.Context, store content.Ingester, ref string, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return SaveAllContent(ctx, store, ref, []*Image{image}, opts...)
+}
+
+// SaveAllContent saves images to store under one index.
+func SaveAllContent(ctx context.Context, store content.Ingester, ref string, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	mfstDescs, err := saveManifests(ctx, store, ref, images, opts...)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -69,15 +81,19 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 
 // SaveManifest saves image to store as a manifest, without an index, and
 // returns its index entry.
-func SaveManifest(ctx context.Context, store content.Ingester, ref string, image *Image) (ocispec.Descriptor, error) {
-	descs, err := saveManifests(ctx, store, ref, image)
+func SaveManifest(ctx context.Context, store content.Ingester, ref string, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	descs, err := saveManifests(ctx, store, ref, []*Image{image}, opts...)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
 	return descs[0], nil
 }
 
-func saveManifests(ctx context.Context, store content.Ingester, ref string, images ...*Image) ([]ocispec.Descriptor, error) {
+func saveManifests(ctx context.Context, store content.Ingester, ref string, images []*Image, opts ...SaveOpt) ([]ocispec.Descriptor, error) {
+	var o saveOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	store = ingestRef(store, ref)
 
 	eg, egCtx := errgroup.WithContext(ctx)

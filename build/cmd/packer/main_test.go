@@ -90,7 +90,7 @@ func TestPush(t *testing.T) {
 			return "alice", "s3cret", nil
 		}))),
 	)})
-	_, _, err = imagespec.SaveRegistryImage(t.Context(), named, seed,
+	_, _, err = imagespec.SaveAllRegistryImages(t.Context(), named, seed, []*imagespec.Image{
 		imagespec.NewImage(
 			imagespec.WithPlatform(ocispec.Platform{OS: "fc", Architecture: "arm64"}),
 			imagespec.WithKernel(imagespec.NewStaticFile("kernel", []byte("kernel-arm64"))),
@@ -99,7 +99,7 @@ func TestPush(t *testing.T) {
 			imagespec.WithPlatform(platform),
 			imagespec.WithKernel(imagespec.NewStaticFile("kernel", []byte("kernel-x86_64"))),
 		),
-	)
+	})
 	require.NoError(t, err)
 
 	// Serve the auth socket the packer fetches tokens from.

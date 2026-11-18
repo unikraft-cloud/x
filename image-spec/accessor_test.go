@@ -63,7 +63,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 			ctx := t.Context()
 			dest := tc.dest(t)
 
-			saved, err := accessor.Save(ctx, &dest, platformImages(fcIntel, fcArm)...)
+			saved, err := accessor.SaveAll(ctx, &dest, platformImages(fcIntel, fcArm))
 			require.NoError(t, err)
 			require.NotEmpty(t, saved.Descriptor.Digest)
 
@@ -81,7 +81,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 			assert.Equal(t, fcArm, img.Image.Platform)
 			require.NoError(t, img.Close())
 
-			_, err = accessor.Save(ctx, &dest, platformImages(qemuIntel)...)
+			_, err = accessor.SaveAll(ctx, &dest, platformImages(qemuIntel))
 			require.NoError(t, err)
 
 			imgs, err = accessor.LoadAll(ctx, saved, platforms.All)
@@ -107,9 +107,9 @@ func TestLoadUnpinned(t *testing.T) {
 
 	t.Run("layout", func(t *testing.T) {
 		dest := Location{Scheme: schemes.OCILayout, Path: t.TempDir() + ":v1"}
-		_, err := accessor.Save(ctx, &dest, platformImages(fcIntel)...)
+		_, err := accessor.SaveAll(ctx, &dest, platformImages(fcIntel))
 		require.NoError(t, err)
-		_, err = accessor.Save(ctx, &dest, platformImages(qemuIntel)...)
+		_, err = accessor.SaveAll(ctx, &dest, platformImages(qemuIntel))
 		require.NoError(t, err)
 
 		img, err := accessor.Load(ctx, Resolved{Location: dest}, platforms.All)
@@ -128,7 +128,7 @@ func TestLoadUnpinned(t *testing.T) {
 
 	t.Run("archive", func(t *testing.T) {
 		dest := Location{Scheme: schemes.OCIArchive, Path: filepath.Join(t.TempDir(), "app.tar")}
-		saved, err := accessor.Save(ctx, &dest, platformImages(fcIntel)...)
+		saved, err := accessor.SaveAll(ctx, &dest, platformImages(fcIntel))
 		require.NoError(t, err)
 
 		img, err := accessor.Load(ctx, Resolved{Location: dest}, platforms.All)

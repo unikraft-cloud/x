@@ -36,11 +36,19 @@ func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platfo
 	return nil, errLocalImages
 }
 
-func SaveOCILayout(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {
+func SaveOCILayout(ctx context.Context, path string, tag string, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
 	return ocispec.Descriptor{}, errLocalImages
 }
 
-func SaveOCILayoutNamed(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {
+func SaveAllOCILayouts(ctx context.Context, path string, tag string, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
+func SaveOCILayoutNamed(ctx context.Context, path string, tag string, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
+func SaveAllOCILayoutsNamed(ctx context.Context, path string, tag string, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
 	return ocispec.Descriptor{}, errLocalImages
 }
 
@@ -64,10 +72,18 @@ func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descri
 	return nil, errLocalImages
 }
 
-func SaveTarball(ctx context.Context, tarballPath string, image ...*Image) (ocispec.Descriptor, error) {
+func SaveTarball(ctx context.Context, tarballPath string, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
 	return ocispec.Descriptor{}, errLocalImages
 }
 
-func SaveTarballWriter(ctx context.Context, w io.Writer, image ...*Image) (ocispec.Descriptor, error) {
+func SaveAllTarballs(ctx context.Context, tarballPath string, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
+func SaveTarballWriter(ctx context.Context, w io.Writer, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
+func SaveAllTarballWriters(ctx context.Context, w io.Writer, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
 	return ocispec.Descriptor{}, errLocalImages
 }

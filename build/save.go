@@ -66,7 +66,7 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 
 	var res imagespec.Resolved
 	err := progress.Step(progress.WithPrefix(b.progressWriter(), verb), saved.Ref, func() (err error) {
-		res, err = access.Save(ctx, dest, images...)
+		res, err = access.SaveAll(ctx, dest, images)
 		return err
 	})
 	if err != nil {
