@@ -11,6 +11,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -21,6 +22,8 @@ import (
 	"github.com/moby/buildkit/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
+	"unikraft.com/cloud/sdk/platform"
 )
 
 // Acquire implements Backend. It creates the builder for key with a cache
@@ -53,7 +56,33 @@ func (p *Platform) Acquire(ctx context.Context, key Key) (*Daemon, error) {
 		return nil, fmt.Errorf("connecting to builder %s: %w", name, err)
 	}
 
-	if err := c.Wait(wctx); err != nil {
+	// The platform knows why a builder does not start long before the wait ends.
+	live, stop := context.WithCancelCause(wctx)
+	defer stop(nil)
+	go func() {
+		for {
+			select {
+			case <-live.Done():
+				return
+			case <-time.After(time.Second):
+			}
+			switch cur, err := p.get(live, name); {
+			case err != nil:
+			case cur == nil:
+				stop(errors.New("the builder was deleted"))
+			// Until the start shows, the stop is still the one of before.
+			case (cur.State == platform.InstanceStateStopped || cur.State == platform.InstanceStateStandby) && cur.StoppedAt != nil && (inst.StoppedAt == nil || !cur.StoppedAt.Equal(*inst.StoppedAt)):
+				stop(fmt.Errorf("the builder stopped: %s", cur.DescribeStop()))
+			}
+		}
+	}()
+
+	if err := c.Wait(live); err != nil {
+		// gRPC does not always return the cause of a wait that the platform ended.
+		if wctx.Err() == nil && live.Err() != nil {
+			c.Close()
+			return nil, fmt.Errorf("waiting for builder %s: %w", name, context.Cause(live))
+		}
 		// Wait drops the connection errors it retries, so ask once more for the last one.
 		pctx, cancel := context.WithTimeout(ctx, time.Second)
 		_, perr := c.ControlClient().Info(pctx, &controlapi.InfoRequest{})
@@ -79,6 +108,8 @@ func dial(ctx context.Context, addr string, t TLS, edge func(context.Context) (n
 		}),
 		client.WithGRPCDialOption(grpc.WithTransportCredentials(credentials.NewTLS(inner))),
 		client.WithGRPCDialOption(grpc.WithAuthority(t.ServerName)),
+		// A builder that is gone answers no ping. buildkitd refuses more than one each 5 minutes.
+		client.WithGRPCDialOption(grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 5 * time.Minute, Timeout: 20 * time.Second})),
 	)
 }
 

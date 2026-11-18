@@ -9,8 +9,11 @@ package buildkit
 
 import (
 	"cmp"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -67,4 +70,30 @@ func TestPlatformAcquireConflict(t *testing.T) {
 	// The builder Acquire finds must be at the key's sizes, as for Check.
 	_, err := NewPlatform(c).Acquire(t.Context(), Key{Name: "ci", VCPUs: 4})
 	require.ErrorIs(t, err, ErrConflict)
+}
+
+func TestPlatformAcquireStopped(t *testing.T) {
+	certs, err := generateCerts()
+	require.NoError(t, err)
+	env, err := json.Marshal(certs)
+	require.NoError(t, err)
+	// The builder starts, then the platform stops it: the image pull failed.
+	const inst = `{"status": "success", "data": {"instances": [{"status": "success", "uuid": "u1", "name": "remote-builder-default", "state": %q, %s "service_group": {"domains": [{"fqdn": "127.0.0.1"}]}, "env": %s}]}}`
+	var gets atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method != http.MethodGet || r.URL.Path != "/v1/instances":
+			_, _ = w.Write([]byte(`{"status": "success"}`))
+		case gets.Add(1) == 1:
+			_, _ = fmt.Fprintf(w, inst, "starting", "", env)
+		default:
+			_, _ = fmt.Fprintf(w, inst, "standby", `"stopped_at": "2026-01-01T00:00:00Z", "stop_reason": 4, "stop_code": 1,`, env)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := platform.NewClient(platform.WithDefaultEndpoint(srv.URL), platform.WithToken("token"))
+
+	_, err = NewPlatform(c).Acquire(t.Context(), Key{})
+	require.ErrorContains(t, err, "waiting for builder remote-builder-default: the builder stopped: platform stop: image pull failed")
 }
