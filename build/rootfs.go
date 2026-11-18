@@ -1036,10 +1036,13 @@ func addBuildSessions(sessions *[]session.Attachable, opts BuildOpts) error {
 			return err
 		}
 		isSSH := func(a session.Attachable) bool { _, ok := a.(sshforward.SSHServer); return ok }
-		// A session serves one SSH server: the caller's keeps the IDs that are not of opts.
+		// A session serves one SSH server: the caller's server keeps the IDs that opts does not set.
 		if i := slices.IndexFunc(*sessions, isSSH); i >= 0 {
 			mux := sshMux{own: provider.(sshforward.SSHServer), rest: (*sessions)[i].(sshforward.SSHServer)}
 			for _, s := range ssh {
+				if s == nil {
+					continue
+				}
 				mux.ids = append(mux.ids, cmp.Or(s.ID, sshforward.DefaultID))
 			}
 			(*sessions)[i] = mux
