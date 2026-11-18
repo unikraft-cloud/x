@@ -212,6 +212,23 @@ tasks:
       -tags='{{.go_tags}}'
       {{.package}}
 
+  build?:
+    desc: "Check the module and its tests build outside the workspace"
+    requires:
+      vars:
+      - package
+    vars:
+      package:
+        ref: .package | default "./..."
+    env:
+      # go.work can raise a dependency above what go.mod requires, hiding a
+      # go.mod that's too old for the code - but importers don't use go.work.
+      GOWORK: "off"
+    cmds:
+    - "{{.go_bin}} build -o /dev/null -tags='{{.go_tags}}' {{.package}}"
+    # -run='^$' matches no tests, so this only compiles them (TestMain still runs).
+    - "{{.go_bin}} test -tags='{{.go_tags}}' -run='^$' {{.package}}"
+
   tidy?:
     desc: "Check go.mod"
     cmds:
@@ -224,8 +241,9 @@ tasks:
 
   # XXX(robertgzr): figure out a solution for workspaces
   # https://github.com/golangci/golangci-lint/issues/2654#issuecomment-1606439587
-  lint:
+  lint?:
     desc: "Run golangci-lint"
+    aliases: [lint]
     requires:
       vars:
       - package
@@ -251,8 +269,9 @@ tasks:
       {{.CLI_ARGS}}
       {{.package}}
 
-  fmt:
-    desc: "Run gofumpt"
+  fmt?:
+    desc: "Check formatting with gofumpt"
+    aliases: [fmt]
     cmd: >-
       {{.golangci_bin}} fmt
       --no-config
@@ -279,11 +298,12 @@ tasks:
       {{.paths}}
 
   static-check:
-    desc: "Run static checks: tidy?, fmt, lint"
+    desc: "Run static checks: tidy?, build?, fmt?, lint?"
     cmds:
     - task: tidy?
-    - task: fmt
-    - task: lint
+    - task: build?
+    - task: fmt?
+    - task: lint?
     - task: license
 
   # ci steps
