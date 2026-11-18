@@ -52,8 +52,9 @@ func ParseLocationDefault(src string) (*Location, error) {
 // GuessLocation is an opinionated parser that attempts to determine the URI scheme
 // based on the input string.
 //
-// Only inputs that start with "./", "../" or "/" are treated as local paths,
-// everything else is a registry reference, even if a file of that name exists.
+// Only inputs that start with "./", "../" or "/", or that name a tarball
+// inside a directory, as "dist/app.tar", are treated as local paths.
+// Everything else is a registry reference, even if a file of that name exists.
 //
 // This function is intended to be used for user input, simplifying the
 // experience by allowing the scheme to be inferred. However, avoid using it
@@ -64,7 +65,7 @@ func GuessLocation(src string) (*Location, error) {
 		return newLocation(scheme, path)
 	}
 
-	if !looksLikePath(src) {
+	if !looksLikePath(src) && (filepath.Base(src) == src || !looksLikeTarball(src)) {
 		return &Location{
 			Scheme: schemes.OCI,
 			Path:   src,
