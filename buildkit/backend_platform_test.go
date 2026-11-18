@@ -85,6 +85,7 @@ func TestPlatformCreateSized(t *testing.T) {
 	assert.Equal(t, uint64(60000), *req.Autokill.TimeMs)
 	require.Len(t, req.Volumes, 1)
 	assert.Equal(t, uint64(20480), *req.Volumes[0].SizeMb)
+	assert.Greater(t, *req.ScaleToZero.CooldownTimeMs, int32(61000), "buildkitd collects garbage 1 second after a build, but at most once a minute")
 }
 
 func TestPlatformCheck(t *testing.T) {
