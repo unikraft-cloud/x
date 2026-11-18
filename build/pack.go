@@ -60,9 +60,9 @@ func (b Builder) pack(ctx context.Context, part string, p ocispec.Platform, opts
 	})
 }
 
-// authSSHID is the SSH forward that takes the requests of the packer for
+// AuthSSHID is the SSH forward that takes the requests of the packer for
 // registry credentials to Builder.Credentials.
-const authSSHID = "unikraft-registry-auth"
+const AuthSSHID = "unikraft-registry-auth"
 
 // packerPush is how the packer pushes the image of each platform from its
 // solve: with the runtime's kernel, to a temporary tag in each repository.
@@ -233,7 +233,7 @@ func (b Builder) pushState(c gateway.Client, packer, packed llb.State, img ocisp
 	}
 	if opts.push.socket != "" {
 		args = append(args, "--auth-socket=/run/auth.sock")
-		runOpts = append(runOpts, llb.AddSSHSocket(llb.SSHID(authSSHID), llb.SSHSocketTarget("/run/auth.sock")))
+		runOpts = append(runOpts, llb.AddSSHSocket(llb.SSHID(AuthSSHID), llb.SSHSocketTarget("/run/auth.sock")))
 	}
 	args = append(args, "/initrd/initrd", "/out/manifest.json")
 	targets := make([]string, len(opts.push.repos))

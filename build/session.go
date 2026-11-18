@@ -6,22 +6,26 @@
 package build
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"
+	"github.com/moby/buildkit/session/sshforward"
 	"github.com/moby/buildkit/util/grpcerrors"
 	"github.com/tonistiigi/fsutil"
 	fstypes "github.com/tonistiigi/fsutil/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 )
 
 // The headers that announce a session to the daemon, as session.Session.Run
@@ -44,6 +48,21 @@ const (
 // serveSession serves attachables to the daemon of c until stop. Unlike
 // session.Session, gRPC's own transport only opens a stream's window as it is read.
 func serveSession(ctx context.Context, c *client.Client, sharedKey string, attachables []session.Attachable) (_ *session.Session, stop func(), _ error) {
+	// gRPC exits the process when a service registers two times.
+	seen := map[string]bool{grpc_health_v1.Health_ServiceDesc.ServiceName: true}
+	for _, a := range attachables {
+		probe := grpc.NewServer()
+		a.Register(probe)
+		services := probe.GetServiceInfo()
+		probe.Stop()
+		for name := range services {
+			if seen[name] {
+				return nil, nil, fmt.Errorf("the session serves %s two times", name)
+			}
+			seen[name] = true
+		}
+	}
+
 	// The solve only takes the ID of this session.
 	s, err := session.NewSession(ctx, sharedKey)
 	if err != nil {
@@ -95,6 +114,36 @@ func serveSession(ctx context.Context, c *client.Client, sharedKey string, attac
 		srv.Stop()
 		<-done
 	}, nil
+}
+
+// sshMux serves the SSH agents of ids from own and all others from rest.
+type sshMux struct {
+	sshforward.UnimplementedSSHServer
+	own, rest sshforward.SSHServer
+	ids       []string
+}
+
+func (m sshMux) Register(srv *grpc.Server) { sshforward.RegisterSSHServer(srv, m) }
+
+func (m sshMux) server(id string) sshforward.SSHServer {
+	if slices.Contains(m.ids, cmp.Or(id, sshforward.DefaultID)) {
+		return m.own
+	}
+	return m.rest
+}
+
+func (m sshMux) CheckAgent(ctx context.Context, req *sshforward.CheckAgentRequest) (*sshforward.CheckAgentResponse, error) {
+	return m.server(req.ID).CheckAgent(ctx, req)
+}
+
+func (m sshMux) ForwardAgent(stream sshforward.SSH_ForwardAgentServer) error {
+	md, _ := metadata.FromIncomingContext(stream.Context())
+	id := ""
+	if v := md.Get(sshforward.KeySSHID); len(v) > 0 {
+		id = v[0]
+	}
+
+	return m.server(id).ForwardAgent(stream)
 }
 
 // cancelConn cancels the context of its stream before it closes. Else Close

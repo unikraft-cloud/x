@@ -28,6 +28,7 @@ import (
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
 	gateway "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/sshforward"
 	"github.com/moby/buildkit/solver/pb"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/tonistiigi/fsutil"
@@ -1027,14 +1028,24 @@ func addBuildSessions(sessions *[]session.Attachable, opts BuildOpts) error {
 	}
 	ssh := opts.SSH
 	if opts.push != nil && opts.push.socket != "" {
-		ssh = append(slices.Clone(ssh), &buildflags.SSH{ID: authSSHID, Paths: []string{opts.push.socket}, Raw: true})
+		ssh = append(slices.Clone(ssh), &buildflags.SSH{ID: AuthSSHID, Paths: []string{opts.push.socket}, Raw: true})
 	}
 	if len(ssh) > 0 {
 		provider, err := buildflags.CreateSSH(ssh)
 		if err != nil {
 			return err
 		}
-		*sessions = append(*sessions, provider)
+		isSSH := func(a session.Attachable) bool { _, ok := a.(sshforward.SSHServer); return ok }
+		// A session serves one SSH server: the caller's keeps the IDs that are not of opts.
+		if i := slices.IndexFunc(*sessions, isSSH); i >= 0 {
+			mux := sshMux{own: provider.(sshforward.SSHServer), rest: (*sessions)[i].(sshforward.SSHServer)}
+			for _, s := range ssh {
+				mux.ids = append(mux.ids, cmp.Or(s.ID, sshforward.DefaultID))
+			}
+			(*sessions)[i] = mux
+		} else {
+			*sessions = append(*sessions, provider)
+		}
 	}
 
 	return nil
