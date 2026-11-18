@@ -9,6 +9,8 @@ package buildflags
 
 import (
 	"fmt"
+	"os"
+	"runtime"
 	"strings"
 
 	"github.com/moby/buildkit/session"
@@ -148,6 +150,10 @@ func CreateSSH(ssh []*SSH) (session.Attachable, error) {
 	for _, entry := range ssh {
 		if entry == nil {
 			continue
+		}
+		// Without the variable, buildkit uses the named pipe of the OpenSSH agent on Windows.
+		if len(entry.Paths) == 0 && os.Getenv("SSH_AUTH_SOCK") == "" && runtime.GOOS != "windows" {
+			return nil, fmt.Errorf("ssh %s: no ssh agent: set SSH_AUTH_SOCK, or give a socket or keys as %s=<path>", entry.ID, entry.ID)
 		}
 		cfg := sshprovider.AgentConfig{
 			ID:    entry.ID,
