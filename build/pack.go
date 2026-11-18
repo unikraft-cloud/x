@@ -227,8 +227,6 @@ func (b Builder) pushState(c gateway.Client, packer, packed llb.State, img ocisp
 	runOpts := []llb.RunOption{
 		llb.AddMount("/initrd", packed, llb.Readonly),
 		llb.AddMount("/config", llb.Scratch().File(llb.Mkfile("/config.json", 0o644, data)), llb.Readonly),
-		// image-spec stages the initrd layer in /tmp.
-		llb.AddMount("/tmp", llb.Scratch()),
 		llb.Platform(native),
 	}
 	if opts.push.socket != "" {
@@ -323,7 +321,7 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 		packerSession = sess.ID()
 	}
 
-	var refused bool
+	var exitCode uint32
 	err = s.solveToTar(ctx, tarDest, partPrefix(part, p), solveOpt, func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
 		res, err := build(ctx, c)
 		if err != nil {
@@ -363,13 +361,16 @@ func (b Builder) solveInitrd(ctx context.Context, s *solver, opts BuildOpts, par
 		}
 		// build evaluated the rootfs, thus only the packer runs in this solve.
 		res, err = c.Solve(ctx, gateway.SolveRequest{Definition: def.ToPB(), Evaluate: true})
-		if exit, ok := errors.AsType[*gatewaypb.ExitError](err); ok && exit.ExitCode == buildfs.ExitCodeTooLarge {
-			refused = true
+		if exit, ok := errors.AsType[*gatewaypb.ExitError](err); ok {
+			exitCode = exit.ExitCode
 		}
 		return res, err
 	})
-	if refused {
+	switch exitCode {
+	case buildfs.ExitCodeTooLarge:
 		return nil, fmt.Errorf("%w: more than %d bytes", ErrTooLarge, b.MaxRootfsSize)
+	case buildfs.ExitCodeNoSpace:
+		return nil, fmt.Errorf("%w: %w", ErrNoSpace, err)
 	}
 	if err != nil {
 		return nil, err

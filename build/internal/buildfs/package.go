@@ -27,6 +27,10 @@ var ErrTooLarge = errors.New("rootfs is too large")
 // errors and 2 by a Go panic.
 const ExitCodeTooLarge = 3
 
+// ExitCodeNoSpace is the exit status of the packer command when a write
+// finds no space left.
+const ExitCodeNoSpace = 4
+
 // Package writes src to dst in format, padded as WithPad asks.
 func Package(ctx context.Context, format kraftfile.FsType, dst *os.File, src fs.FS, opts ...CreateOption) error {
 	c := createOptions{}
