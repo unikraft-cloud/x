@@ -15,7 +15,9 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
+	controlapi "github.com/moby/buildkit/api/services/control"
 	"github.com/moby/buildkit/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -52,8 +54,14 @@ func (p *Platform) Acquire(ctx context.Context, key Key) (*Daemon, error) {
 	}
 
 	if err := c.Wait(wctx); err != nil {
-		c.Close()
-		return nil, fmt.Errorf("waiting for builder %s: %w", name, err)
+		// Wait drops the connection errors it retries, so ask once more for the last one.
+		pctx, cancel := context.WithTimeout(ctx, time.Second)
+		_, perr := c.ControlClient().Info(pctx, &controlapi.InfoRequest{})
+		cancel()
+		if perr != nil {
+			c.Close()
+			return nil, fmt.Errorf("waiting for builder %s: %w: %w", name, err, perr)
+		}
 	}
 	return &Daemon{Client: c, Addr: addr, TLS: t, edge: edge}, nil
 }

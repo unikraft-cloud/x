@@ -13,10 +13,6 @@ import (
 	"testing"
 )
 
-// Image is the base image of every integration test. It is multi-arch and
-// has absolute symlinks in its own layers.
-const Image = "docker.io/library/debian:bookworm-slim"
-
 // Token gives the Unikraft Cloud token in UKC_TOKEN, and skips the test
 // without one.
 func Token(t testing.TB) string {
