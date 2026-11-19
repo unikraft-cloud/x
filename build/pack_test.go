@@ -9,12 +9,15 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/json"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,6 +27,7 @@ import (
 	"github.com/docker/cli/cli/config"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
+	"github.com/moby/buildkit/identity"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/filesync"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -308,6 +312,72 @@ func TestPushInSolve(t *testing.T) {
 	hello, err := fs.ReadFile(fsys, "hello")
 	require.NoError(t, err)
 	assert.Equal(t, "hello\n", string(hello))
+}
+
+// TestPushFailsInSolve builds for two platforms as TestPushInSolve does, with
+// a Dockerfile that only the first one passes.
+func TestPushFailsInSolve(t *testing.T) {
+	addr, reg := os.Getenv("BUILDKIT_HOST"), os.Getenv("PUSH_REGISTRY")
+	if addr == "" || reg == "" {
+		t.Skip("BUILDKIT_HOST and PUSH_REGISTRY must name a buildkitd and a registry")
+	}
+	c, err := client.New(t.Context(), addr)
+	require.NoError(t, err)
+	t.Cleanup(func() { c.Close() })
+
+	resolver := docker.NewResolver(docker.ResolverOptions{
+		Hosts: docker.ConfigureDefaultRegistries(docker.WithPlainHTTP(docker.MatchAllHosts)),
+	})
+	host, other := ocispec.Platform{OS: "fc", Architecture: "x86_64"}, ocispec.Platform{OS: "fc", Architecture: "arm64"}
+	if runtime.GOARCH == "arm64" {
+		host, other = other, host
+	}
+	named, err := reference.ParseNormalizedNamed(reg + "/runtime:v2")
+	require.NoError(t, err)
+	_, _, err = imagespec.SaveRegistryImage(t.Context(), named, resolver,
+		imagespec.NewImage(imagespec.WithPlatform(host), imagespec.WithKernel(imagespec.NewStaticFile("kernel", []byte("kernel")))),
+		imagespec.NewImage(imagespec.WithPlatform(other), imagespec.WithKernel(imagespec.NewStaticFile("kernel", []byte("kernel")))),
+	)
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(
+		"FROM --platform=$BUILDPLATFORM "+busybox+" AS check\nARG TARGETARCH\nRUN [ $TARGETARCH = "+runtime.GOARCH+" ] && date >/built\n"+
+			"FROM scratch\nCOPY --from=check /built /\n"), 0o644))
+
+	b := Builder{
+		Images: func(context.Context) (*imagespec.Accessor, error) {
+			return imagespec.NewAccessor(imagespec.WithResolver(resolver)), nil
+		},
+		Buildkit: func(context.Context) (*client.Client, func(), error) { return c, nil, nil },
+		Session: func(context.Context) ([]session.Attachable, error) {
+			creds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
+			return []session.Attachable{creds.Attachable()}, nil
+		},
+		TempDir:     t.TempDir(),
+		PackerDir:   packerDir(t),
+		Credentials: func(string) (string, string, error) { return "", "", nil },
+	}
+	rec := &progressRecorder{}
+	b.Progress = rec
+	repo := "failed-" + identity.NewID()[:12] // a tag of an earlier run would stay
+	_, err = b.Build(t.Context(), BuildOpts{
+		Runtime:  named.String(),
+		Rootfs:   FSOpts{Path: filepath.Join(dir, "Dockerfile"), Type: kraftfile.SourceTypeDockerfile, Format: kraftfile.FsTypeErofs},
+		Platform: []ocispec.Platform{host, other},
+		Push:     []*imagespec.Location{{Scheme: schemes.OCI, Path: reg + "/" + repo + ":v1"}},
+	})
+	require.Error(t, err)
+	require.True(t, slices.ContainsFunc(rec.steps(), func(name string) bool {
+		return strings.Contains(name, platforms.Format(host)) && strings.Contains(name, "push")
+	}), "the first platform was pushed: %v", rec.steps())
+
+	resp, err := http.Get("http://" + reg + "/v2/" + repo + "/tags/list")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	var list struct{ Tags []string }
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&list))
+	assert.Empty(t, list.Tags, "the temporary tag of the first platform is gone")
 }
 
 func TestPackArgs(t *testing.T) {

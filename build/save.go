@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	distref "github.com/distribution/reference"
@@ -53,6 +54,9 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 		return Saved{}, fmt.Errorf("images that the packer pushed can only be saved to a registry, not to %s", dest)
 	}
 	if dest.Scheme == schemes.OCI {
+		// The index holds what the packer pushed under its temporary tags, or
+		// nothing will.
+		defer b.Untag(ctx, dest, images...)
 		verb = "push"
 		named, err := reference.ParseNormalizedNamed(dest.Path)
 		if err != nil {
@@ -74,15 +78,6 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 	}
 	saved.Digest = res.Descriptor.Digest
 
-	// The index now holds what the packer pushed under its temporary tags.
-	for _, img := range images {
-		if tag := pushedTag(img); tag != "" {
-			if err := b.untag(ctx, dest, img.ManifestDescriptor.Digest, tag); err != nil {
-				log.G(ctx).Warn().Err(err).Str("tag", tag).Msg("leaving the temporary tag of the packer")
-			}
-		}
-	}
-
 	log.G(ctx).Debug().
 		Str("ref", saved.Ref).
 		Str("digest", saved.Digest.String()).
@@ -91,18 +86,33 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 	return saved, nil
 }
 
-// untag removes tag from the manifest dgst in the repository of dest, through
-// the API of Harbor, as the registry API cannot remove only a tag.
-func (b Builder) untag(ctx context.Context, dest *imagespec.Location, dgst digest.Digest, tag string) error {
+// Untag removes the temporary tags that the packer pushed images under in the
+// repository of dest, and keeps their manifests. Save does so for its own
+// dest; a caller does for the images that it does not save. A tag that stays
+// is only logged.
+func (b Builder) Untag(ctx context.Context, dest *imagespec.Location, images ...*imagespec.Image) {
+	// The build that pushed may be cancelled by now.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	for _, img := range images {
+		tag := pushedTag(img)
+		if tag == "" {
+			continue
+		}
+		if err := b.untag(ctx, dest, tag); err != nil {
+			log.G(ctx).Warn().Err(err).Str("tag", tag).Msg("leaving the temporary tag of the packer")
+		}
+	}
+}
+
+// untag removes tag in the repository of dest: through the API of Harbor,
+// whose registry API cannot remove only a tag, or else through the registry API.
+func (b Builder) untag(ctx context.Context, dest *imagespec.Location, tag string) error {
 	named, err := reference.ParseNormalizedNamed(dest.Path)
 	if err != nil {
 		return err
 	}
 	host := distref.Domain(named)
-	project, repo, ok := strings.Cut(distref.Path(named), "/")
-	if !ok {
-		return fmt.Errorf("%s names no Harbor project", named.Name())
-	}
 	scheme, hc := "https", http.DefaultClient
 	if local, _ := docker.MatchLocalhost(host); local {
 		scheme = "http"
@@ -112,26 +122,61 @@ func (b Builder) untag(ctx context.Context, dest *imagespec.Location, dgst diges
 		t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		hc = &http.Client{Transport: docker.NewHTTPFallback(t)}
 	}
-	// Harbor takes a repository with a slash only escaped twice.
-	u := fmt.Sprintf("%s://%s/api/v2.0/projects/%s/repositories/%s/artifacts/%s/tags/%s",
-		scheme, host, url.PathEscape(project), url.PathEscape(url.PathEscape(repo)), dgst, url.PathEscape(tag))
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
-	if err != nil {
-		return err
-	}
-	if b.Credentials != nil {
-		user, secret, err := b.Credentials(host)
+
+	if project, repo, ok := strings.Cut(distref.Path(named), "/"); ok {
+		// Harbor takes a repository with a slash only escaped twice.
+		u := fmt.Sprintf("%s://%s/api/v2.0/projects/%s/repositories/%s/artifacts/%[5]s/tags/%[5]s",
+			scheme, host, url.PathEscape(project), url.PathEscape(url.PathEscape(repo)), url.PathEscape(tag))
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
 		if err != nil {
 			return err
 		}
-		req.SetBasicAuth(user, secret)
+		if b.Credentials != nil {
+			user, secret, err := b.Credentials(host)
+			if err != nil {
+				return err
+			}
+			req.SetBasicAuth(user, secret)
+		}
+		resp, err := hc.Do(req)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			return nil
+		}
 	}
-	resp, err := hc.Do(req)
+
+	// Not a Harbor, or the tag is gone. Harbor refuses this call.
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete,
+		fmt.Sprintf("%s://%s/v2/%s/manifests/%s", scheme, host, distref.Path(named), tag), nil)
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	var auth docker.Authorizer
+	if b.Credentials != nil {
+		auth = docker.NewDockerAuthorizer(docker.WithAuthCreds(b.Credentials), docker.WithAuthClient(hc))
+	}
+	var resp *http.Response
+	for range 2 { // the second with what the registry asked for
+		if auth != nil {
+			if err := auth.Authorize(ctx, req); err != nil {
+				return err
+			}
+		}
+		if resp, err = hc.Do(req); err != nil {
+			return err
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized || auth == nil {
+			break
+		}
+		if err := auth.AddResponses(ctx, []*http.Response{resp}); err != nil {
+			return err
+		}
+	}
+	if resp.StatusCode/100 != 2 && resp.StatusCode != http.StatusNotFound {
 		return fmt.Errorf("removing tag %s of %s: %s", tag, named.Name(), resp.Status)
 	}
 	return nil

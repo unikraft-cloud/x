@@ -73,6 +73,7 @@ type packerPush struct {
 	socket  string                // serving Builder.Credentials, empty without
 	now     time.Time             // of the build, for the images' dates
 	kernels map[string]*time.Time // dates of the kernels by platform
+	pushed  []*imagespec.Image    // so far
 }
 
 // startPush has the packer of a build with kernels from a runtime push to the
@@ -171,6 +172,7 @@ func (push *packerPush) pushedImage(f *os.File, img ocispec.Image) (*imagespec.I
 	)
 	pushed.ManifestDescriptor = desc
 	pushed.Reference = ref
+	push.pushed = append(push.pushed, pushed)
 	return pushed, nil
 }
 
