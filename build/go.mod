@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/tonistiigi/fsutil v0.0.0-20261103091533-a72de9dcf763
 	github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0
-	github.com/unikraft/go-archivefs v0.0.0-20261106133356-c81ad57e55c4
+	github.com/unikraft/go-archivefs v0.0.0-20261109165216-6df91ed79bb6
 	golang.org/x/crypto v0.59.0
 	golang.org/x/mod v0.43.0
 	google.golang.org/grpc v1.85.0
@@ -24,7 +24,7 @@ require (
 	unikraft.com/x/dockerfile v0.0.0-20261117112737-6700b805fc2e
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
 	unikraft.com/x/integration v0.0.0-20261029083025-f2d161e6abc8
-	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624
+	unikraft.com/x/io v0.0.0-20261119150955-11d3e843ccd6
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d
 	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
 )
@@ -121,4 +121,5 @@ replace (
 	unikraft.com/x/io => ../io
 	unikraft.com/x/kraftfile => ../kraftfile
 	unikraft.com/x/log => ../log
+	unikraft.com/x/mergefs => ../mergefs
 )

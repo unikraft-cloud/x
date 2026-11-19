@@ -91,6 +91,7 @@ tasks:
       - ./kingkong
       - ./kraftfile
       - ./log
+      - ./mergefs
       - ./ptr
       - ./ringbuffer
       - ./sanitize
@@ -124,6 +125,7 @@ tasks:
       - ./kingkong
       - ./kraftfile
       - ./log
+      - ./mergefs
       - ./ptr
       - ./shell
       - ./signal
