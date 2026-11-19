@@ -32,6 +32,7 @@ type CLI struct {
 	Inspect InspectCmd `cmd:"" help:"Inspect an image"`
 	Copy    CopyCmd    `cmd:"" help:"Copy an image"`
 	Delete  DeleteCmd  `cmd:"" help:"Delete an image"`
+	Rootfs  RootfsCmd  `cmd:"" help:"Write the rootfs of an image, such as the EROFS of a generic OCI image"`
 
 	Version version.VersionCmd `cmd:"" help:"Print version information."`
 }
@@ -228,7 +229,7 @@ func (c *DeleteCmd) Run(ctx context.Context) error {
 }
 
 func name(ref reference.Reference, desc ocispec.Descriptor) string {
-	result := ref.Format(reference.FormatOpts{})
+	result := ref.Format(reference.FormatOpts{OmitDigest: true})
 	if desc.Digest != "" {
 		if result != "" {
 			result += "@"
