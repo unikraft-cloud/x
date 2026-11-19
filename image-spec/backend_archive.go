@@ -139,20 +139,30 @@ func importTarball(ctx context.Context, r io.Reader, desc ocispec.Descriptor) (_
 }
 
 // SaveTarball saves an image to a tarball file.
-func SaveTarball(ctx context.Context, tarballPath string, image ...*Image) (ocispec.Descriptor, error) {
+func SaveTarball(ctx context.Context, tarballPath string, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return SaveAllTarballs(ctx, tarballPath, []*Image{image}, opts...)
+}
+
+// SaveAllTarballs saves images to a tarball file.
+func SaveAllTarballs(ctx context.Context, tarballPath string, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
 	f, err := os.Create(tarballPath)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to create tarball file: %w", err)
 	}
 	defer f.Close()
 
-	return SaveTarballWriter(ctx, f, image...)
+	return SaveAllTarballWriters(ctx, f, images, opts...)
 }
 
-// SaveTarballWriter saves an image to a tarball writer under one index, and
+// SaveTarballWriter saves an image to a tarball writer, as SaveAllTarballWriters does.
+func SaveTarballWriter(ctx context.Context, w io.Writer, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return SaveAllTarballWriters(ctx, w, []*Image{image}, opts...)
+}
+
+// SaveAllTarballWriters saves images to a tarball writer under one index, and
 // returns the descriptor of the tarball's own index.json, which lists that
 // index: it is what loading the tarball reads from.
-func SaveTarballWriter(ctx context.Context, w io.Writer, image ...*Image) (ocispec.Descriptor, error) {
+func SaveAllTarballWriters(ctx context.Context, w io.Writer, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
 	tmpDir, err := os.MkdirTemp("", "imagespec-tarball-*")
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to create temp directory: %w", err)
@@ -164,7 +174,7 @@ func SaveTarballWriter(ctx context.Context, w io.Writer, image ...*Image) (ocisp
 		return ocispec.Descriptor{}, fmt.Errorf("failed to create local store: %w", err)
 	}
 
-	desc, err := SaveContent(ctx, store, "latest", image...)
+	desc, err := SaveAllContent(ctx, store, "latest", images, opts...)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to save image to local store: %w", err)
 	}

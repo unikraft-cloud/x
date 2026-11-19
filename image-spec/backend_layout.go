@@ -87,22 +87,30 @@ func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platfo
 	return LoadAllContent(ctx, store, *desc, platform)
 }
 
-func SaveOCILayout(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {
+func SaveOCILayout(ctx context.Context, path string, tag string, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return SaveAllOCILayouts(ctx, path, tag, []*Image{image}, opts...)
+}
+
+func SaveAllOCILayouts(ctx context.Context, path string, tag string, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
 	store, err := local.NewStore(path)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
-	return SaveContent(ctx, store, tag, image...)
+	return SaveAllContent(ctx, store, tag, images, opts...)
 }
 
-func SaveOCILayoutNamed(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {
+func SaveOCILayoutNamed(ctx context.Context, path string, tag string, image *Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
+	return SaveAllOCILayoutsNamed(ctx, path, tag, []*Image{image}, opts...)
+}
+
+func SaveAllOCILayoutsNamed(ctx context.Context, path string, tag string, images []*Image, opts ...SaveOpt) (ocispec.Descriptor, error) {
 	store, err := local.NewStore(path)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
 	idx := ociindex.NewStoreIndex(path)
 
-	desc, err := SaveContent(ctx, store, tag, image...)
+	desc, err := SaveAllContent(ctx, store, tag, images, opts...)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to save ctrd image: %w", err)
 	}

@@ -26,9 +26,12 @@ import (
 	"github.com/containerd/containerd/v2/pkg/labels"
 	"github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/platforms"
+	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
+
+	"unikraft.com/x/image-spec/schemes"
 )
 
 var testImage = NewImage(
@@ -174,10 +177,10 @@ func TestBuildImageMultiPlatform(t *testing.T) {
 			store, err := local.NewStore(storeDir)
 			require.NoError(t, err)
 
-			_, err = packageLayer(ctx, ingestRef(store, "latest"), images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
+			_, _, err = packageLayer(ctx, ingestRef(store, "latest"), images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath, CompressionNone)
 			require.NoError(t, err)
 
-			idxDesc, err := SaveContent(ctx, store, "latest", images...)
+			idxDesc, err := SaveAllContent(ctx, store, "latest", images)
 			require.NoError(t, err)
 
 			idxBlob, err := content.ReadBlob(ctx, store, idxDesc)
@@ -227,12 +230,25 @@ func TestPackageLayerTar(t *testing.T) {
 
 		store, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		desc, err := packageLayer(t.Context(), ingestRef(store, "latest"), testImage, &staticFile{"initrd.img", data}, ocispec.MediaTypeImageLayer, "/initrd")
+		desc, _, err := packageLayer(t.Context(), ingestRef(store, "latest"), testImage, &staticFile{"initrd.img", data}, ocispec.MediaTypeImageLayer, "/initrd", CompressionNone)
 		require.NoError(t, err)
 
 		got, err := content.ReadBlob(t.Context(), store, desc)
 		require.NoError(t, err)
 		require.Equal(t, want.Bytes(), got, "a file of %d bytes", size)
+
+		desc, diffID, err := packageLayer(t.Context(), ingestRef(store, "latest"), testImage, &staticFile{"initrd.img", data}, ocispec.MediaTypeImageLayer, "/initrd", CompressionZstd)
+		require.NoError(t, err)
+		require.Equal(t, ocispec.MediaTypeImageLayerZstd, desc.MediaType)
+		require.Equal(t, digest.FromBytes(want.Bytes()), diffID)
+		got, err = content.ReadBlob(t.Context(), store, desc)
+		require.NoError(t, err)
+		zr, err := decompressLayer(desc.MediaType, bytes.NewReader(got))
+		require.NoError(t, err)
+		got, err = io.ReadAll(zr)
+		zr.Close()
+		require.NoError(t, err)
+		require.Equal(t, want.Bytes(), got, "a compressed file of %d bytes", size)
 	}
 }
 
@@ -386,7 +402,7 @@ func TestIndexAnnotations(t *testing.T) {
 	require.Len(t, loaded, 1)
 	require.Equal(t, annotations, loaded[0].IndexAnnotations)
 
-	resaved, err := SaveContent(ctx, store, "latest", loaded...)
+	resaved, err := SaveAllContent(ctx, store, "latest", loaded)
 	require.NoError(t, err)
 	require.Equal(t, idxDesc.Digest, resaved.Digest)
 }
@@ -447,7 +463,7 @@ func TestSaveByManifest(t *testing.T) {
 		byManifest = append(byManifest, &Image{ManifestDescriptor: desc})
 	}
 
-	idxDesc, err := SaveContent(ctx, store, "latest", byManifest...)
+	idxDesc, err := SaveAllContent(ctx, store, "latest", byManifest)
 	require.NoError(t, err)
 
 	loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.All)
@@ -527,7 +543,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 		requireBlobs(t, dst, append(blobs, idxDesc)...)
@@ -541,7 +557,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 	})
@@ -553,7 +569,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 		data, err := content.ReadBlob(ctx, dst, saved)
@@ -581,7 +597,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, w.Close())
 
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 		got, err := content.ReadBlob(ctx, dst, layer)
@@ -596,7 +612,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
 		store := &resetting{Ingester: dst}
-		saved, err := SaveContent(ctx, store, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, store, "latest", loaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 		requireBlobs(t, dst, append(blobs, idxDesc)...)
@@ -611,7 +627,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
 		store := &failingLayer{Ingester: dst, fail: blobs[0].Digest, manifest: make(chan struct{})}
-		_, err = SaveContent(ctx, store, "latest", loaded...)
+		_, err = SaveAllContent(ctx, store, "latest", loaded)
 		require.Error(t, err)
 		require.False(t, store.wroteManifest.Load(), "a manifest was written before all blobs")
 	})
@@ -623,7 +639,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 	})
@@ -635,7 +651,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 	})
@@ -650,7 +666,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 		require.NotEqual(t, outer.Digest, saved.Digest)
@@ -663,7 +679,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, idxDesc.Digest, saved.Digest)
 		requireBlobs(t, dst, blobs[3:]...)
@@ -679,7 +695,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		root, err := SaveTarballWriter(ctx, &buf, loaded...)
+		root, err := SaveAllTarballWriters(ctx, &buf, loaded)
 		require.NoError(t, err)
 
 		reloaded, err := LoadAllTarballReaders(ctx, &buf, root, platforms.All)
@@ -693,7 +709,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", reloaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", reloaded)
 		require.NoError(t, err)
 		require.Equal(t, idxDesc.Digest, saved.Digest)
 		require.Empty(t, saved.Annotations)
@@ -714,7 +730,7 @@ func TestSaveCopiesLoadedManifests(t *testing.T) {
 
 		dst, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		saved, err := SaveContent(ctx, dst, "latest", loaded...)
+		saved, err := SaveAllContent(ctx, dst, "latest", loaded)
 		require.NoError(t, err)
 		require.NotEqual(t, digest.FromBytes(index), saved.Digest)
 		data, err := content.ReadBlob(ctx, dst, saved)
@@ -780,7 +796,7 @@ func TestSaveCopiesInlineConfig(t *testing.T) {
 	require.NoError(t, err)
 	dst, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)
-	_, err = SaveContent(ctx, dst, "latest", loaded...)
+	_, err = SaveAllContent(ctx, dst, "latest", loaded)
 	require.NoError(t, err)
 	got, err := content.ReadBlob(ctx, dst, ocispec.Descriptor{Digest: config.Digest, Size: config.Size})
 	require.NoError(t, err)
@@ -851,7 +867,7 @@ func TestSaveDropsSourceLabelsOfManifest(t *testing.T) {
 	dst, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)
 	store := &recording{Ingester: dst}
-	_, err = SaveContent(ctx, store, "latest", loaded...)
+	_, err = SaveAllContent(ctx, store, "latest", loaded)
 	require.NoError(t, err)
 	require.NotEmpty(t, store.descs)
 	for _, desc := range store.descs {
@@ -910,7 +926,7 @@ func TestSaveSkipsForeignLayers(t *testing.T) {
 
 	dst, err := local.NewStore(t.TempDir())
 	require.NoError(t, err)
-	_, err = SaveContent(ctx, dst, "latest", loaded...)
+	_, err = SaveAllContent(ctx, dst, "latest", loaded)
 	require.NoError(t, err)
 	for _, desc := range []ocispec.Descriptor{config, mfst} {
 		_, err := dst.Info(ctx, desc.Digest)
@@ -920,6 +936,192 @@ func TestSaveSkipsForeignLayers(t *testing.T) {
 	require.Error(t, err)
 
 	var buf bytes.Buffer
-	_, err = SaveTarballWriter(ctx, &buf, loaded...)
+	_, err = SaveAllTarballWriters(ctx, &buf, loaded)
 	require.NoError(t, err)
+}
+
+func TestDecompressLayerWindow(t *testing.T) {
+	// A zstd frame of one raw byte, whose header asks for a window of 2^(10+exp) bytes.
+	frame := func(exp byte) []byte {
+		return []byte{0x28, 0xb5, 0x2f, 0xfd, 0x00, exp << 3, 0x09, 0x00, 0x00, 'a'}
+	}
+	for _, tc := range []struct {
+		exp byte
+		ok  bool
+	}{{13, true}, {17, true}, {18, false}} {
+		r, err := decompressLayer(ocispec.MediaTypeImageLayerZstd, bytes.NewReader(frame(tc.exp)))
+		require.NoError(t, err)
+		data, err := io.ReadAll(r)
+		r.Close()
+		if tc.ok {
+			require.NoError(t, err, "window 2^%d", 10+tc.exp)
+			require.Equal(t, "a", string(data))
+		} else {
+			require.ErrorIs(t, err, zstd.ErrWindowSizeExceeded, "window 2^%d", 10+tc.exp)
+		}
+	}
+}
+
+func TestSaveCompressedParts(t *testing.T) {
+	ctx := t.Context()
+	kernel, initrd := bytes.Repeat([]byte("kernel "), 512), bytes.Repeat([]byte("initrd "), 4096)
+	newImage := func() *Image {
+		return NewImage(
+			WithKernel(&staticFile{"kernel.img", kernel}),
+			WithInitrd(&staticFile{"initrd.img", initrd}),
+			WithRom(&staticFile{"rom.img", []byte("rom data")}),
+			WithImageConfig(ocispec.ImageConfig{Cmd: []string{"example"}}),
+		)
+	}
+	save := func(dir string, opts ...SaveOpt) ocispec.Descriptor {
+		saved, err := NewAccessor().Save(ctx, &Location{Scheme: schemes.OCILayout, Path: dir + ":latest"}, newImage(), opts...)
+		require.NoError(t, err)
+		return saved.Descriptor
+	}
+
+	_, err := NewAccessor().Save(ctx, &Location{Scheme: schemes.OCILayout, Path: t.TempDir() + ":latest"}, newImage(), WithCompression("gzip"))
+	require.ErrorContains(t, err, `unknown compression "gzip"`)
+
+	plainDir := t.TempDir()
+	plainDesc := save(plainDir)
+	plain, err := local.NewStore(plainDir)
+	require.NoError(t, err)
+	plainMfsts, err := Manifests(ctx, plain, plainDesc, nil)
+	require.NoError(t, err)
+	for _, layer := range plainMfsts[0].Layers[:2] {
+		require.Equal(t, ocispec.MediaTypeImageLayer, layer.MediaType, "a save without compression writes plain tar layers")
+	}
+
+	srcDir := t.TempDir()
+	idxDesc := save(srcDir, WithCompression(CompressionZstd))
+	src, err := local.NewStore(srcDir)
+	require.NoError(t, err)
+
+	mfsts, err := Manifests(ctx, src, idxDesc, nil)
+	require.NoError(t, err)
+	mfst := mfsts[0]
+	require.Len(t, mfst.Layers, 3)
+	require.Equal(t, ocispec.MediaTypeImageLayerZstd, mfst.Layers[0].MediaType)
+	require.Equal(t, ocispec.MediaTypeImageLayerZstd, mfst.Layers[1].MediaType)
+	require.Equal(t, MediaTypeRom, mfst.Layers[2].MediaType)
+	config, err := content.ReadBlob(ctx, src, mfst.Config)
+	require.NoError(t, err)
+	var img ocispec.Image
+	require.NoError(t, json.Unmarshal(config, &img))
+	for i, layer := range mfst.Layers[:2] {
+		blob, err := content.ReadBlob(ctx, src, layer)
+		require.NoError(t, err)
+		r, err := decompressLayer(layer.MediaType, bytes.NewReader(blob))
+		require.NoError(t, err)
+		tarball, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, digest.FromBytes(tarball), img.RootFS.DiffIDs[i])
+	}
+	require.Equal(t, mfst.Layers[2].Digest, img.RootFS.DiffIDs[2])
+
+	require.Equal(t, idxDesc.Digest, save(t.TempDir(), WithCompression(CompressionZstd)).Digest, "the same image compresses to the same blobs")
+
+	loaded, err := LoadAllContent(ctx, src, idxDesc, platforms.All)
+	require.NoError(t, err)
+	require.Len(t, loaded, 1)
+	for want, file := range map[string]File{string(kernel): loaded[0].Kernel, string(initrd): loaded[0].Initrd} {
+		require.NotNil(t, file)
+		r, _, err := file.Open(ctx)
+		require.NoError(t, err)
+		got, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.NoError(t, r.Close())
+		require.Equal(t, want, string(got))
+	}
+
+	dst, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	saved, err := SaveAllContent(ctx, dst, "latest", loaded)
+	require.NoError(t, err)
+	require.Equal(t, idxDesc.Digest, saved.Digest)
+
+	// A part moves to another image with its DiffID, or the save computes it.
+	for name, part := range map[string]File{
+		"loaded": loaded[0].Initrd,
+		"bare":   NewContentStoreFile(src, mfst.Layers[1], WellKnownInitrdPath),
+	} {
+		moved, err := SaveContent(ctx, dst, name, NewImage(WithInitrd(part)))
+		require.NoError(t, err)
+		mfsts, err := Manifests(ctx, dst, moved, nil)
+		require.NoError(t, err)
+		config, err := content.ReadBlob(ctx, dst, mfsts[0].Config)
+		require.NoError(t, err)
+		var movedImg ocispec.Image
+		require.NoError(t, json.Unmarshal(config, &movedImg))
+		require.Equal(t, mfst.Layers[1].Digest, mfsts[0].Layers[0].Digest, name)
+		require.Equal(t, img.RootFS.DiffIDs[1], movedImg.RootFS.DiffIDs[0], name)
+	}
+}
+
+type tarEntry struct {
+	name string
+	data []byte
+}
+
+// zstdTarLayer writes a zstd tar layer of the entries to store.
+func zstdTarLayer(t *testing.T, store content.Ingester, entries ...tarEntry) ocispec.Descriptor {
+	t.Helper()
+	var buf bytes.Buffer
+	zw, err := zstd.NewWriter(&buf)
+	require.NoError(t, err)
+	tw := tar.NewWriter(zw)
+	for _, e := range entries {
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: e.name, Mode: 0o644, Size: int64(len(e.data))}))
+		_, err := tw.Write(e.data)
+		require.NoError(t, err)
+	}
+	require.NoError(t, tw.Close())
+	require.NoError(t, zw.Close())
+	desc := ocispec.Descriptor{MediaType: ocispec.MediaTypeImageLayerZstd, Digest: digest.FromBytes(buf.Bytes()), Size: int64(buf.Len())}
+	require.NoError(t, content.WriteBlob(t.Context(), store, desc.Digest.String(), bytes.NewReader(buf.Bytes()), desc))
+	return desc
+}
+
+func TestLayerDiffIDLimit(t *testing.T) {
+	t.Parallel()
+
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	desc := zstdTarLayer(t, store, tarEntry{"initrd", make([]byte, 2<<20)})
+
+	_, err = layerDiffIDWithin(t.Context(), nil, store, desc, 1<<20)
+	require.ErrorIs(t, err, ErrLayerTooLarge)
+	id, err := layerDiffIDWithin(t.Context(), nil, store, desc, 4<<20)
+	require.NoError(t, err)
+	require.NotEqual(t, desc.Digest, id)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err = layerDiffIDWithin(ctx, nil, store, desc, 4<<20)
+	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestContentStoreFileLimit(t *testing.T) {
+	t.Parallel()
+
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+	// An entry before the kernel decompresses past the limit.
+	desc := zstdTarLayer(t, store, tarEntry{"junk", make([]byte, 2<<20)}, tarEntry{"kernel", []byte("kernel")})
+
+	_, _, err = (&ContentStoreFile{Store: store, Desc: desc, Path_: "/kernel", maxSize: 1 << 20}).Open(t.Context())
+	require.ErrorIs(t, err, ErrLayerTooLarge)
+
+	r, size, err := NewContentStoreFile(store, desc, "/kernel").Open(t.Context())
+	require.NoError(t, err)
+	data, err := io.ReadAll(r)
+	require.NoError(t, err)
+	require.NoError(t, r.Close())
+	require.Equal(t, int64(6), size)
+	require.Equal(t, "kernel", string(data))
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, _, err = NewContentStoreFile(store, desc, "/kernel").Open(ctx)
+	require.ErrorIs(t, err, context.Canceled)
 }
