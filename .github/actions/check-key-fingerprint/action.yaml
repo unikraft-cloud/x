@@ -33,7 +33,7 @@ runs:
           | openssl dgst -sha256 -binary \
           | openssl base64 -A)"
         if [ "${got}" != "SHA256:${WANT#SHA256:}" ]; then
-          echo "::error title=Key fingerprint mismatch::got ${got}, want SHA256:${WANT#SHA256:}"
+          echo "::error title=Key fingerprint mismatch::got ${got}, want SHA256:${WANT#SHA256:} - generate a new key on the App's page, and update both the secret and the fingerprint"
           exit 1
         fi
         echo "Key fingerprint matches: ${got}"
