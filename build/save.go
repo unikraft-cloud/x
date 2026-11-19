@@ -39,26 +39,35 @@ type Saved struct {
 // the credentials.
 func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*imagespec.Image) (Saved, error) {
 	saved := Saved{Ref: dest.Path, Platforms: make([]ocispec.Platform, 0, len(images))}
+	var pushed []ocispec.Descriptor
 	for _, img := range images {
 		var p ocispec.Platform
 		if img.Image != nil {
 			p = img.Image.Platform
 		}
 		saved.Platforms = append(saved.Platforms, p)
+		if pushedTag(img) != "" {
+			pushed = append(pushed, img.ManifestDescriptor)
+		}
 	}
 
 	// Only a registry needs the accessor, for its resolver and credentials.
 	access := imagespec.NewAccessor()
 	verb := "save"
-	if dest.Scheme != schemes.OCI && slices.ContainsFunc(images, func(img *imagespec.Image) bool { return pushedTag(img) != "" }) {
+	var named distref.Named
+	if dest.Scheme != schemes.OCI && len(pushed) > 0 {
 		return Saved{}, fmt.Errorf("images that the packer pushed can only be saved to a registry, not to %s", dest)
 	}
 	if dest.Scheme == schemes.OCI {
 		// The index holds what the packer pushed under its temporary tags, or
 		// nothing will.
 		defer b.Untag(ctx, dest, images...)
+		if len(pushed) > 0 && len(pushed) < len(images) {
+			return Saved{}, fmt.Errorf("images that the packer pushed cannot be saved with other images")
+		}
 		verb = "push"
-		named, err := reference.ParseNormalizedNamed(dest.Path)
+		var err error
+		named, err = reference.ParseNormalizedNamed(dest.Path)
 		if err != nil {
 			return Saved{}, fmt.Errorf("parsing image reference %q: %w", dest.Path, err)
 		}
@@ -68,15 +77,19 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 		}
 	}
 
-	var res imagespec.Resolved
-	err := progress.Step(progress.WithPrefix(b.progressWriter(), verb), saved.Ref, func() (err error) {
-		res, err = access.Save(ctx, dest, images...)
+	err := progress.Step(progress.WithPrefix(b.progressWriter(), verb), saved.Ref, func() error {
+		if len(pushed) > 0 {
+			_, desc, err := imagespec.SaveRegistryIndex(ctx, named, access.Resolver(), pushed...)
+			saved.Digest = desc.Digest
+			return err
+		}
+		res, err := access.Save(ctx, dest, images...)
+		saved.Digest = res.Descriptor.Digest
 		return err
 	})
 	if err != nil {
 		return Saved{}, err
 	}
-	saved.Digest = res.Descriptor.Digest
 
 	log.G(ctx).Debug().
 		Str("ref", saved.Ref).
