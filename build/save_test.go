@@ -112,6 +112,22 @@ func registryDigest(t *testing.T, host, repo, tag string) digest.Digest {
 	return digest.FromBytes(body)
 }
 
+// registryTags returns the tags that host lists for repo.
+func registryTags(t *testing.T, host, repo string) []string {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+host+"/v2/"+repo+"/tags/list", nil)
+	require.NoError(t, err)
+	req.SetBasicAuth("alice", "s3cret")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var list struct{ Tags []string }
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&list))
+	return list.Tags
+}
+
 // layoutDigest returns the digest that the OCI layout at dir lists for tag.
 func layoutDigest(t *testing.T, dir, tag string) digest.Digest {
 	t.Helper()
@@ -127,6 +143,35 @@ func layoutDigest(t *testing.T, dir, tag string) digest.Digest {
 	}
 	require.Failf(t, "tag not in layout", "no manifest tagged %q in %s", tag, dir)
 	return ""
+}
+
+// packerPushed pushes an image per platform to repo under a temporary tag, as
+// the packer does, and returns what Build gives for them.
+func packerPushed(t *testing.T, repo string) []*imagespec.Image {
+	t.Helper()
+
+	resolver := docker.NewResolver(docker.ResolverOptions{
+		Hosts: docker.ConfigureDefaultRegistries(
+			docker.WithPlainHTTP(docker.MatchAllHosts),
+			docker.WithAuthorizer(alice.Authorizer()),
+		),
+	})
+	var pushed []*imagespec.Image
+	for _, img := range testImages(fcIntel, fcArm) {
+		ref := repo + ":tmp-test-fc-" + img.Image.Architecture
+		pusher, err := resolver.Pusher(t.Context(), ref)
+		require.NoError(t, err)
+		desc, err := imagespec.SaveManifest(t.Context(), contentutil.FromPusher(pusher), ref, img)
+		require.NoError(t, err)
+		parsed, err := reference.Parse(ref)
+		require.NoError(t, err)
+		pushed = append(pushed, &imagespec.Image{
+			Reference:          parsed,
+			ManifestDescriptor: desc,
+			Image:              img.Image,
+		})
+	}
+	return pushed
 }
 
 func TestSave(t *testing.T) {
@@ -166,33 +211,48 @@ func TestSave(t *testing.T) {
 		t.Cleanup(srv.Close)
 		host := strings.TrimPrefix(srv.URL, "http://")
 
-		resolver := docker.NewResolver(docker.ResolverOptions{
-			Hosts: docker.ConfigureDefaultRegistries(docker.WithPlainHTTP(docker.MatchAllHosts)),
-		})
-		var pushed []*imagespec.Image
-		for _, img := range testImages(fcIntel, fcArm) {
-			ref := host + "/acme/team/app:tmp-test-fc-" + img.Image.Architecture
-			pusher, err := resolver.Pusher(t.Context(), ref)
-			require.NoError(t, err)
-			desc, err := imagespec.SaveManifest(t.Context(), contentutil.FromPusher(pusher), ref, img)
-			require.NoError(t, err)
-			parsed, err := reference.Parse(ref)
-			require.NoError(t, err)
-			pushed = append(pushed, &imagespec.Image{
-				Reference:          parsed,
-				ManifestDescriptor: desc,
-				Image:              img.Image,
-			})
-		}
+		pushed := packerPushed(t, host+"/acme/team/app")
 
 		b := registryBuilder(alice)
 		b.Credentials = alice
 		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/team/app:v1"}, pushed...)
 		require.NoError(t, err)
 		assert.Equal(t, []string{
-			"/api/v2.0/projects/acme/repositories/team%252Fapp/artifacts/" + pushed[0].ManifestDescriptor.Digest.String() + "/tags/tmp-test-fc-x86_64",
-			"/api/v2.0/projects/acme/repositories/team%252Fapp/artifacts/" + pushed[1].ManifestDescriptor.Digest.String() + "/tags/tmp-test-fc-arm64",
+			"/api/v2.0/projects/acme/repositories/team%252Fapp/artifacts/tmp-test-fc-x86_64/tags/tmp-test-fc-x86_64",
+			"/api/v2.0/projects/acme/repositories/team%252Fapp/artifacts/tmp-test-fc-arm64/tags/tmp-test-fc-arm64",
 		}, removed)
+	})
+
+	t.Run("a registry that is no Harbor loses the temporary tags too", func(t *testing.T) {
+		host := startRegistry(t)
+		pushed := packerPushed(t, host+"/acme/app")
+
+		b := registryBuilder(alice)
+		b.Credentials = alice
+		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}, pushed...)
+		require.NoError(t, err)
+
+		assert.Equal(t, []string{"v1"}, registryTags(t, host, "acme/app"))
+	})
+
+	t.Run("a push that fails leaves no temporary tags", func(t *testing.T) {
+		// A registry that refuses the index.
+		reg := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/manifests/v1") {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			reg.ServeHTTP(w, r)
+		}))
+		t.Cleanup(srv.Close)
+		host := strings.TrimPrefix(srv.URL, "http://")
+		pushed := packerPushed(t, host+"/acme/app")
+		require.Len(t, registryTags(t, host, "acme/app"), 2)
+
+		_, err := registryBuilder(alice).Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}, pushed...)
+		require.Error(t, err)
+		assert.Empty(t, registryTags(t, host, "acme/app"))
 	})
 
 	t.Run("a local layout needs no accessor", func(t *testing.T) {

@@ -168,7 +168,7 @@ func defaultRootfsFormat(opts BuildOpts) kraftfile.FsType {
 }
 
 // Build a unikraft image based on the provided build options.
-func (b Builder) Build(ctx context.Context, opts BuildOpts) ([]*imagespec.Image, error) {
+func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Image, rerr error) {
 	if opts.Runtime == "" && opts.Kernel == "" && opts.Rootfs.Path == "" && len(opts.Roms) == 0 {
 		return nil, fmt.Errorf("no runtime, kernel, rootfs, or roms specified: nothing to build")
 	}
@@ -218,6 +218,13 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) ([]*imagespec.Image,
 			return nil, err
 		}
 		defer stop()
+		defer func() {
+			if rerr != nil {
+				for _, dest := range opts.Push {
+					b.Untag(ctx, dest, opts.push.pushed...)
+				}
+			}
+		}()
 	}
 
 	// Build ROMs if any are specified.
