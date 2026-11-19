@@ -139,7 +139,7 @@ func TestLoadUnpinned(t *testing.T) {
 		f, err := os.Open(dest.Path)
 		require.NoError(t, err)
 		defer f.Close()
-		_, r, err := readTarFile(tar.NewReader(f), "index.json")
+		_, r, err := ReadTarFile(tar.NewReader(f), "index.json")
 		require.NoError(t, err)
 		index, err := digest.FromReader(r)
 		require.NoError(t, err)
