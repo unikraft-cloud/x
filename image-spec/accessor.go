@@ -38,6 +38,11 @@ func NewAccessor(opts ...AccessOpt) *Accessor {
 	return s
 }
 
+// Resolver returns the resolver that the accessor reaches registries with.
+func (accessor *Accessor) Resolver() remotes.Resolver {
+	return accessor.remote
+}
+
 type AccessOpt func(*Accessor)
 
 func WithResolver(r remotes.Resolver) AccessOpt {
