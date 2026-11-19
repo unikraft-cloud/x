@@ -13,6 +13,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/stretchr/testify v1.12.1
+	github.com/unikraft/go-archivefs v0.0.0-20261109165216-6df91ed79bb6
 	golang.org/x/sync v0.25.0
 	unikraft.com/x/io v0.0.0-20261119150955-11d3e843ccd6
 	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
@@ -42,7 +43,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
-	github.com/unikraft/go-archivefs v0.0.0-20261109165216-6df91ed79bb6 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect

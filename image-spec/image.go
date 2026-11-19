@@ -26,6 +26,11 @@ type Image struct {
 	Initrd      File
 	Roms        []File
 
+	// Runtime is what runs the image: Unikraft with its parts, or Docker with its Layers as the rootfs.
+	Runtime RuntimeKind
+	// Layers are the tar layers of a Docker image, which a save writes back as they are.
+	Layers []File
+
 	// Image configs
 	Image            *ocispec.Image
 	Annotations      map[string]string
@@ -50,6 +55,9 @@ func (i *Image) Close() error {
 	}
 	for _, rom := range i.Roms {
 		err = errors.Join(err, rom.Cleanup())
+	}
+	for _, layer := range i.Layers {
+		err = errors.Join(err, layer.Cleanup())
 	}
 	return err
 }

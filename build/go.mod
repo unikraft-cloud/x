@@ -111,6 +111,7 @@ require (
 	mvdan.cc/sh/v3 v3.14.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 	unikraft.com/cloud/sdk v0.4.1-staging.10 // indirect
+	unikraft.com/x/mergefs v0.0.0-20261119184907-6068245c54f2 // indirect
 )
 
 replace (
