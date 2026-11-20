@@ -800,8 +800,10 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 			FrontendAttrs: platformAttrs,
 		}
 
-		var config ocispec.Image
-		pushConfig := func() ocispec.Image { return opts.push.image(p, applyConfigOverrides(config.Config, opts), nil) }
+		var config, base ocispec.Image
+		pushConfig := func() ocispec.Image {
+			return opts.push.image(p, applyConfigOverrides(config.Config, opts), base.Created)
+		}
 		f, err := b.solveInitrd(ctx, s, opts, part, p, opts.Rootfs.Format, solveOpt, func(ctx context.Context, c gateway.Client) (*gateway.Result, error) {
 			res, err := c.Solve(ctx, gateway.SolveRequest{
 				Frontend:       solveOpt.Frontend,
@@ -818,6 +820,12 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 			}
 			if err := json.Unmarshal(cfg, &config); err != nil {
 				return nil, err
+			}
+			// The frontend leaves the config undated, and FROM scratch has no base.
+			if bc := exptypes.ParseKey(res.Metadata, "containerimage.base.config", &ep); bc != nil {
+				if err := json.Unmarshal(bc, &base); err != nil {
+					return nil, err
+				}
 			}
 			return res, nil
 		}, pushConfig)
@@ -841,6 +849,7 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 
 		imgs = append(imgs, imagespec.NewImage(
 			imagespec.WithImageConfig(applyConfigOverrides(config.Config, opts)),
+			imagespec.WithImageMetadata(imagespec.ImageMetadata{Created: base.Created}),
 			imagespec.WithPlatform(p),
 			imagespec.WithInitrd(imagespec.NewTempOSFile(f)),
 		))
