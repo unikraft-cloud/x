@@ -80,11 +80,32 @@ func WithShutdownTimeout(timeout time.Duration) RouterOption {
 	}
 }
 
+// WithRequestTimeout sets how long a request may take before its context
+// ends, DefaultRequestTimeout unless set. An upgraded request is never
+// bounded, and a timeout that is not positive bounds no request: for
+// responses that stream for as long as their source lasts.
+func WithRequestTimeout(timeout time.Duration) RouterOption {
+	return func(router *Router) error {
+		router.requestTimeout = timeout
+		return nil
+	}
+}
+
 // WithMaxMultipartMemory sets the maximum memory used for multipart forms in
 // the HTTP server.
 func WithMaxMultipartMemory(maxMemory int64) RouterOption {
 	return func(router *Router) error {
 		router.maxMultipartMemory = maxMemory
+		return nil
+	}
+}
+
+// WithTrustedProxies sets the IPs or CIDRs of the proxies whose
+// X-Forwarded-For is believed for the client IP, instead of gin's default of
+// trusting every peer. With none, the client IP is always the peer's address.
+func WithTrustedProxies(proxies ...string) RouterOption {
+	return func(router *Router) error {
+		router.trustedProxies = append([]string{}, proxies...)
 		return nil
 	}
 }

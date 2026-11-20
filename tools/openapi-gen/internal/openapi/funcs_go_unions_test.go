@@ -61,10 +61,14 @@ func resolvedRef(name string, schema *openapi3.Schema) *openapi3.SchemaRef {
 	return &openapi3.SchemaRef{Ref: "#/components/schemas/" + name, Value: schema}
 }
 
-// withPackage tags a schema with the legacy x-package extension.
-func withPackage(schema *openapi3.Schema, pkg string) *openapi3.Schema {
-	schema.Extensions = map[string]any{"x-package": pkg}
-	return schema
+// withImportPath assigns the component name to the Go import path importPath,
+// as --namespace-import-path does.
+func withImportPath(tf *templateFuncs, name, importPath string) *templateFuncs {
+	if tf.parser.importPaths == nil {
+		tf.parser.importPaths = map[*openapi3.SchemaRef]string{}
+	}
+	tf.parser.importPaths[tf.parser.doc.Components.Schemas[name]] = importPath
+	return tf
 }
 
 func imageSpec() Model {
@@ -179,7 +183,8 @@ func TestGoUnionsNamedAfterFirstNamedBranch(t *testing.T) {
 
 // Two object branches encode to the same JSON kind, and generated structs accept
 // each other's payloads — they neither enforce required fields nor reject unknown
-// ones — so there is nothing to dispatch on and no union to generate.
+// ones — so without keys of their own there is nothing to dispatch on and no
+// union to generate.
 func TestGoUnionsRejectsSharedObjectKind(t *testing.T) {
 	tf := unionFuncs(
 		fooSpec(),
@@ -191,6 +196,111 @@ func TestGoUnionsRejectsSharedObjectKind(t *testing.T) {
 
 	require.Empty(t, unionNames(unions))
 	require.NotContains(t, unions.Fields, "Thing.target")
+}
+
+// sourceSpec is an object marked by one of `git` and `url`, as a oneOf of
+// required members.
+func sourceSpec() Model {
+	source := objectModel("SourceSpec",
+		prop{"git", &openapi3.Schema{Type: strType("string")}},
+		prop{"url", &openapi3.Schema{Type: strType("string")}},
+		prop{"ref", &openapi3.Schema{Type: strType("string")}},
+	)
+	source.Schema.OneOf = openapi3.SchemaRefs{
+		inline(&openapi3.Schema{Required: []string{"git"}}),
+		inline(&openapi3.Schema{Required: []string{"url"}}),
+	}
+	return source
+}
+
+// fileObject is a named object of any members, which declares none of its own.
+func fileObject() Model {
+	return namedModel("FileObject", &openapi3.Schema{
+		Type:                 strType("object"),
+		AdditionalProperties: openapi3.AdditionalProperties{Schema: inline(&openapi3.Schema{})},
+	})
+}
+
+// Objects that share the kind are told apart by the members that mark them, and
+// the one without such members takes any other object.
+func TestGoUnionsDispatchesObjectsOnKeys(t *testing.T) {
+	tf := unionFuncs(
+		sourceSpec(),
+		fileObject(),
+		objectModel("Thing", prop{"file", anyOf(
+			inline(&openapi3.Schema{Type: strType("string")}),
+			ref("SourceSpec"),
+			ref("FileObject"),
+		)}),
+	)
+
+	union := unionByName(t, tf.goUnions(), "SourceUnion")
+
+	require.Len(t, union.Variants, 3)
+	require.Nil(t, union.Variants[0].Keys)
+	require.Equal(t, []string{`'{'`}, union.Variants[1].Kinds)
+	require.Equal(t, []string{"git", "url"}, union.Variants[1].Keys)
+	require.Equal(t, []string{`'{'`}, union.Variants[2].Kinds)
+	require.Nil(t, union.Variants[2].Keys)
+}
+
+// Objects whose keys leave an object without a single variant to go to are
+// left alone, like any other shared kind.
+func TestGoUnionsRejectsObjectsKeysCannotTellApart(t *testing.T) {
+	gitSpec := objectModel("GitSpec", prop{"git", &openapi3.Schema{Type: strType("string")}})
+	gitSpec.Schema.Required = []string{"git"}
+	looseSpec := objectModel("LooseSpec", prop{"git", &openapi3.Schema{Type: strType("string")}})
+	looseSpec.Schema.AnyOf = openapi3.SchemaRefs{inline(&openapi3.Schema{Required: []string{"git"}}), inline(&openapi3.Schema{})}
+	composed := namedModel("ComposedObject", &openapi3.Schema{
+		Type: strType("object"),
+		AllOf: openapi3.SchemaRefs{inline(&openapi3.Schema{
+			Properties: openapi3.Schemas{"git": inline(&openapi3.Schema{Type: strType("integer")})},
+		})},
+	})
+
+	for _, tc := range []struct {
+		name     string
+		branches []*openapi3.SchemaRef
+	}{
+		{"two objects claim a key", []*openapi3.SchemaRef{ref("SourceSpec"), ref("GitSpec"), ref("FileObject")}},
+		{"no object without keys", []*openapi3.SchemaRef{ref("GitSpec"), ref("ImageSpec")}},
+		{"the object without keys has members", []*openapi3.SchemaRef{ref("SourceSpec"), ref("FooSpec")}},
+		{"the object without keys composes members", []*openapi3.SchemaRef{ref("SourceSpec"), ref("ComposedObject")}},
+		{"an alternative requires nothing", []*openapi3.SchemaRef{ref("LooseSpec"), ref("FileObject")}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			image := imageSpec()
+			image.Schema.Required = []string{"url"}
+
+			tf := unionFuncs(
+				sourceSpec(), gitSpec, looseSpec, composed, image, fooSpec(), fileObject(),
+				objectModel("Thing", prop{"file", anyOf(tc.branches...)}),
+			)
+
+			require.NotContains(t, tf.goUnions().Fields, "Thing.file")
+		})
+	}
+}
+
+// A property that references a named anyOf, plain or with a description of its
+// own, is that union, under that schema's name.
+func TestGoUnionsPropertyReferencingNamedAnyOf(t *testing.T) {
+	tf := unionFuncs(
+		sourceSpec(),
+		fileObject(),
+		namedModel("File", anyOf(ref("SourceSpec"), ref("FileObject"))),
+		objectModel("Thing",
+			prop{"file", &openapi3.Schema{AllOf: openapi3.SchemaRefs{ref("File")}, Description: "The file."}},
+		),
+		objectModel("Other", prop{"input", &openapi3.Schema{AllOf: openapi3.SchemaRefs{ref("File")}}}),
+	)
+
+	unions := tf.goUnions()
+
+	require.Equal(t, []string{"File"}, unionNames(unions))
+	require.Equal(t, "File", unions.Fields["Thing.file"])
+	require.Equal(t, "File", unions.Fields["Other.input"])
+	require.Equal(t, []string{"SourceSpec", "FileObject"}, unionByName(t, unions, "File").TypeNames)
 }
 
 // Scalars of a shared kind are no more distinguishable: `integer` and `number`
@@ -232,6 +342,24 @@ func TestGoUnionsDistinctBranchesShareNoUnion(t *testing.T) {
 	require.Equal(t, []string{"FooSpec", "FooReference"}, labels.TypeNames)
 	flags := unionByName(t, unions, "ThingFlagsUnion")
 	require.Equal(t, []string{"FooSpec", "ThingFlagsFlag"}, flags.TypeNames)
+}
+
+// Two properties whose object branches are marked by different keys get a union
+// each, however alike their Go types.
+func TestGoUnionsDistinctKeysShareNoUnion(t *testing.T) {
+	tf := unionFuncs(
+		fileObject(),
+		objectModel("Thing",
+			prop{"git", anyOf(ref("FileObject"), inline(&openapi3.Schema{Type: strType("object"), Required: []string{"git"}}))},
+			prop{"url", anyOf(ref("FileObject"), inline(&openapi3.Schema{Type: strType("object"), Required: []string{"url"}}))},
+		),
+	)
+	tf.parser.propertyOrders["Thing"] = []string{"git", "url"}
+
+	unions := tf.goUnions()
+
+	require.Len(t, unionNames(unions), 2)
+	require.Equal(t, []string{"url"}, unionByName(t, unions, unions.Fields["Thing.url"]).Variants[1].Keys)
 }
 
 // An identical set of branches is one union, however many properties declare it.
@@ -388,14 +516,15 @@ func TestGoUnionsSortedByName(t *testing.T) {
 // another package, it joins the union through a local wrapper: the marker method
 // cannot be attached to a type declared elsewhere.
 func TestGoUnionsWrapsBranchOfAnotherPackage(t *testing.T) {
-	foreign := withPackage(imageSpec().Schema, "images")
+	foreign := imageSpec().Schema
 
 	// Only Thing survived filtering; ImageSpec is generated in another package.
-	tf := generating(unionFuncs(objectModel("Thing", prop{"image", anyOf(
+	tf := unionFuncs(objectModel("Thing", prop{"image", anyOf(
 		inline(&openapi3.Schema{Type: strType("string")}),
 		resolvedRef("ImageSpec", foreign),
-	)})), map[string]string{"x-package": "instances"})
+	)}))
 	tf.parser.doc.Components.Schemas["ImageSpec"] = &openapi3.SchemaRef{Value: foreign}
+	withImportPath(tf, "ImageSpec", "example.com/api/images")
 
 	unions := tf.goUnions()
 
@@ -414,15 +543,15 @@ func TestGoUnionsWrapsBranchOfAnotherPackage(t *testing.T) {
 // A branch of the package being generated is generated already: the marker method
 // goes on the schema's own type, with nothing to qualify.
 func TestGoUnionsBranchOfSamePackageNeedsNoWrapper(t *testing.T) {
-	local := withPackage(imageSpec().Schema, "images")
+	local := imageSpec().Schema
 
-	tf := generating(unionFuncs(
+	tf := unionFuncs(
 		Model{SchemaName: "ImageSpec", Schema: local},
 		objectModel("Thing", prop{"image", anyOf(
 			inline(&openapi3.Schema{Type: strType("string")}),
 			resolvedRef("ImageSpec", local),
 		)}),
-	), map[string]string{"x-package": "images"})
+	)
 
 	union := unionByName(t, tf.goUnions(), "ImageUnion")
 
@@ -505,7 +634,7 @@ func TestGoUnionsVariantKeepsNamespaceAfterFlatten(t *testing.T) {
 		{SchemaName: thing.SchemaName, Schema: thing.Schema, Namespace: "Core"},
 	}
 	tf := generating(unionFuncs(models...), map[string]string{"current_package": "core"})
-	tf.parser.Flatten(*tf.models, "strip")
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
 
 	unions := tf.goUnions()
 
@@ -534,8 +663,8 @@ func TestGoUnionsVariantKeepsNamespaceAfterRepeatedFlatten(t *testing.T) {
 		{SchemaName: thing.SchemaName, Schema: thing.Schema, Namespace: "Core"},
 	}
 	tf := generating(unionFuncs(models...), map[string]string{"current_package": "core"})
-	tf.parser.Flatten(*tf.models, "strip")
-	tf.parser.Flatten(*tf.models, "strip")
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
+	require.NoError(t, tf.parser.Flatten(*tf.models, "strip"))
 
 	require.Equal(t, "Images", tf.parser.schemaNamespaceOf("ImageSpec"))
 
@@ -796,16 +925,16 @@ func TestGoUnionsInlineListOfLocalRef(t *testing.T) {
 // inline shape reaching a schema of another package is left alone rather than
 // described by a type name that does not resolve in the generated package.
 func TestGoUnionsSkipsInlineListOfForeignRef(t *testing.T) {
-	foreign := withPackage(objectModel("FooSpec", prop{"foo", &openapi3.Schema{Type: strType("string")}}).Schema, "other")
+	foreign := objectModel("FooSpec", prop{"foo", &openapi3.Schema{Type: strType("string")}}).Schema
 
-	tf := generating(unionFuncs(
+	tf := withImportPath(unionFuncs(
 		imageSpec(),
 		namedModel("FooSpec", foreign),
 		objectModel("Thing", prop{"image", anyOf(
 			inline(&openapi3.Schema{Type: strType("array"), Items: resolvedRef("FooSpec", foreign)}),
 			ref("ImageSpec"),
 		)}),
-	), map[string]string{"x-package": "mine"})
+	), "FooSpec", "example.com/api/other")
 
 	require.Empty(t, unionNames(tf.goUnions()))
 }

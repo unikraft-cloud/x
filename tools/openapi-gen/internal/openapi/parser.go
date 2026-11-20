@@ -8,12 +8,15 @@ package openapi
 import (
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"gopkg.in/yaml.v3"
@@ -26,17 +29,13 @@ type Parser struct {
 	doc            *openapi3.T
 	propertyOrders map[string][]string // schemaName -> ordered property names
 	namespaces     map[string]string   // flattened schema name -> original namespace
+	importPaths    map[*openapi3.SchemaRef]string
 }
 
 // Model represents a single model file to be generated
 type Model struct {
 	SchemaName string
 	Schema     *openapi3.Schema
-	// Package is derived from the x-package extension.
-	//
-	// Deprecated: x-package is only emitted by our proto-based generation
-	// pipeline. Prefer Namespace, which works for any OpenAPI document.
-	Package string
 	// Namespace is derived from the "Namespace.Name" schema name prefix
 	// (e.g. as emitted by platform-api's TypeSpec compiler).
 	Namespace string
@@ -126,6 +125,84 @@ func (p *Parser) SetPropertyOrder(schemaName string, order []string) {
 	p.propertyOrders[schemaName] = order
 }
 
+// SetSchemaImportPath assigns the Go import path importPath to every schema
+// declared under namespace and returns the names it assigned. It returns an
+// error when no schema is declared under namespace, or when the package name
+// of importPath is already used by a different import path.
+func (p *Parser) SetSchemaImportPath(namespace, importPath string) ([]string, error) {
+	alias := importAlias(importPath)
+	for other := range maps.Values(p.importPaths) {
+		if other != importPath && importAlias(other) == alias {
+			return nil, fmt.Errorf("import paths %q and %q both use package name %q", other, importPath, alias)
+		}
+	}
+	if p.doc.Components == nil {
+		return nil, fmt.Errorf("namespace %q has no schemas", namespace)
+	}
+	if p.importPaths == nil {
+		p.importPaths = map[*openapi3.SchemaRef]string{}
+	}
+	prefix := namespace + "."
+	var assigned []string
+	for name, ref := range p.doc.Components.Schemas {
+		if !strings.HasPrefix(name, prefix) || ref.Value == nil {
+			continue
+		}
+		p.importPaths[ref] = importPath
+		assigned = append(assigned, name)
+	}
+	if len(assigned) == 0 {
+		return nil, fmt.Errorf("namespace %q has no schemas", namespace)
+	}
+	return assigned, nil
+}
+
+// SchemaImportPath returns the Go import path SetSchemaImportPath assigned to
+// the component ref, or "" when ref belongs to the package being generated.
+// The key is the component ref and not its schema: a component that is only a
+// $ref to an imported one shares its schema but stays local.
+func (p *Parser) SchemaImportPath(ref *openapi3.SchemaRef) string {
+	return p.importPaths[ref]
+}
+
+// SchemaPackage returns the name that qualifies the component ref in generated
+// code, or "" when ref belongs to the package being generated.
+func (p *Parser) SchemaPackage(ref *openapi3.SchemaRef) string {
+	return importAlias(p.importPaths[ref])
+}
+
+// importAlias returns the package name for importPath: its last element, with
+// the element before it prepended when the last one is a major version (so
+// ".../common/v1" gives "commonv1").
+func importAlias(importPath string) string {
+	if importPath == "" {
+		return ""
+	}
+	dir, alias := path.Split(importPath)
+	if isMajorVersion(alias) && dir != "" {
+		alias = path.Base(dir) + alias
+	}
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
+			return r
+		}
+		return -1
+	}, alias)
+}
+
+// isMajorVersion reports whether elem is a major version element such as "v1".
+func isMajorVersion(elem string) bool {
+	if len(elem) < 2 || elem[0] != 'v' {
+		return false
+	}
+	for _, r := range elem[1:] {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // ParseModels extracts all models from the OpenAPI spec
 func (p *Parser) ParseModels() []Model {
 	var models []Model
@@ -137,11 +214,9 @@ func (p *Parser) ParseModels() []Model {
 		if schemaIsEmpty(schema) {
 			continue
 		}
-		pkg, _ := schema.Extensions["x-package"].(string)
 		models = append(models, Model{
 			SchemaName: name,
 			Schema:     schema,
-			Package:    pkg,
 			Namespace:  schemaNamespace(name),
 		})
 	}

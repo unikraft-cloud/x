@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"path/filepath"
 
 	"github.com/containerd/containerd/v2/core/content"
@@ -22,17 +23,31 @@ import (
 )
 
 func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
-	mfsts, err := Manifests(ctx, store, desc, ignoringOSFeatures(platform))
+	mfsts, err := ManifestDescriptors(ctx, store, desc, ignoringOSFeatures(platform))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
 	}
-	return loadCtrdImageMfst(ctx, store, desc, mfsts[0])
+	annotations, err := indexAnnotations(ctx, store, desc)
+	if err != nil {
+		return nil, err
+	}
+	img, err := loadCtrdImageMfst(ctx, store, desc, mfsts[0])
+	if err != nil {
+		return nil, err
+	}
+	img.IndexAnnotations = annotations
+	return img, nil
 }
 
 func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
-	mfsts, err := Manifests(ctx, store, desc, ignoringOSFeatures(platform))
+	mfsts, err := ManifestDescriptors(ctx, store, desc, ignoringOSFeatures(platform))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image manifest: %w", err)
+	}
+
+	annotations, err := indexAnnotations(ctx, store, desc)
+	if err != nil {
+		return nil, err
 	}
 
 	imgs := make([]*Image, len(mfsts))
@@ -44,6 +59,7 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 			if err != nil {
 				return fmt.Errorf("failed to load image manifest: %w", err)
 			}
+			img.IndexAnnotations = maps.Clone(annotations)
 			imgs[i] = img
 			return nil
 		})
@@ -55,15 +71,20 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 	return imgs, nil
 }
 
-func loadCtrdImageMfst(ctx context.Context, store content.Provider, desc ocispec.Descriptor, mfst ocispec.Manifest) (*Image, error) {
-	// TODO: store the descriptor of the manifest in img.desc
+// loadCtrdImageMfst loads the image whose manifest is desc, recording root as
+// what it was loaded from.
+func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec.Descriptor, desc ocispec.Descriptor) (*Image, error) {
+	mfst, err := readManifest(ctx, store, desc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read image manifest: %w", err)
+	}
 	img := &Image{
-		Provider:    store,
-		Descriptor:  desc,
-		Annotations: mfst.Annotations,
+		Descriptor:         root,
+		ManifestDescriptor: desc,
+		Annotations:        mfst.Annotations,
 	}
 
-	dt, err := content.ReadBlob(ctx, store, mfst.Config)
+	dt, err := readVerifiedBlob(ctx, store, mfst.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read image config blob: %w", err)
 	}
@@ -125,20 +146,26 @@ func (f *ContentStoreFile) Open(ctx context.Context) (rc io.ReadCloser, size int
 			r.Close()
 		}
 	}()
-	sr := io.NewSectionReader(r, 0, f.Desc.Size)
+	// NOTE: checked here: only an entry of the blob may be read and the rest
+	// thrown away, so no writer ever sees the whole blob to check it.
+	vr, err := newVerifiedReader(r, f.Desc)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	if f.Path_ == "" {
-		return readCloser{Reader: sr, Closer: r}, f.Desc.Size, nil
+		return vr, f.Desc.Size, nil
 	}
 
 	target := filepath.Join("/", f.Path_)
 
-	tr := tar.NewReader(sr)
+	tr := tar.NewReader(vr.blob)
 	hdr, rr, err := readTarFile(tr, target)
 	if err != nil {
 		return nil, 0, err
 	}
-	return readCloser{Reader: rr, Closer: r}, hdr.Size, nil
+	vr.entry, vr.remaining = rr, hdr.Size
+	return vr, hdr.Size, nil
 }
 
 func (f *ContentStoreFile) Cleanup() error {
@@ -176,9 +203,4 @@ func readTarFile(tr *tar.Reader, target string) (*tar.Header, io.Reader, error) 
 	}
 
 	return nil, nil, &fs.PathError{Op: "open", Path: target, Err: fs.ErrNotExist}
-}
-
-type readCloser struct {
-	io.Reader
-	io.Closer
 }

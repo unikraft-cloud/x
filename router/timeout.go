@@ -13,17 +13,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const requestTimeout = 10 * time.Minute
-
 type timeoutHandler struct {
 	*gin.Engine
+	timeout time.Duration // none if not positive
 }
 
 // ServeHTTP wraps the embedded Gin engine's ServeHTTP function with an injected
-// context which times out non-upgraded inbound requests after 10 minutes.
+// context which times out non-upgraded inbound requests after the timeout.
 func (th timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if upgr := r.Header.Get("Upgrade"); upgr != "" {
-		// Upgrade to wss (probably).
+	if upgr := r.Header.Get("Upgrade"); upgr != "" || th.timeout <= 0 {
+		// Upgrade to wss (probably), or no timeout at all.
 		// Leave well enough alone.
 		th.Engine.ServeHTTP(w, r)
 		return
@@ -32,7 +31,7 @@ func (th timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Create timeout ctx.
 	toCtx, cancelCtx := context.WithTimeout(
 		r.Context(),
-		requestTimeout,
+		th.timeout,
 	)
 	defer cancelCtx()
 

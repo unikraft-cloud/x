@@ -45,6 +45,13 @@ func (Kraftfile) JSONSchemaExtend(schema *jsonschema.Schema) {
 	)
 	schema.AnyOf = nil
 
+	kernelSchema, ok := schema.Properties.Get("kernel")
+	if !ok || kernelSchema == nil {
+		kernelSchema = &jsonschema.Schema{Ref: "#/$defs/Kernel"}
+		schema.Properties.Set("kernel", kernelSchema)
+	}
+	schema.Properties.Set("unikraft", kernelSchema)
+
 	labelsSchema, ok := schema.Properties.Get("labels")
 	if !ok || labelsSchema == nil {
 		labelsSchema = &jsonschema.Schema{}
@@ -54,7 +61,13 @@ func (Kraftfile) JSONSchemaExtend(schema *jsonschema.Schema) {
 	labelsObjectSchema := &jsonschema.Schema{
 		Type: "object",
 		PatternProperties: map[string]*jsonschema.Schema{
-			"^[a-zA-Z0-9._/-]+$": {Type: "string"},
+			"^[a-zA-Z0-9._/-]+$": {
+				AnyOf: []*jsonschema.Schema{
+					{Type: "string"},
+					{Type: "number"},
+					{Type: "boolean"},
+				},
+			},
 		},
 		AdditionalProperties: jsonschema.FalseSchema,
 	}
@@ -113,7 +126,7 @@ func (Template) JSONSchemaExtend(schema *jsonschema.Schema) {
 	)
 }
 
-func (Unikraft) JSONSchemaExtend(schema *jsonschema.Schema) {
+func (Kernel) JSONSchemaExtend(schema *jsonschema.Schema) {
 	objectSchema := *schema
 	objectSchema.OneOf = nil
 	objectSchema.AdditionalProperties = jsonschema.TrueSchema

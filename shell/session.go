@@ -57,6 +57,9 @@ func (s *Session) Interrupt() {
 	}
 }
 
+// Resize is the host's terminal size; a session never told one runs commands on pipes.
+func (s *Session) Resize(cols, rows int) { s.s.resize(WinSize{Cols: cols, Rows: rows}) }
+
 // Close ends the session, running the EXIT trap that ^D runs at a terminal, and
 // releases what it holds. Call it once however the session ended, not only on a
 // ^D; the trap's own status is the session's to swallow.
@@ -71,6 +74,10 @@ func (s *Session) Prompt(continuation bool) string { return s.s.prompt(continuat
 
 func (s *Session) Highlight(line string) string {
 	return s.s.paint(highlight(line, s.s.isBuiltinName))
+}
+
+func (s *Session) Complete(ctx context.Context, line []rune, cursor int) (start int, matches []string) {
+	return s.s.complete(ctx, line, cursor)
 }
 
 func AcceptMultiline(line []rune) bool { return acceptMultiline(line) }

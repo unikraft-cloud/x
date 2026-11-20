@@ -30,14 +30,8 @@ concurrency:
 jobs:
   go:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        goos:
-          - linux
-          - darwin
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup go
         uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
@@ -54,6 +48,14 @@ jobs:
         shell: bash
         run: |
           go install github.com/bufbuild/buf/cmd/buf@v1.54.0
+
+      # fsck.erofs checks the EROFS images that the image-spec tests write.
+      - name: Install erofs-utils
+        if: github.repository == 'unikraft-cloud/x'
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq erofs-utils
 
       - name: Run tests
         shell: bash

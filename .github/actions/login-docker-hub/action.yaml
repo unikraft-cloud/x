@@ -1,0 +1,22 @@
+name: login-docker-hub
+
+description: Log in to Docker Hub to avoid the anonymous pull rate limit.
+
+inputs:
+  username:
+    description: Docker Hub username
+    required: false
+  password:
+    description: Docker Hub password or access token
+    required: false
+
+runs:
+  using: composite
+  steps:
+    # Fork PRs get no secrets, so they keep pulling anonymously.
+    - name: Login to Docker Hub
+      if: ${{ inputs.username != '' && inputs.password != '' }}
+      uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+      with:
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}

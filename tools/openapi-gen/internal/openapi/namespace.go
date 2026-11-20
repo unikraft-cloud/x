@@ -6,6 +6,9 @@
 package openapi
 
 import (
+	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -42,16 +45,20 @@ func flattenModeFromString(s string) flattenMode {
 // ("strip" drops the namespace prefix, "join" concatenates segments, "" is a
 // no-op). It runs after any namespace/tag filtering so those filters can match
 // on the original "Namespace.Name" form, and it updates the given models in
-// place to stay in sync with the rewritten document.
-func (p *Parser) Flatten(models []Model, mode string) {
+// place to stay in sync with the rewritten document. It returns an error when
+// two schemas flatten to the same name.
+func (p *Parser) Flatten(models []Model, mode string) error {
 	m := flattenModeFromString(mode)
 	if m == flattenNone {
-		return
+		return nil
 	}
-	flattenNamespaces(p.doc, p, m)
+	if err := flattenNamespaces(p.doc, p, m); err != nil {
+		return err
+	}
 	for i := range models {
 		models[i].SchemaName = flattenName(models[i].SchemaName, m)
 	}
+	return nil
 }
 
 // schemaNamespace returns the namespace prefix of a schema name, or "" if the
@@ -105,10 +112,20 @@ func flattenRefString(ref string, mode flattenMode) string {
 // flattenNamespaces rewrites every namespaced schema name in the document —
 // component keys, property orders, $ref targets and inline Title type names —
 // according to mode. After this pass, all type names are valid Go identifiers
-// and the rest of the generator can remain namespace-agnostic.
-func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
+// and the rest of the generator can remain namespace-agnostic. It returns an
+// error, and changes nothing, when two schemas flatten to the same name.
+func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) error {
 	if mode == flattenNone || doc.Components == nil {
-		return
+		return nil
+	}
+
+	origins := make(map[string]string, len(doc.Components.Schemas))
+	for _, name := range slices.Sorted(maps.Keys(doc.Components.Schemas)) {
+		flat := flattenName(name, mode)
+		if other, ok := origins[flat]; ok {
+			return fmt.Errorf("schemas %q and %q both flatten to %q: rename one of them or use a different flatten mode", other, name, flat)
+		}
+		origins[flat] = name
 	}
 
 	// Rename component schema keys, flattening namespaced names (e.g.
@@ -116,8 +133,8 @@ func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
 	// valid Go identifiers. The namespace each name carried is recorded on the
 	// parser, since the flattened name no longer shows it and consumers such as
 	// goUnions need it to qualify a type from another namespace. Package-level
-	// qualification is handled separately via the "x-package" extension and the
-	// "current_package" template var (see getTypePackage).
+	// qualification is handled separately via Parser.SchemaPackage (see
+	// getTypePackage).
 	renamed := make(openapi3.Schemas, len(doc.Components.Schemas))
 	namespaces := map[string]string{}
 	for name, ref := range doc.Components.Schemas {
@@ -161,6 +178,8 @@ func flattenNamespaces(doc *openapi3.T, parser *Parser, mode flattenMode) {
 			}
 		}
 	}
+
+	return nil
 }
 
 func flattenSchemaRef(ref *openapi3.SchemaRef, mode flattenMode, seen map[*openapi3.Schema]bool) {

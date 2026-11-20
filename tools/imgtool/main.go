@@ -17,10 +17,11 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/containerd/platforms"
-	"github.com/distribution/reference"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/tonistiigi/units"
+
 	imagespec "unikraft.com/x/image-spec"
+	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/log"
 	"unikraft.com/x/version"
 )
@@ -41,13 +42,17 @@ type InspectCmd struct {
 
 func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 	insecure := c.Insecure == "source" || c.Insecure == "all"
-	uri, err := imagespec.GuessURI(c.Image)
+	loc, err := imagespec.GuessLocation(c.Image)
 	if err != nil {
 		return fmt.Errorf("parsing image reference: %w", err)
 	}
 
 	accessor := newAccessor(insecure)
-	imgs, err := accessor.LoadAll(ctx, uri, platforms.All)
+	res, err := accessor.Resolve(ctx, loc)
+	if err != nil {
+		return err
+	}
+	imgs, err := accessor.LoadAll(ctx, res, platforms.All)
 	if err != nil {
 		return err
 	}
@@ -66,14 +71,14 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 			fmt.Fprintln(w, "\n"+strings.Repeat("-", 80)+"\n")
 		}
 
-		displayName := name(img.Name, img.Descriptor)
+		displayName := name(img.Reference, img.ManifestDescriptor)
 		if displayName == "" {
 			displayName = c.Image
 		}
 		fmt.Fprintf(w, "Name: %s\n", displayName)
 		mediaType := ""
-		if img.Descriptor.MediaType != "" {
-			mediaType = img.Descriptor.MediaType
+		if img.ManifestDescriptor.MediaType != "" {
+			mediaType = img.ManifestDescriptor.MediaType
 		}
 		fmt.Fprintf(w, "MediaType: %s\n", mediaType)
 		fmt.Println()
@@ -112,14 +117,14 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 		if kernel := img.Kernel; kernel != nil {
 			kernelDesc, _ := kernel.Source()
 			fmt.Fprintf(w, "Kernel:\n")
-			fmt.Fprintf(w, "  Name: %s\n", name(img.Name, kernelDesc))
+			fmt.Fprintf(w, "  Name: %s\n", name(img.Reference, kernelDesc))
 			fmt.Fprintf(w, "  Path: %s\n", kernel.Path())
 			fmt.Fprintf(w, "  Size: %.2f\n", units.Bytes(kernelDesc.Size))
 		}
 		if initrd := img.Initrd; initrd != nil {
 			initrdDesc, _ := initrd.Source()
 			fmt.Fprintf(w, "Initrd:\n")
-			fmt.Fprintf(w, "  Name: %s\n", name(img.Name, initrdDesc))
+			fmt.Fprintf(w, "  Name: %s\n", name(img.Reference, initrdDesc))
 			fmt.Fprintf(w, "  Path: %s\n", initrd.Path())
 			fmt.Fprintf(w, "  Size: %.2f\n", units.Bytes(initrdDesc.Size))
 		}
@@ -127,7 +132,7 @@ func (c *InspectCmd) Run(ctx context.Context) (rerr error) {
 			fmt.Fprintf(w, "ROMs:\n")
 			for _, rom := range roms {
 				romDesc, _ := rom.Source()
-				fmt.Fprintf(w, "  -  Name: %s\n", name(img.Name, romDesc))
+				fmt.Fprintf(w, "  -  Name: %s\n", name(img.Reference, romDesc))
 				fmt.Fprintf(w, "     Path: %s\n", rom.Path())
 				fmt.Fprintf(w, "     Size: %.2f\n", units.Bytes(romDesc.Size))
 			}
@@ -166,17 +171,21 @@ type CopyCmd struct {
 
 func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 	insecure := c.Insecure == "source" || c.Insecure == "all"
-	src, err := imagespec.GuessURI(c.Source)
+	src, err := imagespec.GuessLocation(c.Source)
 	if err != nil {
 		return fmt.Errorf("parsing image source: %w", err)
 	}
-	dest, err := imagespec.GuessURI(c.Destination)
+	dest, err := imagespec.GuessLocation(c.Destination)
 	if err != nil {
 		return fmt.Errorf("parsing image destination: %w", err)
 	}
 
 	accessor := newAccessor(insecure)
-	imgs, err := accessor.LoadAll(ctx, src, platforms.All)
+	res, err := accessor.Resolve(ctx, src)
+	if err != nil {
+		return err
+	}
+	imgs, err := accessor.LoadAll(ctx, res, platforms.All)
 	if err != nil {
 		return err
 	}
@@ -190,7 +199,7 @@ func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 
 	insecure = c.Insecure == "destination" || c.Insecure == "all"
 	accessor = newAccessor(insecure)
-	err = accessor.Save(ctx, dest, imgs...)
+	_, err = accessor.Save(ctx, dest, imgs...)
 	if err != nil {
 		return fmt.Errorf("saving image to destination: %w", err)
 	}
@@ -206,23 +215,20 @@ type DeleteCmd struct {
 
 func (c *DeleteCmd) Run(ctx context.Context) error {
 	insecure := c.Insecure == "source" || c.Insecure == "all"
-	uri, err := imagespec.GuessURI(c.Image)
+	loc, err := imagespec.GuessLocation(c.Image)
 	if err != nil {
 		return fmt.Errorf("parsing image reference: %w", err)
 	}
 
 	accessor := newAccessor(insecure)
-	if err := accessor.Delete(ctx, uri); err != nil {
+	if err := accessor.Delete(ctx, loc); err != nil {
 		return err
 	}
 	return nil
 }
 
-func name(named reference.Named, desc ocispec.Descriptor) string {
-	result := ""
-	if named != nil {
-		result = reference.FamiliarString(named)
-	}
+func name(ref reference.Reference, desc ocispec.Descriptor) string {
+	result := ref.Format(reference.FormatOpts{})
 	if desc.Digest != "" {
 		if result != "" {
 			result += "@"

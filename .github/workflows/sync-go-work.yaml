@@ -9,11 +9,14 @@ on:
       goprivate:
         description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
         type: string
-        required: false
+        required: true
     secrets:
       gh_pat:
         description: GitHub PAT used to push the commit and start the pull request checks
         required: true
+      tooling_app_private_key:
+        description: Private key of the tooling App, with the variable TOOLING_APP_CLIENT_ID. When set, it's used instead of gh_pat.
+        required: false
 
 permissions:
   contents: read
@@ -31,14 +34,24 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Mint a token of the tooling App
+        id: app-token
+        if: vars.TOOLING_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          token: ${{ secrets.gh_pat }}
+          client-id: ${{ vars.TOOLING_APP_CLIENT_ID }}
+          private-key: ${{ secrets.tooling_app_private_key }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token || secrets.gh_pat }}
 
       - name: Setup go
         uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
         with:
-          gh_pat: ${{ secrets.gh_pat }}
+          gh_pat: ${{ steps.app-token.outputs.token || secrets.gh_pat }}
           goprivate: ${{ inputs.goprivate }}
 
       - name: Refresh go.work.sum

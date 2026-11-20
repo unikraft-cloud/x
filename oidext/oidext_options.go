@@ -11,6 +11,8 @@ type EncodeOption func(*encodeConfig)
 type encodeConfig struct {
 	// If true, fields without an `oid` tag are ignored instead of erroring.
 	ignoreUntagged bool
+	// If true, the extension encoded from a non-struct value is critical.
+	critical bool
 }
 
 func defaultDecodeConfig() *decodeConfig {
@@ -25,6 +27,14 @@ func defaultDecodeConfig() *decodeConfig {
 func WithEncodeIgnoreUntagged() EncodeOption {
 	return func(c *encodeConfig) {
 		c.ignoreUntagged = true
+	}
+}
+
+// WithEncodeCritical marks the extension encoded from a non-struct value as
+// critical. Struct fields set criticality with their own tags instead.
+func WithEncodeCritical() EncodeOption {
+	return func(c *encodeConfig) {
+		c.critical = true
 	}
 }
 

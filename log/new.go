@@ -14,7 +14,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	otellog "go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel"
 )
 
 // Config describes the sinks a Logger writes to. Each sink filters
@@ -66,7 +66,7 @@ func New(ctx context.Context, cfg Config) (*Logger, error) {
 
 	var err error
 	if cfg.Telemetry != nil {
-		provider := otellog.GetLoggerProvider()
+		provider := otel.GetLoggerProvider()
 		if provider == nil {
 			err = fmt.Errorf("telemetry not initialized")
 		} else {

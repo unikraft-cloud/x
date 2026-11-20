@@ -77,6 +77,7 @@ type state struct {
 	interactive bool
 	onTerminal  bool
 	noShell     bool
+	commands    []string
 	tty         *os.File
 	stdin       *os.File
 	profile     colorprofile.Profile
@@ -85,6 +86,11 @@ type state struct {
 	interrupts  chan os.Signal
 	exiting     atomic.Bool
 	euid        string
+
+	sizeMu   sync.Mutex
+	terminal bool // a size has been told: the console is a terminal
+	size     WinSize
+	resized  chan WinSize // the running terminal command's Resize, nil between commands
 
 	statsMu  sync.Mutex
 	stats    map[statKey]fs.FileInfo
@@ -141,6 +147,10 @@ func newState(ctx context.Context, cfg Config, streams stdio.Stdio) (*state, err
 	s.console = console{
 		Out: lockWriter(&terminal, &colorprofile.Writer{Forward: streams.Stdout, Profile: s.profile}),
 		Err: lockWriter(&terminal, &colorprofile.Writer{Forward: streams.Stderr, Profile: s.profile}),
+	}
+	// A pty merges stderr into stdout, so a redirected stderr keeps the pipes.
+	if s.onTerminal && xio.IsTTY(streams.Stderr) {
+		s.resize(s.measure())
 	}
 
 	env, err := s.environ(ctx)
@@ -246,6 +256,9 @@ func (s *state) runInteractive(ctx context.Context) (int, error) {
 	stop := s.captureInterrupts()
 	defer stop()
 	defer s.plainKeys()()
+	if out, ok := s.console.Out.(interface{ Fd() uintptr }); ok && s.terminal {
+		defer FollowSize(out.Fd(), s.resize)()
+	}
 
 	if s.cfg.Banner != "" {
 		fmt.Fprintln(s.console.Err, bannerStyle.Render(s.cfg.Banner))
@@ -257,6 +270,9 @@ func (s *state) runInteractive(ctx context.Context) (int, error) {
 		prompt:    s.prompt,
 		paint:     s.paint,
 		isBuiltin: s.isBuiltinName,
+		complete: func(line []rune, cursor int) (int, []candidate, error) {
+			return s.completions(ctx, line, cursor)
+		},
 	})
 
 	for {
@@ -312,6 +328,7 @@ func (s *state) runInput(ctx context.Context, input string) (status int, exited 
 // runFile runs a parsed input statement by statement, and reports whether the
 // session is to end, with the status it asked for
 func (s *state) runFile(ctx context.Context, prog *syntax.File) (status int, exited bool) {
+	defer func() { s.commands = nil }()
 	// Only what was typed before the line is stale; a ^C between two of its
 	// statements is this line's to answer, and the next statement answers it.
 	for drained := false; !drained; {
@@ -356,6 +373,8 @@ func (s *state) runStmt(ctx context.Context, stmt *syntax.Stmt) (status int, int
 		wg   sync.WaitGroup
 		done = make(chan struct{})
 	)
+	// A terminal command its ^C killed ends the statement the way a ^C here does.
+	stmtCtx = context.WithValue(stmtCtx, interruptedKey{}, func() { hit.Store(true); cancel() })
 
 	// A ^C from earlier in the line, when no statement was watching for one.
 	select {
@@ -392,6 +411,9 @@ func (s *state) runStmt(ctx context.Context, stmt *syntax.Stmt) (status int, int
 	s.clearInterrupt(ctx)
 	return StatusInterrupted, true, nil
 }
+
+// interruptedKey carries a statement's own ^C to the command that saw it on its pty.
+type interruptedKey struct{}
 
 func mustParse(src string) *syntax.File {
 	prog, err := syntax.NewParser().Parse(strings.NewReader(src), "")
