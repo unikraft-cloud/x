@@ -53,5 +53,5 @@ require (
 	unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1 // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1 // indirect
 	unikraft.com/x/io v0.0.0-20260917091642-9e44538566da // indirect
-	unikraft.com/x/log v0.0.0-20261001175239-9a0204088d3c // indirect
+	unikraft.com/x/log v0.0.0-20261116145447-f4dbf6ae0056 // indirect
 )
