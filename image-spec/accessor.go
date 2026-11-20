@@ -15,6 +15,7 @@ import (
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
 	distref "github.com/distribution/reference"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/image-spec/schemes"
@@ -252,24 +253,7 @@ func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Imag
 		if err != nil {
 			return Resolved{}, err
 		}
-		requested, err := reference.FromNamed(named)
-		if err != nil {
-			return Resolved{}, fmt.Errorf("parsing image reference %q: %w", dest, err)
-		}
-		canonical, err := distref.WithDigest(distref.TrimNamed(named), desc.Digest)
-		if err != nil {
-			return Resolved{}, fmt.Errorf("saved image %q has an invalid digest: %w", named, err)
-		}
-		resolved, err := registryResolvedReference(named, desc)
-		if err != nil {
-			return Resolved{}, err
-		}
-		return Resolved{
-			Reference:         requested,
-			ResolvedReference: resolved,
-			Location:          Location{Scheme: schemes.OCI, Path: canonical.String()},
-			Descriptor:        desc,
-		}, nil
+		return savedRegistryImage(dest, named, desc)
 	case schemes.OCILayout:
 		path, tag := splitPathTag(dest.Path)
 		if tag == "" {
@@ -289,6 +273,28 @@ func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Imag
 	default:
 		return Resolved{}, fmt.Errorf("unsupported location scheme: %q", dest.Scheme)
 	}
+}
+
+// savedRegistryImage returns dest, where named was saved as desc, pinned to desc.
+func savedRegistryImage(dest *Location, named distref.Named, desc ocispec.Descriptor) (Resolved, error) {
+	requested, err := reference.FromNamed(named)
+	if err != nil {
+		return Resolved{}, fmt.Errorf("parsing image reference %q: %w", dest, err)
+	}
+	canonical, err := distref.WithDigest(distref.TrimNamed(named), desc.Digest)
+	if err != nil {
+		return Resolved{}, fmt.Errorf("saved image %q has an invalid digest: %w", named, err)
+	}
+	resolved, err := registryResolvedReference(named, desc)
+	if err != nil {
+		return Resolved{}, err
+	}
+	return Resolved{
+		Reference:         requested,
+		ResolvedReference: resolved,
+		Location:          Location{Scheme: schemes.OCI, Path: canonical.String()},
+		Descriptor:        desc,
+	}, nil
 }
 
 func (accessor *Accessor) Delete(ctx context.Context, target *Location) error {

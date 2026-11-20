@@ -17,11 +17,13 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/containerd/platforms"
+	distref "github.com/distribution/reference"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/tonistiigi/units"
 
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/image-spec/reference"
+	"unikraft.com/x/image-spec/schemes"
 	"unikraft.com/x/log"
 	"unikraft.com/x/version"
 )
@@ -169,8 +171,7 @@ type CopyCmd struct {
 	Insecure string `help:"Allow insecure connections when accessing remote images" enum:"source,destination,all,none" default:"none"`
 }
 
-func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
-	insecure := c.Insecure == "source" || c.Insecure == "all"
+func (c *CopyCmd) Run(ctx context.Context) error {
 	src, err := imagespec.GuessLocation(c.Source)
 	if err != nil {
 		return fmt.Errorf("parsing image source: %w", err)
@@ -180,30 +181,29 @@ func (c *CopyCmd) Run(ctx context.Context) (rerr error) {
 		return fmt.Errorf("parsing image destination: %w", err)
 	}
 
-	accessor := newAccessor(insecure)
-	res, err := accessor.Resolve(ctx, src)
-	if err != nil {
-		return err
-	}
-	imgs, err := accessor.LoadAll(ctx, res, platforms.All)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		for _, img := range imgs {
-			if err := img.Close(); err != nil {
-				rerr = errors.Join(rerr, err)
-			}
+	// One accessor reaches both, so it reaches the registry of each insecure side over plain HTTP.
+	var hosts []string
+	for _, side := range []struct {
+		loc      *imagespec.Location
+		insecure bool
+	}{
+		{src, c.Insecure == "source" || c.Insecure == "all"},
+		{dest, c.Insecure == "destination" || c.Insecure == "all"},
+	} {
+		if !side.insecure || side.loc.Scheme != schemes.OCI {
+			continue
 		}
-	}()
-
-	insecure = c.Insecure == "destination" || c.Insecure == "all"
-	accessor = newAccessor(insecure)
-	_, err = accessor.Save(ctx, dest, imgs...)
-	if err != nil {
-		return fmt.Errorf("saving image to destination: %w", err)
+		named, err := reference.ParseNormalizedNamed(side.loc.Path)
+		if err != nil {
+			return fmt.Errorf("parsing image reference %q: %w", side.loc.Path, err)
+		}
+		hosts = append(hosts, distref.Domain(named))
 	}
 
+	accessor := newAccessor(len(hosts) > 0, hosts...)
+	if _, err := accessor.Copy(ctx, imagespec.Resolved{Location: *src}, dest, nil); err != nil {
+		return fmt.Errorf("copying image to destination: %w", err)
+	}
 	return nil
 }
 
