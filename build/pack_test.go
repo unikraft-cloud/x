@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
@@ -138,6 +139,42 @@ func TestPackInSolve(t *testing.T) {
 	opts.Rootfs.Path = filepath.Join(links, "Dockerfile")
 	_, err = b.BuildRootfs(t.Context(), opts)
 	require.ErrorIs(t, err, ErrTooLarge, "a packed rootfs over the limit is ErrTooLarge")
+}
+
+// TestDockerfileIsDatedByItsBase builds an image from a Dockerfile on the
+// buildkitd at BUILDKIT_HOST, and expects the date of its base image.
+func TestDockerfileIsDatedByItsBase(t *testing.T) {
+	addr := os.Getenv("BUILDKIT_HOST")
+	if addr == "" {
+		t.Skip("BUILDKIT_HOST must name a buildkitd")
+	}
+	c, err := client.New(t.Context(), addr)
+	require.NoError(t, err)
+	t.Cleanup(func() { c.Close() })
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM "+busybox+"\n"), 0o644))
+
+	b := Builder{
+		Buildkit: func(context.Context) (*client.Client, func(), error) { return c, nil, nil },
+		Session: func(context.Context) ([]session.Attachable, error) {
+			creds := registryauth.FromDockerConfig(config.LoadDefaultConfigFile(io.Discard))
+			return []session.Attachable{creds.Attachable()}, nil
+		},
+		TempDir: t.TempDir(),
+	}
+	start := time.Now()
+	imgs, err := b.Build(t.Context(), BuildOpts{
+		Rootfs:   FSOpts{Path: filepath.Join(dir, "Dockerfile"), Type: kraftfile.SourceTypeDockerfile, Format: kraftfile.FsTypeErofs},
+		Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
+	})
+	require.NoError(t, err)
+	closeImages(t, imgs)
+	require.Len(t, imgs, 1)
+
+	created := imgs[0].Metadata().Created
+	require.NotNil(t, created)
+	assert.True(t, created.Before(start), "a Dockerfile must date the image by its base, not now: got %s", created)
 }
 
 // TestPackOwners packs a directory of each LLB source built on the buildkitd at
