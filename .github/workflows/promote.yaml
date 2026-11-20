@@ -18,6 +18,9 @@ on:
       gh_pat:
         description: GitHub PAT used to open the PR, so that its checks run
         required: true
+      tooling_app_private_key:
+        description: Private key of the tooling App, with the variable TOOLING_APP_CLIENT_ID. When set, it's used instead of gh_pat.
+        required: false
 
 permissions:
   contents: read
@@ -30,9 +33,20 @@ jobs:
       group: promote-${{ inputs.to || 'prod-stable' }}
 
     steps:
+      - name: Mint a token of the tooling App
+        id: app-token
+        if: vars.TOOLING_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.TOOLING_APP_CLIENT_ID }}
+          private-key: ${{ secrets.tooling_app_private_key }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: write
+
       - name: Open promotion PR
         env:
-          GH_TOKEN: ${{ secrets.gh_pat }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.gh_pat }}
           GH_REPO: ${{ github.repository }}
           FROM: ${{ inputs.from || 'prod-staging' }}
           TO: ${{ inputs.to || 'prod-stable' }}
