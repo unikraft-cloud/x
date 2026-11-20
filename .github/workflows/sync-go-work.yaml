@@ -61,6 +61,8 @@ jobs:
         uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
         with:
           gh_pat: ${{ steps.app-token.outputs.token || secrets.gh_pat }}
+          gh_client_id: ${{ env.APP_CLIENT_ID }}
+          gh_private_key: ${{ secrets.gh_private_key || secrets.TOOLING_APP_PRIVATE_KEY }}
           goprivate: ${{ inputs.goprivate }}
 
       - name: Refresh go.work.sum
