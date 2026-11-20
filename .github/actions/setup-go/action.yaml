@@ -4,7 +4,13 @@ description: Setup all the tools required for our go actions
 
 inputs:
   gh_pat:
-    description: GitHub PAT for accessing private repositories
+    description: GitHub token for accessing private repositories
+    required: false
+  gh_client_id:
+    description: Client ID of a GitHub App to mint a token from, instead of using gh_pat
+    required: false
+  gh_private_key:
+    description: Private key of the GitHub App in gh_client_id
     required: false
   goprivate:
     description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
@@ -36,11 +42,24 @@ runs:
       run: |
         git config --global gc.auto 0
 
+    # Private modules live in other repositories, so this isn't scoped to this one.
+    - name: Mint a token of the GitHub App
+      id: app-token
+      if: ${{ inputs.gh_client_id != '' && inputs.gh_private_key != '' }}
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        client-id: ${{ inputs.gh_client_id }}
+        private-key: ${{ inputs.gh_private_key }}
+        owner: ${{ github.repository_owner }}
+        permission-contents: read
+
     - name: Login to GitHub
-      if: ${{ inputs.gh_pat != '' }}
+      if: ${{ steps.app-token.outputs.token != '' || inputs.gh_pat != '' }}
       shell: bash
+      env:
+        TOKEN: ${{ steps.app-token.outputs.token || inputs.gh_pat }}
       run: |
-        git config --global url."https://x-access-token:${{ inputs.gh_pat }}@github.com/".insteadOf "https://github.com/"
+        git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
 
     - name: Detect Go version file
       id: goversionfile
