@@ -22,7 +22,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260812204455-68fa937c71be // indirect
-	github.com/charmbracelet/x/ansi v0.11.9 // indirect
+	github.com/charmbracelet/x/ansi v0.11.10 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
@@ -53,5 +53,5 @@ require (
 	unikraft.com/x/colors v0.0.0-20260904140856-1944f6df62e1 // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1 // indirect
 	unikraft.com/x/io v0.0.0-20260917091642-9e44538566da // indirect
-	unikraft.com/x/log v0.0.0-20261001175239-9a0204088d3c // indirect
+	unikraft.com/x/log v0.0.0-20261116145447-f4dbf6ae0056 // indirect
 )
