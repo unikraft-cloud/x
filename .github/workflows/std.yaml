@@ -16,9 +16,16 @@ on:
         description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
         type: string
         required: false
+      gh_client_id:
+        description: Client ID of a GitHub App to mint a token from, instead of using gh_pat
+        type: string
+        required: false
     secrets:
       gh_pat:
         description: GitHub PAT for accessing private repositories
+        required: false
+      gh_private_key:
+        description: Private key of the GitHub App in gh_client_id
         required: false
 
 
@@ -37,6 +44,9 @@ jobs:
         uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
         with:
           gh_pat: ${{ secrets.gh_pat }}
+          # Direct runs have no inputs, so they use this repository's App.
+          gh_client_id: ${{ inputs.gh_client_id || vars.TOOLING_APP_CLIENT_ID }}
+          gh_private_key: ${{ secrets.gh_private_key || secrets.TOOLING_APP_PRIVATE_KEY }}
           goprivate: ${{ inputs.goprivate }}
 
       - name: Run checks
