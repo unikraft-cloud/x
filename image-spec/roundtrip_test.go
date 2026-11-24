@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"io"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,6 +182,76 @@ func TestLoadSaveLoad(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestSaveKeepsPartPaths(t *testing.T) {
+	kinds := map[string]func(t *testing.T, store content.Ingester, entries ...tarEntry) ocispec.Descriptor{
+		"plain": func(t *testing.T, store content.Ingester, entries ...tarEntry) ocispec.Descriptor {
+			return writeLayer(t, store, ocispec.MediaTypeImageLayer, tarLayer(t, entries...))
+		},
+		"gzip": gzipTarLayer,
+		"zstd": zstdTarLayer,
+	}
+	for name, layer := range kinds {
+		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
+			dir := t.TempDir()
+			store, err := local.NewStore(dir)
+			require.NoError(t, err)
+
+			want := map[string]string{
+				AnnotationKernelPath:       "/boot/kernel",
+				AnnotationKernelDbgPath:    "/boot/kernel.dbg",
+				AnnotationKernelInitrdPath: "/boot/initrd",
+			}
+			var layers []ocispec.Descriptor
+			for _, annotation := range []string{AnnotationKernelPath, AnnotationKernelDbgPath, AnnotationKernelInitrdPath} {
+				desc := layer(t, store, tarEntry{strings.TrimPrefix(want[annotation], "/"), []byte(annotation)})
+				desc.Annotations = map[string]string{annotation: want[annotation]}
+				layers = append(layers, desc)
+			}
+			mfst := writeJSON(t, store, ocispec.MediaTypeImageManifest, ocispec.Manifest{
+				SchemaVersion: 2, MediaType: ocispec.MediaTypeImageManifest,
+				Config: writeJSON(t, store, ocispec.MediaTypeImageConfig, ocispec.Image{Platform: fcIntel}),
+				Layers: layers,
+			})
+			a := NewAccessor()
+
+			var loads [][]*Image
+			src := Resolved{Location: Location{Scheme: schemes.OCILayout, Path: dir}, Descriptor: mfst}
+			for i := range 3 {
+				loaded, err := a.LoadAll(ctx, src, platforms.All)
+				require.NoError(t, err)
+				img := loaded[0]
+				for annotation, part := range map[string]File{AnnotationKernelPath: img.Kernel, AnnotationKernelDbgPath: img.KernelDebug, AnnotationKernelInitrdPath: img.Initrd} {
+					require.Equal(t, want[annotation], part.Path(), "load %d", i)
+					require.Equal(t, annotation, readPart(t, part), "load %d", i)
+				}
+				loads = append(loads, loaded)
+
+				src, err = a.Save(ctx, &Location{Scheme: schemes.OCILayout, Path: t.TempDir() + ":v1"}, loaded...)
+				require.NoError(t, err)
+			}
+			require.Equal(t, loadedImages(t, loads[1]), loadedImages(t, loads[2]))
+		})
+	}
+
+	t.Run("a source without the path", func(t *testing.T) {
+		ctx := t.Context()
+		dir := t.TempDir()
+		store, err := local.NewStore(dir)
+		require.NoError(t, err)
+
+		// A part that is a whole blob, as a ROM is, goes into a new tar at the well-known path.
+		rom := writeLayer(t, store, MediaTypeRom, []byte("kernel"))
+		a := NewAccessor()
+		saved, err := a.Save(ctx, &Location{Scheme: schemes.OCILayout, Path: dir + ":v1"}, NewImage(WithKernel(NewContentStoreFile(store, rom, ""))))
+		require.NoError(t, err)
+		img, err := a.Load(ctx, saved, platforms.All)
+		require.NoError(t, err)
+		require.Equal(t, WellKnownKernelPath, img.Kernel.Path())
+		require.Equal(t, "kernel", readPart(t, img.Kernel))
+	})
 }
 
 func TestSaveKeepsEdits(t *testing.T) {
