@@ -161,6 +161,44 @@ func TestSaveKeepsEdits(t *testing.T) {
 	require.Equal(t, kernel.Digest, got.Digest)
 }
 
+func TestSaveToRegistry(t *testing.T) {
+	images := func() []*Image { return []*Image{unikraftImage(fcIntel), unikraftImage(fcArm)} }
+	want, err := SaveContent(t.Context(), mustStore(t, t.TempDir()), "latest", images()...)
+	require.NoError(t, err)
+	mfsts := make([]string, 0, 2)
+	for _, img := range images() {
+		mfst, err := SaveManifest(t.Context(), mustStore(t, t.TempDir()), "latest", img)
+		require.NoError(t, err)
+		mfsts = append(mfsts, mfst.Digest.String())
+	}
+
+	t.Run("only the root goes to the tag", func(t *testing.T) {
+		reg, host, resolver := startTestRegistry(t)
+		saved, err := NewAccessor(WithResolver(resolver)).Save(t.Context(), &Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}, images()...)
+		require.NoError(t, err)
+		require.Equal(t, want.Digest, saved.Descriptor.Digest)
+
+		puts := reg.manifestPuts()
+		require.Len(t, puts, 3)
+		require.ElementsMatch(t, mfsts, puts[:2])
+		require.Equal(t, "v1", puts[2])
+	})
+
+	t.Run("a failed root leaves the tag", func(t *testing.T) {
+		ctx := t.Context()
+		reg, host, resolver := startTestRegistry(t)
+		a := NewAccessor(WithResolver(resolver))
+		dest := &Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}
+		old, err := a.Save(ctx, dest, unikraftImage(fcIntel, WithRom(NewStaticFile("rom", []byte("old")))))
+		require.NoError(t, err)
+
+		reg.refuse(want.Digest)
+		_, err = a.Save(ctx, dest, images()...)
+		require.ErrorContains(t, err, "400 Bad Request")
+		require.Equal(t, old.Descriptor.Digest, reg.tag("acme/app", "v1"))
+	})
+}
+
 func TestLoadRefusesOtherLayers(t *testing.T) {
 	ctx := t.Context()
 	store, err := local.NewStore(t.TempDir())

@@ -30,11 +30,16 @@ import (
 )
 
 func SaveContent(ctx context.Context, store content.Ingester, ref string, images ...*Image) (ocispec.Descriptor, error) {
+	return saveContent(ctx, store, store, ref, images...)
+}
+
+// saveContent saves images to store, and their index to tagged.
+func saveContent(ctx context.Context, store, tagged content.Ingester, ref string, images ...*Image) (ocispec.Descriptor, error) {
 	mfstDescs, err := saveManifests(ctx, store, ref, images...)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	store = ingestRef(store, ref)
+	tagged = ingestRef(tagged, ref)
 
 	idxAnnotations := map[string]string{}
 	for _, image := range images {
@@ -46,7 +51,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 		Manifests:     mfstDescs,
 		Annotations:   idxAnnotations,
 	}
-	idxDesc, err := packageJSON(ctx, store, idx.MediaType, idx)
+	idxDesc, err := packageJSON(ctx, tagged, idx.MediaType, idx)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to package index: %w", err)
 	}

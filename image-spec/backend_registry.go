@@ -151,9 +151,13 @@ func SaveRegistryImage(ctx context.Context, named distref.Named, remote remotes.
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to get pusher for image %q: %w", named, err)
 	}
-	ingester := contentutil.FromPusher(pusher)
+	// A pusher of a name without a tag puts each manifest by its digest.
+	byDigest, err := remote.Pusher(ctx, named.Name())
+	if err != nil {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to get pusher for image %q: %w", named, err)
+	}
 
-	desc, err := SaveContent(ctx, ingester, named.Name(), image...)
+	desc, err := saveContent(ctx, contentutil.FromPusher(byDigest), contentutil.FromPusher(pusher), named.Name(), image...)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to save image %q: %w", named, err)
 	}
