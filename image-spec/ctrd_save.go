@@ -15,6 +15,7 @@ import (
 	"io"
 	"maps"
 	"net/url"
+	"os"
 	"slices"
 	"strings"
 
@@ -69,22 +70,25 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 		if image.skippedLayers {
 			return nil, fmt.Errorf("image %s has layers that are not Unikraft parts, which a save cannot write: copy it with Accessor.Copy", image.ManifestDescriptor.Digest)
 		}
+		if image.Compression != CompressionNone && image.Compression != CompressionZstd {
+			return nil, fmt.Errorf("image %s: unknown compression %q", image.ManifestDescriptor.Digest, image.Compression)
+		}
 	}
 	store = ingestRef(store, ref)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	imageLayers := make([][]*ocispec.Descriptor, len(images))
+	imageLayers := make([][]*savedLayer, len(images))
 
 	for i, image := range images {
-		var layers []*ocispec.Descriptor
+		var layers []*savedLayer
 
 		// Kernel layer
 		if image.Kernel != nil {
-			layer := new(ocispec.Descriptor)
+			layer := new(savedLayer)
 			layers = append(layers, layer)
 			eg.Go(func() error {
-				kernelDesc, err := packageLayer(egCtx, store, image, image.Kernel, ocispec.MediaTypeImageLayer, WellKnownKernelPath)
+				kernelDesc, diffID, err := packageLayer(egCtx, store, image, image.Kernel, ocispec.MediaTypeImageLayer, WellKnownKernelPath, image.Compression)
 				if err != nil {
 					return fmt.Errorf("failed to package kernel: %w", err)
 				}
@@ -93,17 +97,17 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 					kernelDesc.Annotations = make(map[string]string)
 				}
 				kernelDesc.Annotations[AnnotationKernelPath] = WellKnownKernelPath
-				*layer = kernelDesc
+				*layer = savedLayer{kernelDesc, diffID}
 				return nil
 			})
 		}
 
 		// Kernel debug layer
 		if image.KernelDebug != nil {
-			layer := new(ocispec.Descriptor)
+			layer := new(savedLayer)
 			layers = append(layers, layer)
 			eg.Go(func() error {
-				kernelDesc, err := packageLayer(egCtx, store, image, image.KernelDebug, ocispec.MediaTypeImageLayer, WellKnownKernelDbgPath)
+				kernelDesc, diffID, err := packageLayer(egCtx, store, image, image.KernelDebug, ocispec.MediaTypeImageLayer, WellKnownKernelDbgPath, image.Compression)
 				if err != nil {
 					return fmt.Errorf("failed to package kernel: %w", err)
 				}
@@ -112,17 +116,17 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 					kernelDesc.Annotations = make(map[string]string)
 				}
 				kernelDesc.Annotations[AnnotationKernelDbgPath] = WellKnownKernelDbgPath
-				*layer = kernelDesc
+				*layer = savedLayer{kernelDesc, diffID}
 				return nil
 			})
 		}
 
 		// Initrd layer
 		if image.Initrd != nil {
-			layer := new(ocispec.Descriptor)
+			layer := new(savedLayer)
 			layers = append(layers, layer)
 			eg.Go(func() error {
-				initrdDesc, err := packageLayer(egCtx, store, image, image.Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
+				initrdDesc, diffID, err := packageLayer(egCtx, store, image, image.Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath, image.Compression)
 				if err != nil {
 					return fmt.Errorf("failed to package initrd: %w", err)
 				}
@@ -131,21 +135,21 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 					initrdDesc.Annotations = make(map[string]string)
 				}
 				initrdDesc.Annotations[AnnotationKernelInitrdPath] = WellKnownInitrdPath
-				*layer = initrdDesc
+				*layer = savedLayer{initrdDesc, diffID}
 				return nil
 			})
 		}
 
 		// ROM layers
 		for _, rom := range image.Roms {
-			layer := new(ocispec.Descriptor)
+			layer := new(savedLayer)
 			layers = append(layers, layer)
 			eg.Go(func() error {
-				romDesc, err := packageLayer(egCtx, store, image, rom, MediaTypeRom, "")
+				romDesc, diffID, err := packageLayer(egCtx, store, image, rom, MediaTypeRom, "", image.Compression)
 				if err != nil {
 					return fmt.Errorf("failed to package rom: %w", err)
 				}
-				*layer = romDesc
+				*layer = savedLayer{romDesc, diffID}
 				return nil
 			})
 		}
@@ -161,8 +165,9 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 
 	for i, image := range images {
 		layers := make([]ocispec.Descriptor, len(imageLayers[i]))
+		diffIDs := make([]digest.Digest, len(imageLayers[i]))
 		for j, layer := range imageLayers[i] {
-			layers[j] = *layer
+			layers[j], diffIDs[j] = layer.desc, layer.diffID
 		}
 
 		// Image
@@ -171,11 +176,7 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 			ociImage = *image.Image
 		}
 		ociImage.RootFS.Type = "layers"
-		ociImage.RootFS.DiffIDs = make([]digest.Digest, 0, len(layers))
-		for _, layer := range layers {
-			// NOTE: layers are uncompressed, so DiffID == Digest
-			ociImage.RootFS.DiffIDs = append(ociImage.RootFS.DiffIDs, layer.Digest)
-		}
+		ociImage.RootFS.DiffIDs = diffIDs
 
 		var err error
 		imgDesc, err := packageJSON(ctx, store, ocispec.MediaTypeImageConfig, &ociImage)
@@ -206,6 +207,12 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 	}
 
 	return mfstDescs, nil
+}
+
+// savedLayer is a layer of a save and the digest of its uncompressed content.
+type savedLayer struct {
+	desc   ocispec.Descriptor
+	diffID digest.Digest
 }
 
 func packageJSON(ctx context.Context, store content.Ingester, mediaType string, dt any) (ocispec.Descriptor, error) {
@@ -253,10 +260,25 @@ func packageJSON(ctx context.Context, store content.Ingester, mediaType string, 
 
 // packageCopy copies desc from input to store, and lets a pusher mount it from the registry repository source.
 func packageCopy(ctx context.Context, store content.Ingester, source reference.Reference, input content.Provider, desc ocispec.Descriptor) (ocispec.Descriptor, error) {
+	if _, err := copyBlob(ctx, store, source, input, desc, false, ""); err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	return desc, nil
+}
+
+// copyBlob is packageCopy, and if wantDiffID is set, it returns the DiffID of desc: from a copy, which decompresses
+// a compressed layer, or else from hint or a read of input, as store already has desc. It reads input at most once.
+func copyBlob(ctx context.Context, store content.Ingester, source reference.Reference, input content.Provider, desc ocispec.Descriptor, wantDiffID bool, hint digest.Digest) (digest.Digest, error) {
 	// A pusher puts the digest in its requests before it reads the blob.
 	if err := desc.Digest.Validate(); err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("blob %q: %w", desc.Digest, err)
+		return "", fmt.Errorf("blob %q: %w", desc.Digest, err)
 	}
+	compressed := wantDiffID && isCompressedLayer(desc.MediaType)
+	var diffID digest.Digest
+	if wantDiffID {
+		diffID = desc.Digest
+	}
+
 	log.G(ctx).
 		Debug().
 		Str("digest", desc.Digest.String()).
@@ -282,10 +304,16 @@ func packageCopy(ctx context.Context, store content.Ingester, source reference.R
 		log.G(ctx).Debug().
 			Str("digest", wdesc.Digest.String()).
 			Msg("layer already exists, skipping copy")
-		return desc, nil
+		switch {
+		case compressed && hint != "":
+			return hint, nil
+		case compressed:
+			return layerDiffID(ctx, input, desc, maxLayerSize)
+		}
+		return diffID, nil
 	}
 	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to create content writer: %w", err)
+		return "", fmt.Errorf("failed to create content writer: %w", err)
 	}
 	defer func() {
 		if w != nil {
@@ -294,33 +322,37 @@ func packageCopy(ctx context.Context, store content.Ingester, source reference.R
 	}()
 
 	if err := restart(w); err != nil {
-		return ocispec.Descriptor{}, err
+		return "", err
 	}
 
 	// A registry pusher resets its writer when it re-sends the upload: start over with a new reader.
-	inline := inlineData(desc)
 	for attempt := 0; ; attempt++ {
-		var r content.ReaderAt
-		if inline != nil {
-			r = inlineReaderAt{bytes.NewReader(inline)}
-		} else if r, err = input.ReaderAt(ctx, desc); err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to get reader for descriptor: %w", err)
-		}
 		// NOTE: an ingester need not check what it commits: a pusher leaves that
 		// to the registry it pushes to.
 		var vr *verifiedReader
-		vr, err = newVerifiedReader(r, desc)
+		vr, err = openVerified(ctx, input, desc)
 		if err != nil {
-			r.Close()
-			return ocispec.Descriptor{}, err
+			return "", err
 		}
-		_, err = io.Copy(w, vr)
+		var src io.Reader = vr
+		var dw *diffIDWriter
+		if compressed {
+			dw = newDiffIDWriter(ctx, desc, maxLayerSize)
+			src = io.TeeReader(vr, dw)
+		}
+		_, err = io.Copy(w, src)
 		vr.Close()
+		if dw != nil {
+			var derr error
+			if diffID, derr = dw.finish(err); derr != nil {
+				return "", derr
+			}
+		}
 		if errors.Is(err, content.ErrReset) && attempt < maxResets {
 			continue
 		}
 		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to copy content: %w", err)
+			return "", fmt.Errorf("failed to copy content: %w", err)
 		}
 		err = w.Commit(ctx, desc.Size, desc.Digest)
 		if !errors.Is(err, content.ErrReset) || attempt == maxResets {
@@ -328,28 +360,32 @@ func packageCopy(ctx context.Context, store content.Ingester, source reference.R
 		}
 	}
 	if err != nil && !errdefs.IsAlreadyExists(err) {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to commit content: %w", err)
+		return "", fmt.Errorf("failed to commit content: %w", err)
 	}
 	err = w.Close()
 	w = nil
 	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to finalize content write: %w", err)
+		return "", fmt.Errorf("failed to finalize content write: %w", err)
 	}
 
 	log.G(ctx).Debug().
 		Str("digest", desc.Digest.String()).
 		Msg("copied layer")
 
-	return desc, nil
+	return diffID, nil
 }
 
 // maxResets bounds the writes again after a reset: containerd re-sends at most that often.
 const maxResets = 4
 
-func packageLayer(ctx context.Context, store content.Ingester, image *Image, file File, mediaType string, path string) (_ ocispec.Descriptor, rerr error) {
+func packageLayer(ctx context.Context, store content.Ingester, image *Image, file File, mediaType string, path string, compression Compression) (_ ocispec.Descriptor, diffID digest.Digest, rerr error) {
 	if desc, provider := file.Source(); desc.Digest != "" && store != nil {
 		// if we have a source descriptor and provider, copy directly
-		return packageCopy(ctx, store, image.source(), provider, desc)
+		id, err := copyBlob(ctx, store, image.source(), provider, desc, true, diffIDHint(file))
+		if err != nil {
+			return ocispec.Descriptor{}, "", err
+		}
+		return desc, id, nil
 	}
 
 	log.G(ctx).
@@ -360,7 +396,7 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 
 	r, size, err := file.Open(ctx)
 	if err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, "", err
 	}
 	defer func() {
 		if r != nil {
@@ -369,6 +405,8 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 	}()
 
 	digester := digest.Canonical.Digester()
+	// diffIDDigester hashes the uncompressed content when the layer is compressed.
+	var diffIDDigester digest.Digester
 
 	// The tar of one file is its header, the file, then zeros: the padding of
 	// the file to a block and two empty blocks. No copy of the file is kept.
@@ -381,7 +419,7 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 			Size: size,
 		})
 		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to write layer tar header: %w", err)
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to write layer tar header: %w", err)
 		}
 		header = buf.Bytes()
 		trailer = make([]byte, (512-size%512)%512+1024)
@@ -395,8 +433,18 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		}
 	}
 
+	// tmp holds a compressed layer, as its digest covers the compressed bytes.
+	var tmp *os.File
+
 	// rewind takes reader back to its start for another write.
 	rewind := func() error {
+		if tmp != nil {
+			if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+				return fmt.Errorf("failed to rewind layer content: %w", err)
+			}
+			reader = tmp
+			return nil
+		}
 		if seeker, ok := r.(io.Seeker); ok {
 			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
 				return fmt.Errorf("failed to rewind layer content: %w", err)
@@ -416,21 +464,63 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 
 	layer()
 	want := int64(len(header)) + size + int64(len(trailer))
-	size, err = io.Copy(digester.Hash(), reader)
-	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to read layer content: %w", err)
-	}
-	if path != "" && size != want {
-		return ocispec.Descriptor{}, fmt.Errorf("layer tar is %d bytes, expected %d: file size changed", size, want)
+	if path != "" && compression == CompressionZstd && mediaType == ocispec.MediaTypeImageLayer {
+		tmp, err = os.CreateTemp("", "imagespec-layer-*")
+		if err != nil {
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to create temp layer file: %w", err)
+		}
+		defer func() {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}()
+		zw, err := newZstdWriter(io.MultiWriter(tmp, digester.Hash()))
+		if err != nil {
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to compress layer: %w", err)
+		}
+		diffIDDigester = digest.Canonical.Digester()
+		n, err := io.Copy(io.MultiWriter(zw, diffIDDigester.Hash()), reader)
+		if err != nil {
+			zw.Close()
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to read layer content: %w", err)
+		}
+		if n != want {
+			zw.Close()
+			return ocispec.Descriptor{}, "", fmt.Errorf("layer tar is %d bytes, expected %d: file size changed", n, want)
+		}
+		if err := zw.Close(); err != nil {
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to compress layer: %w", err)
+		}
+		// The writes read tmp, so close the source now.
+		err = r.Close()
+		r = nil
+		if err != nil {
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to read layer content: %w", err)
+		}
+		if size, err = tmp.Seek(0, io.SeekCurrent); err != nil {
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to size compressed layer: %w", err)
+		}
+		mediaType = ocispec.MediaTypeImageLayerZstd
+	} else {
+		size, err = io.Copy(digester.Hash(), reader)
+		if err != nil {
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to read layer content: %w", err)
+		}
+		if path != "" && size != want {
+			return ocispec.Descriptor{}, "", fmt.Errorf("layer tar is %d bytes, expected %d: file size changed", size, want)
+		}
 	}
 	if err := rewind(); err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, "", err
 	}
 
 	desc := ocispec.Descriptor{
 		MediaType: mediaType,
 		Size:      size,
 		Digest:    digester.Digest(),
+	}
+	diffID = desc.Digest
+	if diffIDDigester != nil {
+		diffID = diffIDDigester.Digest()
 	}
 	w, err := content.OpenWriter(ctx, store, content.WithDescriptor(desc))
 	if errdefs.IsAlreadyExists(err) {
@@ -439,9 +529,9 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 			Str("path", path).
 			Str("digest", desc.Digest.String()).
 			Msg("packaged pre-existing layer")
-		return desc, nil
+		return desc, diffID, nil
 	} else if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to create layer content writer: %w", err)
+		return ocispec.Descriptor{}, "", fmt.Errorf("failed to create layer content writer: %w", err)
 	}
 	defer func() {
 		if w != nil {
@@ -449,7 +539,7 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		}
 	}()
 	if err := restart(w); err != nil {
-		return ocispec.Descriptor{}, err
+		return ocispec.Descriptor{}, "", err
 	}
 
 	// A registry pusher resets its writer when it re-sends the upload, so
@@ -457,7 +547,7 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 	for attempt := 0; ; attempt++ {
 		if attempt > 0 {
 			if err := rewind(); err != nil {
-				return ocispec.Descriptor{}, err
+				return ocispec.Descriptor{}, "", err
 			}
 		}
 		_, err = io.Copy(w, reader)
@@ -465,7 +555,7 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 			continue
 		}
 		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
+			return ocispec.Descriptor{}, "", fmt.Errorf("failed to buffer layer content: %w", err)
 		}
 		err = w.Commit(ctx, desc.Size, desc.Digest)
 		if !errors.Is(err, content.ErrReset) || attempt == maxResets {
@@ -485,15 +575,15 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 			Str("digest", desc.Digest.String()).
 			Msg("packaged pre-existing layer")
 	} else {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to commit layer content: %w", err)
+		return ocispec.Descriptor{}, "", fmt.Errorf("failed to commit layer content: %w", err)
 	}
 
 	err = w.Close()
 	w = nil
 	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to finalize layer content write: %w", err)
+		return ocispec.Descriptor{}, "", fmt.Errorf("failed to finalize layer content write: %w", err)
 	}
-	return desc, nil
+	return desc, diffID, nil
 }
 
 // restart truncates what an earlier write left under the ref of w, which a local store resumes.
@@ -517,6 +607,25 @@ func inlineData(desc ocispec.Descriptor) []byte {
 		return nil
 	}
 	return desc.Data
+}
+
+// openVerified returns a verified reader of desc, from the data that desc embeds or else from input.
+func openVerified(ctx context.Context, input content.Provider, desc ocispec.Descriptor) (*verifiedReader, error) {
+	var r content.ReaderAt
+	if inline := inlineData(desc); inline != nil {
+		r = inlineReaderAt{bytes.NewReader(inline)}
+	} else {
+		var err error
+		if r, err = input.ReaderAt(ctx, desc); err != nil {
+			return nil, fmt.Errorf("failed to get reader for descriptor: %w", err)
+		}
+	}
+	vr, err := newVerifiedReader(r, desc)
+	if err != nil {
+		r.Close()
+		return nil, err
+	}
+	return vr, nil
 }
 
 // inlineReaderAt is a content.ReaderAt of the data that a descriptor embeds.
