@@ -36,7 +36,7 @@ const maxBlobCopies = 8
 // maxCacheSize bounds the bytes that the blob cache of one copy keeps.
 const maxCacheSize int64 = 64 << 20
 
-// Copy copies the image of src to dest blob by blob, so every digest stays, and pins dest to the root; platform (nil for all) selects the manifests of an index, which is copied whole.
+// Copy copies the image of src to dest blob by blob, so every digest stays, and pins dest to the root; platform (nil for all) selects the manifests of an index as Load does.
 func (accessor *Accessor) Copy(ctx context.Context, src Resolved, dest *Location, platform platforms.MatchComparer) (_ Resolved, rerr error) {
 	src, err := accessor.pin(ctx, src)
 	if err != nil {
@@ -139,9 +139,8 @@ func copyContent(ctx context.Context, provider content.Provider, store, tagged c
 		return ocispec.Descriptor{}, fmt.Errorf("root %s has the media type %q, which is not that of a manifest or an index", root.Digest, root.MediaType)
 	}
 	provider = newBlobCache(provider, maxCacheSize)
+	sel := &selection{provider: provider, platform: ignoringOSFeatures(platform), kept: map[digest.Digest][]ocispec.Descriptor{}}
 	var walked []ocispec.Descriptor
-	kept := map[digest.Digest][]ocispec.Descriptor{} // the entries of each index that platform selects
-	children := images.ChildrenHandler(provider)
 	handler := images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 		// A pusher puts the digest in its requests before it reads the blob.
 		if err := desc.Digest.Validate(); err != nil {
@@ -152,32 +151,23 @@ func copyContent(ctx context.Context, provider content.Provider, store, tagged c
 			return nil, images.ErrSkipDesc
 		}
 		walked = append(walked, desc)
-		if images.IsManifestType(desc.MediaType) || images.IsIndexType(desc.MediaType) {
-			// children reads with no size limit and no digest check: give it the verified data.
-			data, err := readVerifiedBlob(ctx, provider, desc, docker.MaxManifestSize)
+		if images.IsIndexType(desc.MediaType) {
+			entries, err := sel.entries(ctx, desc)
 			if err != nil {
 				return nil, err
 			}
-			desc.Data = data
-		}
-		descs, err := children(ctx, desc)
-		if err != nil {
-			return nil, err
-		}
-		if images.IsIndexType(desc.MediaType) {
-			if platform != nil {
-				descs = slices.DeleteFunc(slices.Clone(descs), func(d ocispec.Descriptor) bool {
-					return d.Platform != nil && !platform.Match(*d.Platform)
-				})
-				if len(descs) == 0 {
-					return nil, fmt.Errorf("no manifest of index %s matches the platform: %w", desc.Digest, errdefs.ErrNotFound)
-				}
+			// A parent drops an index that keeps nothing, so only the root can get here with nothing.
+			if sel.platform != nil && len(entries) == 0 {
+				return nil, fmt.Errorf("no manifest of index %s matches the platform: %w", desc.Digest, errdefs.ErrNotFound)
 			}
-			kept[desc.Digest] = descs
-			return descs, nil
+			return entries, nil
 		}
 		if !images.IsManifestType(desc.MediaType) {
-			return descs, nil
+			return nil, nil
+		}
+		descs, err := verifiedChildren(ctx, provider, desc)
+		if err != nil {
+			return nil, err
 		}
 		// A pusher puts a blob of a manifest type as a manifest, so a blob must not have one.
 		for _, d := range descs {
@@ -228,7 +218,7 @@ func copyContent(ctx context.Context, provider content.Provider, store, tagged c
 			dest = tagged
 		}
 		if images.IsIndexType(mfst.MediaType) {
-			desc, err := copyIndex(ctx, provider, dest, source, mfst, kept[mfst.Digest], written)
+			desc, err := copyIndex(ctx, provider, dest, source, mfst, sel.kept[mfst.Digest], written)
 			if err != nil {
 				return ocispec.Descriptor{}, fmt.Errorf("failed to copy index %s: %w", mfst.Digest, err)
 			}
@@ -284,6 +274,64 @@ func (c *blobCache) keep(dgst digest.Digest, data []byte) {
 	}
 	c.blobs[dgst] = data
 	c.room -= int64(len(data))
+}
+
+// verifiedChildren returns the children of desc from its verified data, as images.Children reads with no size limit and no digest check.
+func verifiedChildren(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+	data, err := readVerifiedBlob(ctx, provider, desc, docker.MaxManifestSize)
+	if err != nil {
+		return nil, err
+	}
+	desc.Data = data
+	return images.Children(ctx, provider, desc)
+}
+
+// selection selects the entries of the indexes of a copy as Load does, and keeps the entries of each index it reads.
+type selection struct {
+	provider content.Provider
+	platform platforms.MatchComparer // nil for all
+	kept     map[digest.Digest][]ocispec.Descriptor
+}
+
+// entries returns the entries of the index desc that the platform selects.
+func (s *selection) entries(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+	if entries, ok := s.kept[desc.Digest]; ok {
+		return entries, nil
+	}
+	entries, err := verifiedChildren(ctx, s.provider, desc)
+	if err != nil {
+		return nil, err
+	}
+	if s.platform != nil {
+		var keep []ocispec.Descriptor
+		for _, entry := range entries {
+			ok, err := s.selects(ctx, entry)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				keep = append(keep, entry)
+			}
+		}
+		entries = keep
+	}
+	s.kept[desc.Digest] = entries
+	return entries, nil
+}
+
+// selects reports whether the platform selects the index entry desc: an index if it keeps an entry, and a manifest without a platform by its config.
+func (s *selection) selects(ctx context.Context, desc ocispec.Descriptor) (bool, error) {
+	switch {
+	case desc.Platform != nil && !s.platform.Match(*desc.Platform):
+		return false, nil
+	case images.IsIndexType(desc.MediaType):
+		entries, err := s.entries(ctx, desc)
+		return len(entries) > 0, err
+	case images.IsManifestType(desc.MediaType):
+		return manifestMatches(ctx, s.provider, desc, s.platform)
+	default:
+		return true, nil
+	}
 }
 
 // copyIndex copies the index desc whose entries the copy keeps, or writes a new index over them if they are not all its own.
