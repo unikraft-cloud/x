@@ -15,6 +15,8 @@ import (
 	"io"
 	"os"
 	"path"
+	"sync"
+	"sync/atomic"
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images/archive"
@@ -42,7 +44,9 @@ func LoadTarball(ctx context.Context, tarballPath string, desc ocispec.Descripto
 	return LoadTarballReader(ctx, f, desc, platform)
 }
 
-// LoadAllTarballs loads all images from a tarball (OCI or Docker format), from
+// LoadAllTarballs loads all images from a tarball (OCI or Docker format).
+// The images share one temporary store, which stays until all of them are
+// closed. It loads them from
 // desc if it is set, or else from the tarball's own index.json.
 func LoadAllTarballs(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
 	f, err := os.Open(tarballPath)
@@ -70,7 +74,9 @@ func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor
 	return img, nil
 }
 
-// LoadAllTarballReaders loads all images from a tarball reader (OCI or Docker
+// LoadAllTarballReaders loads all images from a tarball reader. The images
+// share one temporary store, which stays until all of them are closed. It
+// loads them (OCI or Docker
 // format), from desc if it is set, or else from the tarball's own index.json.
 func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
 	store, root, cleanup, err := importTarball(ctx, r, desc)
@@ -82,10 +88,29 @@ func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descri
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("failed to load images from imported tarball: %w", err), cleanup())
 	}
-	for _, img := range imgs {
-		img.cleanup = append(img.cleanup, cleanup)
+	if len(imgs) == 0 {
+		return imgs, cleanup()
+	}
+	for i, release := range sharedCleanup(cleanup, len(imgs)) {
+		imgs[i].cleanup = append(imgs[i].cleanup, release)
 	}
 	return imgs, nil
+}
+
+// sharedCleanup returns n functions that each release one user of cleanup, which runs when the last one is released.
+func sharedCleanup(cleanup func() error, n int) []func() error {
+	var left atomic.Int64
+	left.Store(int64(n))
+	releases := make([]func() error, n)
+	for i := range releases {
+		releases[i] = sync.OnceValue(func() error {
+			if left.Add(-1) == 0 {
+				return cleanup()
+			}
+			return nil
+		})
+	}
+	return releases
 }
 
 // importTarball imports the tarball r into a temporary store, which cleanup

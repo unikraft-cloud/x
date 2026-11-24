@@ -137,7 +137,9 @@ func LoadTarballRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor,
 	return img, nil
 }
 
-// LoadAllTarballsRemote loads all images from the layout tarball at u, as
+// LoadAllTarballsRemote loads all images from the layout tarball at u. The
+// images share one temporary store, which stays until all of them are closed.
+// It loads them as
 // LoadTarballRemote does.
 func LoadAllTarballsRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor, client *http.Client, header http.Header, platform platforms.MatchComparer) ([]*Image, error) {
 	body, err := openTarballRemote(ctx, u, client, header)
