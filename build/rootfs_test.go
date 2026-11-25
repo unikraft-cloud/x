@@ -384,9 +384,10 @@ func TestRomDockerfileSource(t *testing.T) {
 
 func TestApplyConfigOverrides(t *testing.T) {
 	base := ocispec.ImageConfig{
-		Cmd:    []string{"/base"},
-		Env:    []string{"PATH=/bin", "SHADOWED=base"},
-		Labels: map[string]string{"base": "base", "shared": "base"},
+		Entrypoint: []string{"/entrypoint"},
+		Cmd:        []string{"/base"},
+		Env:        []string{"PATH=/bin", "SHADOWED=base"},
+		Labels:     map[string]string{"base": "base", "shared": "base"},
 	}
 	opts := BuildOpts{
 		Cmd: []string{"/override"},
@@ -398,6 +399,7 @@ func TestApplyConfigOverrides(t *testing.T) {
 	}
 
 	cfg := applyConfigOverrides(base, opts)
+	require.Nil(t, cfg.Entrypoint, "the Entrypoint of the base must not come before the command of the caller")
 	require.Equal(t, []string{"/override"}, cfg.Cmd)
 	require.Equal(t, []string{"PATH=/bin", "SHADOWED=opt", "FOO=bar"}, cfg.Env,
 		"an entry of the caller must replace the entry of the base, not shadow it")
@@ -407,13 +409,20 @@ func TestApplyConfigOverrides(t *testing.T) {
 
 func TestApplyConfigOverridesEmpty(t *testing.T) {
 	base := ocispec.ImageConfig{
-		Cmd:    []string{"/base"},
-		Env:    []string{"PATH=/bin"},
-		Labels: map[string]string{"base": "base"},
+		Entrypoint: []string{"/entrypoint"},
+		Cmd:        []string{"/base"},
+		Env:        []string{"PATH=/bin"},
+		Labels:     map[string]string{"base": "base"},
 	}
 
 	cfg := applyConfigOverrides(base, BuildOpts{})
+	require.Equal(t, base.Entrypoint, cfg.Entrypoint)
 	require.Equal(t, base.Cmd, cfg.Cmd)
+
+	// An empty command keeps the Entrypoint of the base and drops its Cmd.
+	cfg = applyConfigOverrides(base, BuildOpts{Cmd: []string{}})
+	require.Equal(t, base.Entrypoint, cfg.Entrypoint)
+	require.Empty(t, cfg.Cmd)
 	require.Equal(t, base.Env, cfg.Env)
 	require.Equal(t, base.Labels, cfg.Labels,
 		"the labels of the base must survive when the caller sets none")
