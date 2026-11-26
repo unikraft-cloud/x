@@ -9,6 +9,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"unikraft.com/x/image-spec/reference"
+	"unikraft.com/x/image-spec/schemes"
 )
 
 // Resolved is the result of resolving a location. Only a remote is ever
@@ -40,4 +41,16 @@ type Resolved struct {
 	// then, and fails if Location no longer has it. Resolve sets it only for a
 	// registry, which answers with it; Load and Save always set it.
 	Descriptor ocispec.Descriptor
+}
+
+// source returns the registry repository to mount the blobs of res from, or zero if res is in none.
+func (res Resolved) source() reference.Reference {
+	ref := res.ResolvedReference
+	if ref.IsZero() {
+		ref = res.Reference
+	}
+	if ref.Scheme() != schemes.OCI {
+		return reference.Reference{}
+	}
+	return ref
 }

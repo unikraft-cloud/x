@@ -17,6 +17,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"unikraft.com/x/image-spec/ociindex"
+	"unikraft.com/x/image-spec/reference"
 )
 
 // This file provides functions for loading and saving images to/from OCI layouts.
@@ -105,6 +106,39 @@ func SaveOCILayoutNamed(ctx context.Context, path string, tag string, image ...*
 	}
 
 	return desc, nil
+}
+
+// openOCILayout returns the layout at path and the root of its image: desc if it is set, or else what tag names.
+func openOCILayout(path string, tag string, desc ocispec.Descriptor) (content.Provider, ocispec.Descriptor, func() error, error) {
+	if desc.Digest == "" {
+		var err error
+		if desc, err = layoutRoot(path, tag); err != nil {
+			return nil, ocispec.Descriptor{}, nil, err
+		}
+	}
+	store, err := layoutStore(path)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, nil, err
+	}
+	return store, desc, func() error { return nil }, nil
+}
+
+// copyToOCILayout copies root from provider to the layout at path under tag, as copyContent does, and returns the root it wrote.
+func copyToOCILayout(ctx context.Context, path string, tag string, provider content.Provider, source reference.Reference, root ocispec.Descriptor, platform platforms.MatchComparer) (ocispec.Descriptor, error) {
+	store, err := local.NewStore(path)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to open content store at %q: %w", path, err)
+	}
+	ingester := ingestRef(store, tag)
+	root, err = copyContent(ctx, provider, ingester, ingester, source, root, platform)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to copy image to %q: %w", path, err)
+	}
+	root = ocispec.Descriptor{MediaType: root.MediaType, Digest: root.Digest, Size: root.Size}
+	if err := ociindex.NewStoreIndex(path).Put(root, tag); err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to update index: %w", err)
+	}
+	return root, nil
 }
 
 func DeleteOCILayoutNamed(path string, tag string) error {

@@ -371,6 +371,34 @@ func (w *resettingWriter) Commit(ctx context.Context, size int64, expected diges
 	return content.ErrReset
 }
 
+func TestVerifiedReaderSeek(t *testing.T) {
+	data := []byte("blob")
+	vr, err := newVerifiedReader(inlineReaderAt{bytes.NewReader(data)}, describe(data))
+	require.NoError(t, err)
+	_, err = io.ReadFull(vr, make([]byte, 2))
+	require.NoError(t, err)
+
+	_, err = vr.Seek(1, io.SeekStart)
+	require.Error(t, err)
+	n, err := vr.Seek(0, io.SeekStart)
+	require.NoError(t, err)
+	require.Zero(t, n)
+	got, err := io.ReadAll(vr)
+	require.NoError(t, err)
+	require.Equal(t, data, got)
+	require.NoError(t, vr.Close())
+
+	// A blob that does not match its digest fails however often it is read.
+	bad, err := newVerifiedReader(inlineReaderAt{bytes.NewReader(tampered(data))}, describe(data))
+	require.NoError(t, err)
+	for range 2 {
+		_, err = io.ReadAll(bad)
+		require.ErrorIs(t, err, ErrDigestMismatch)
+		_, err = bad.Seek(0, io.SeekStart)
+		require.NoError(t, err)
+	}
+}
+
 func TestSaveContentWritesAgainAfterReset(t *testing.T) {
 	t.Parallel()
 

@@ -67,6 +67,7 @@ type verifiedReader struct {
 	blob      io.Reader
 	entry     io.Reader
 	remaining int64
+	size      int64
 	verifier  digest.Verifier
 	digest    digest.Digest
 	err       error // what every read returns once the entry is done
@@ -81,18 +82,27 @@ func newVerifiedReader(ra content.ReaderAt, desc ocispec.Descriptor) (*verifiedR
 	if desc.Size < 0 {
 		return nil, fmt.Errorf("blob %s: invalid size %d", desc.Digest, desc.Size)
 	}
-	verifier := desc.Digest.Verifier()
-	// A byte past desc, so a blob served with more after it fails its digest.
-	tee := io.TeeReader(io.NewSectionReader(ra, 0, desc.Size+1), verifier)
+	r := &verifiedReader{ra: ra, size: desc.Size, digest: desc.Digest}
+	r.rewind()
+	return r, nil
+}
 
-	return &verifiedReader{
-		ra:        ra,
-		blob:      tee,
-		entry:     tee,
-		remaining: desc.Size,
-		verifier:  verifier,
-		digest:    desc.Digest,
-	}, nil
+// rewind starts the read of the whole blob, and its hash, over.
+func (r *verifiedReader) rewind() {
+	r.verifier = r.digest.Verifier()
+	// A byte past desc, so a blob served with more after it fails its digest.
+	tee := io.TeeReader(io.NewSectionReader(r.ra, 0, r.size+1), r.verifier)
+	r.blob, r.entry, r.remaining, r.err = tee, tee, r.size, nil
+}
+
+// Seek reads the whole blob again from its start, as content.Copy does when a
+// pusher resets its upload. It cannot seek anywhere else, or in an entry.
+func (r *verifiedReader) Seek(offset int64, whence int) (int64, error) {
+	if offset != 0 || whence != io.SeekStart || r.entry != r.blob {
+		return 0, fmt.Errorf("blob %s: can only be read again from its start", r.digest)
+	}
+	r.rewind()
+	return 0, nil
 }
 
 func (r *verifiedReader) Read(p []byte) (int, error) {

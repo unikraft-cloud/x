@@ -28,6 +28,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"unikraft.com/x/image-spec/ociindex"
+	"unikraft.com/x/image-spec/reference"
 )
 
 // This files provides functions for loading and saving images to/from tarball files using
@@ -482,6 +483,31 @@ func SaveTarballWriterNamed(ctx context.Context, w io.Writer, tag string, image 
 		return ocispec.Descriptor{}, err
 	}
 	return desc, nil
+}
+
+// copyToTarball copies root from provider to w as a tarball, as copyContent
+// does, and returns the root it wrote. The tarball's index.json lists it under
+// tag.
+func copyToTarball(ctx context.Context, w io.Writer, tag string, provider content.Provider, source reference.Reference, root ocispec.Descriptor, platform platforms.MatchComparer) (ocispec.Descriptor, error) {
+	tmpDir, err := os.MkdirTemp("", "imagespec-tarball-*")
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := local.NewStore(tmpDir)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to create local store: %w", err)
+	}
+	ingester := ingestRef(store, "latest")
+	root, err = copyContent(ctx, provider, ingester, ingester, source, root, platform)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to copy image to local store: %w", err)
+	}
+	if err := exportTarball(ctx, w, store, root, tag, archive.WithSkipNonDistributableBlobs()); err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	return root, nil
 }
 
 // exportTarball writes the tarball of the image at root in store, whose

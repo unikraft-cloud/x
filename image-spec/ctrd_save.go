@@ -25,6 +25,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 
+	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/log"
 )
 
@@ -33,7 +34,7 @@ func SaveContent(ctx context.Context, store content.Ingester, ref string, images
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	store = ingestDefaults(store, content.WithRef(ref))
+	store = ingestRef(store, ref)
 
 	idxAnnotations := map[string]string{}
 	for _, image := range images {
@@ -64,7 +65,7 @@ func SaveManifest(ctx context.Context, store content.Ingester, ref string, image
 }
 
 func saveManifests(ctx context.Context, store content.Ingester, ref string, images ...*Image) ([]ocispec.Descriptor, error) {
-	store = ingestDefaults(store, content.WithRef(ref))
+	store = ingestRef(store, ref)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
@@ -251,19 +252,26 @@ func packageJSON(ctx context.Context, store content.Ingester, mediaType string, 
 	return desc, nil
 }
 
-func packageCopy(ctx context.Context, store content.Ingester, image *Image, input content.Provider, desc ocispec.Descriptor) (ocispec.Descriptor, error) {
+// packageCopy copies desc from input to store, and lets a pusher mount it from the registry repository source.
+func packageCopy(ctx context.Context, store content.Ingester, source reference.Reference, input content.Provider, desc ocispec.Descriptor) (ocispec.Descriptor, error) {
+	// A pusher puts the digest in its requests before it reads the blob.
+	if err := desc.Digest.Validate(); err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("blob %q: %w", desc.Digest, err)
+	}
 	log.G(ctx).
 		Debug().
 		Str("digest", desc.Digest.String()).
 		Msg("copying layer")
 
-	// if the image came from a registry, add a cross-repo mount
+	// A pusher mounts a blob from the repositories of its source labels: keep only that of source.
 	wdesc := desc
-	if source := image.source(); !source.IsZero() {
+	wdesc.Annotations = maps.Clone(desc.Annotations)
+	maps.DeleteFunc(wdesc.Annotations, func(k, _ string) bool {
+		return strings.HasPrefix(k, labels.LabelDistributionSource)
+	})
+	if !source.IsZero() {
 		if wdesc.Annotations == nil {
 			wdesc.Annotations = make(map[string]string)
-		} else {
-			wdesc.Annotations = maps.Clone(wdesc.Annotations)
 		}
 		// containerd looks the label up by hostname, without the port.
 		host := (&url.URL{Host: source.Domain()}).Hostname()
@@ -286,8 +294,13 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 		}
 	}()
 
-	r, err := input.ReaderAt(ctx, desc)
-	if err != nil {
+	if err := restart(w); err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	var r content.ReaderAt
+	if inline := inlineData(desc); inline != nil {
+		r = inlineReaderAt{bytes.NewReader(inline)}
+	} else if r, err = input.ReaderAt(ctx, desc); err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to get reader for descriptor: %w", err)
 	}
 	// NOTE: an ingester need not check what it commits: a pusher leaves that
@@ -298,9 +311,7 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 		return ocispec.Descriptor{}, err
 	}
 	defer vr.Close()
-
-	err = content.Copy(ctx, w, vr, desc.Size, desc.Digest)
-	if err != nil {
+	if err := content.Copy(ctx, w, vr, desc.Size, desc.Digest); err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to copy content: %w", err)
 	}
 	err = w.Close()
@@ -316,13 +327,10 @@ func packageCopy(ctx context.Context, store content.Ingester, image *Image, inpu
 	return desc, nil
 }
 
-// maxResets bounds the writes again after a reset: containerd re-sends at most that often.
-const maxResets = 4
-
 func packageLayer(ctx context.Context, store content.Ingester, image *Image, file File, mediaType string, path string) (_ ocispec.Descriptor, rerr error) {
 	if desc, provider := file.Source(); desc.Digest != "" && store != nil {
 		// if we have a source descriptor and provider, copy directly
-		return packageCopy(ctx, store, image, provider, desc)
+		return packageCopy(ctx, store, image.source(), provider, desc)
 	}
 
 	log.G(ctx).
@@ -421,42 +429,18 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 			w.Close()
 		}
 	}()
-
-	// A registry pusher resets its writer when it re-sends the upload, so
-	// start over, as content.Copy does.
-	for attempt := 0; ; attempt++ {
-		if attempt > 0 {
-			if err := rewind(); err != nil {
-				return ocispec.Descriptor{}, err
-			}
-		}
-		_, err = io.Copy(w, reader)
-		if errors.Is(err, content.ErrReset) && attempt < maxResets {
-			continue
-		}
-		if err != nil {
-			return ocispec.Descriptor{}, fmt.Errorf("failed to buffer layer content: %w", err)
-		}
-		err = w.Commit(ctx, desc.Size, desc.Digest)
-		if !errors.Is(err, content.ErrReset) || attempt == maxResets {
-			break
-		}
+	if err := restart(w); err != nil {
+		return ocispec.Descriptor{}, err
 	}
-	if err == nil {
-		log.G(ctx).Debug().
-			Str("mediaType", mediaType).
-			Str("path", path).
-			Str("digest", desc.Digest.String()).
-			Msg("packaged layer")
-	} else if errdefs.IsAlreadyExists(err) {
-		log.G(ctx).Debug().
-			Str("mediaType", mediaType).
-			Str("path", path).
-			Str("digest", desc.Digest.String()).
-			Msg("packaged pre-existing layer")
-	} else {
-		return ocispec.Descriptor{}, fmt.Errorf("failed to commit layer content: %w", err)
+	layerReader := &rereader{Reader: reader, open: func() (io.Reader, error) { return reader, rewind() }}
+	if err := content.Copy(ctx, w, layerReader, desc.Size, desc.Digest); err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to write layer content: %w", err)
 	}
+	log.G(ctx).Debug().
+		Str("mediaType", mediaType).
+		Str("path", path).
+		Str("digest", desc.Digest.String()).
+		Msg("packaged layer")
 
 	err = w.Close()
 	w = nil
@@ -464,6 +448,36 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 		return ocispec.Descriptor{}, fmt.Errorf("failed to finalize layer content write: %w", err)
 	}
 	return desc, nil
+}
+
+// rereader reads what open gives again from the start on a seek to 0, as
+// content.Copy does when a pusher resets its upload.
+type rereader struct {
+	io.Reader
+	open func() (io.Reader, error)
+}
+
+func (r *rereader) Seek(offset int64, whence int) (int64, error) {
+	if offset != 0 || whence != io.SeekStart {
+		return 0, errors.New("layer content can only be read again from its start")
+	}
+	var err error
+	r.Reader, err = r.open()
+	return 0, err
+}
+
+// restart truncates what an earlier write left under the ref of w, which a local store resumes.
+func restart(w content.Writer) error {
+	st, err := w.Status()
+	if err != nil {
+		return fmt.Errorf("failed to get content write status: %w", err)
+	}
+	if st.Offset > 0 {
+		if err := w.Truncate(0); err != nil {
+			return fmt.Errorf("failed to reset content write: %w", err)
+		}
+	}
+	return nil
 }
 
 // inlineData returns the data that desc embeds if it matches desc, as content.ReadBlob reads it, or nil.
@@ -475,16 +489,31 @@ func inlineData(desc ocispec.Descriptor) []byte {
 	return desc.Data
 }
 
-func ingestDefaults(store content.Ingester, opts ...content.WriterOpt) content.Ingester {
-	return defaultIngester{store, opts}
+// inlineReaderAt is a content.ReaderAt of the data that a descriptor embeds.
+type inlineReaderAt struct{ *bytes.Reader }
+
+func (inlineReaderAt) Close() error { return nil }
+
+// ingestRef returns store with a writer per ref and digest, so blobs are written in parallel.
+func ingestRef(store content.Ingester, ref string) content.Ingester {
+	return refIngester{store, ref}
 }
 
-type defaultIngester struct {
+type refIngester struct {
 	content.Ingester
-	opts []content.WriterOpt
+	ref string
 }
 
-func (r defaultIngester) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
-	allOpts := append(slices.Clone(r.opts), opts...)
-	return r.Ingester.Writer(ctx, allOpts...)
+func (r refIngester) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
+	var wOpts content.WriterOpts
+	for _, opt := range opts {
+		if err := opt(&wOpts); err != nil {
+			return nil, err
+		}
+	}
+	ref := r.ref
+	if wOpts.Desc.Digest != "" {
+		ref += "@" + wOpts.Desc.Digest.String()
+	}
+	return r.Ingester.Writer(ctx, append(slices.Clone(opts), content.WithRef(ref))...)
 }
