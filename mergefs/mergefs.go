@@ -7,6 +7,7 @@ package mergefs
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -21,10 +22,25 @@ type Layer func() (io.ReadCloser, error)
 type Option func(*options)
 
 type options struct {
-	spoolDir  string
-	spoolFile *os.File // for tests
-	inMemory  bool
+	spoolDir   string
+	spoolFile  *os.File // for tests
+	inMemory   bool
+	maxSize    int64
+	maxMeta    int64
+	maxEntries int64
+	maxRead    int64
 }
+
+var (
+	// ErrTooLarge is the error of Merge when the file data is larger than WithMaxSize allows.
+	ErrTooLarge = errors.New("rootfs is too large")
+	// ErrMetaTooLarge is the error of Merge when the metadata is larger than WithMaxMetaSize allows.
+	ErrMetaTooLarge = errors.New("metadata of the rootfs is too large")
+	// ErrTooManyEntries is the error of Merge when the layers have more entries than WithMaxEntries allows.
+	ErrTooManyEntries = errors.New("rootfs has too many entries")
+	// ErrLayersTooLarge is the error of Merge when it reads more from the layers than WithMaxReadSize allows.
+	ErrLayersTooLarge = errors.New("layers are too large")
+)
 
 // WithSpoolDir sets the directory of the temporary files of Merge: the spool
 // and the scratch file. The default is os.TempDir().
@@ -32,6 +48,20 @@ func WithSpoolDir(dir string) Option { return func(o *options) { o.spoolDir = di
 
 // InMemory keeps the file data in memory and not in temporary files.
 func InMemory() Option { return func(o *options) { o.inMemory = true } }
+
+// WithMaxSize makes Merge fail with ErrTooLarge when it would keep more than n bytes of file data at one time, in its temporary files or in memory.
+func WithMaxSize(n int64) Option { return func(o *options) { o.maxSize = n } }
+
+// WithMaxMetaSize makes Merge fail with ErrMetaTooLarge when the names, the xattrs and the link targets of all the entries,
+// with the paths of the directories that the names imply, are more than n bytes. They stay in memory, also in a writer of the tree.
+func WithMaxMetaSize(n int64) Option { return func(o *options) { o.maxMeta = n } }
+
+// WithMaxEntries makes Merge fail with ErrTooManyEntries when the layers have more than n tar entries, with the directories that their names imply
+// and the directories above the hard-link targets that it looks for in lower layers.
+func WithMaxEntries(n int64) Option { return func(o *options) { o.maxEntries = n } }
+
+// WithMaxReadSize makes Merge fail with ErrLayersTooLarge when it reads more than n bytes from the uncompressed tar streams of all the layers: the entries, also the ones that it skips, and the data after the end of each archive.
+func WithMaxReadSize(n int64) Option { return func(o *options) { o.maxRead = n } }
 
 // Inode is the FileInfo.Sys() value of all entries. Hard links share one
 // Inode, and its getters match the go-archivefs interfaces.
