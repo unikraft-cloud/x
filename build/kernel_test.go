@@ -45,16 +45,17 @@ func TestKernelResolveIsAStep(t *testing.T) {
 	host := startRegistry(t)
 	b := registryBuilder(alice)
 	ref := host + "/official/base-compat"
-	_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: ref}, testImages(fcIntel)...)
+	_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: ref}, build.Built{Images: testImages(fcIntel)})
 	require.NoError(t, err)
 
 	var steps stepRecorder
 	b.Progress = &steps
-	imgs, err := b.Build(t.Context(), build.BuildOpts{
+	built, err := b.Build(t.Context(), build.BuildOpts{
 		Runtime:  ref,
 		Platform: []ocispec.Platform{fcIntel},
 	})
 	require.NoError(t, err)
+	imgs := built.Images
 	t.Cleanup(func() {
 		for _, img := range imgs {
 			_ = img.Close()
@@ -72,18 +73,19 @@ func TestBuildIsDatedByItsNewestPart(t *testing.T) {
 	b := registryBuilder(alice)
 	push := func(repo string, created time.Time, part imagespec.NewImageOpt) string {
 		ref := host + "/" + repo
-		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: ref}, imagespec.NewImage(
+		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: ref}, build.Built{Images: []*imagespec.Image{imagespec.NewImage(
 			imagespec.WithPlatform(fcIntel),
 			imagespec.WithImageMetadata(imagespec.ImageMetadata{Created: &created}),
 			part,
-		))
+		)}})
 		require.NoError(t, err)
 		return ref
 	}
 	buildDate := func(t *testing.T, opts build.BuildOpts) time.Time {
 		opts.Platform = []ocispec.Platform{fcIntel}
-		imgs, err := b.Build(t.Context(), opts)
+		built, err := b.Build(t.Context(), opts)
 		require.NoError(t, err)
+		imgs := built.Images
 		t.Cleanup(func() {
 			for _, img := range imgs {
 				_ = img.Close()
@@ -144,12 +146,13 @@ func writeKernel(t *testing.T) string {
 }
 
 func TestBuildPrebuiltKernel(t *testing.T) {
-	imgs, err := build.Builder{}.Build(t.Context(), build.BuildOpts{
+	built, err := build.Builder{}.Build(t.Context(), build.BuildOpts{
 		Kernel:   writeKernel(t),
 		Cmd:      []string{"/server"},
 		Platform: []ocispec.Platform{{OS: "kraftcloud", Architecture: "x86_64"}},
 	})
 	require.NoError(t, err)
+	imgs := built.Images
 	t.Cleanup(func() {
 		for _, img := range imgs {
 			_ = img.Close()

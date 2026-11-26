@@ -41,37 +41,42 @@ type Saved struct {
 	Platforms []ocispec.Platform
 }
 
-// Save stores images at dest under one index and reports where they are. A
-// registry destination is pushed through the Images accessor, which holds
-// the credentials.
-func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*imagespec.Image) (Saved, error) {
-	saved := Saved{Ref: dest.Path, Platforms: make([]ocispec.Platform, 0, len(images))}
-	var pushed []ocispec.Descriptor
-	for _, img := range images {
+// Save stores what Build made at dest under one index and reports where it
+// is. A registry destination is pushed through the Images accessor, which
+// holds the credentials. What the packer pushed is saved only to one of
+// BuildOpts.Push, where Save removes its temporary tags.
+func (b Builder) Save(ctx context.Context, dest *imagespec.Location, built Built) (Saved, error) {
+	if len(built.Pushed) > 0 {
+		if dest.Scheme != schemes.OCI {
+			return Saved{}, fmt.Errorf("images that the packer pushed can only be saved to a registry, not to %s", dest)
+		}
+		// The index holds what the packer pushed under its temporary tags, or
+		// nothing will.
+		defer b.Untag(ctx, dest, built.Pushed...)
+		if len(built.Images) > 0 {
+			return Saved{}, fmt.Errorf("images that the packer pushed cannot be saved with other images")
+		}
+	}
+
+	saved := Saved{Ref: dest.Path, Platforms: make([]ocispec.Platform, 0, len(built.Images)+len(built.Pushed))}
+	for _, img := range built.Images {
 		var p ocispec.Platform
 		if img.Image != nil {
 			p = img.Image.Platform
 		}
 		saved.Platforms = append(saved.Platforms, p)
-		if pushedTag(img) != "" {
-			pushed = append(pushed, img.ManifestDescriptor)
-		}
+	}
+	mfsts := make([]ocispec.Descriptor, 0, len(built.Pushed))
+	for _, p := range built.Pushed {
+		saved.Platforms = append(saved.Platforms, p.Platform)
+		mfsts = append(mfsts, p.Manifest)
 	}
 
 	// Only a registry needs the accessor, for its resolver and credentials.
 	access := imagespec.NewAccessor()
 	verb := "save"
 	var named distref.Named
-	if dest.Scheme != schemes.OCI && len(pushed) > 0 {
-		return Saved{}, fmt.Errorf("images that the packer pushed can only be saved to a registry, not to %s", dest)
-	}
 	if dest.Scheme == schemes.OCI {
-		// The index holds what the packer pushed under its temporary tags, or
-		// nothing will.
-		defer b.Untag(ctx, dest, images...)
-		if len(pushed) > 0 && len(pushed) < len(images) {
-			return Saved{}, fmt.Errorf("images that the packer pushed cannot be saved with other images")
-		}
 		verb = "push"
 		var err error
 		named, err = reference.ParseNormalizedNamed(dest.Path)
@@ -85,12 +90,12 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 	}
 
 	err := progress.Step(progress.WithPrefix(b.progressWriter(), verb), saved.Ref, func() error {
-		if len(pushed) > 0 {
-			desc, err := pushIndex(ctx, access.Resolver(), named, pushed...)
+		if len(mfsts) > 0 {
+			desc, err := pushIndex(ctx, access.Resolver(), named, mfsts...)
 			saved.Digest = desc.Digest
 			return err
 		}
-		res, err := access.Save(ctx, dest, images...)
+		res, err := access.Save(ctx, dest, built.Images...)
 		saved.Digest = res.Descriptor.Digest
 		return err
 	})
@@ -174,21 +179,16 @@ func unauthorized(err error) bool {
 		(errors.As(err, &status) && status.StatusCode == http.StatusUnauthorized)
 }
 
-// Untag removes the temporary tags that the packer pushed images under in the
-// repository of dest, and keeps their manifests. Save does so for its own
-// dest; a caller does for the images that it does not save. A tag that stays
-// is only logged.
-func (b Builder) Untag(ctx context.Context, dest *imagespec.Location, images ...*imagespec.Image) {
+// Untag removes the temporary tags of pushed in the repository of dest, and
+// keeps their manifests. Save does so for its own dest; a caller does
+// for what it does not save. A tag that stays is only logged.
+func (b Builder) Untag(ctx context.Context, dest *imagespec.Location, pushed ...Pushed) {
 	// The build that pushed may be cancelled by now.
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
-	for _, img := range images {
-		tag := pushedTag(img)
-		if tag == "" {
-			continue
-		}
-		if err := b.untag(ctx, dest, tag); err != nil {
-			log.G(ctx).Warn().Err(err).Str("tag", tag).Msg("leaving the temporary tag of the packer")
+	for _, p := range pushed {
+		if err := b.untag(ctx, dest, p.Tag); err != nil {
+			log.G(ctx).Warn().Err(err).Str("tag", p.Tag).Msg("leaving the temporary tag of the packer")
 		}
 	}
 }

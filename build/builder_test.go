@@ -231,12 +231,13 @@ func TestProgressRomsAndRootfsArePackedUnderTheirNames(t *testing.T) {
 	fs := FSOpts{Path: dir, Type: kraftfile.SourceTypeDirectory, Format: kraftfile.FsTypeErofs}
 
 	var rec progressRecorder
-	imgs, err := Builder{Progress: &rec}.Build(t.Context(), BuildOpts{
+	built, err := Builder{Progress: &rec}.Build(t.Context(), BuildOpts{
 		Rootfs:   fs,
 		Roms:     []FSOpts{fs, fs},
 		Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
 	})
 	require.NoError(t, err)
+	imgs := built.Images
 	closeImages(t, imgs)
 
 	require.Equal(t, []string{
