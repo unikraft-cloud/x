@@ -15,12 +15,15 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
 	"github.com/gofrs/flock"
 	"github.com/moby/buildkit/client/ociindex"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"unikraft.com/x/image-spec/reference"
 )
 
 // This file provides functions for loading and saving images to/from OCI layouts.
@@ -46,16 +49,9 @@ func LoadAllOCILayouts(ctx context.Context, path string, desc ocispec.Descriptor
 }
 
 func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) (*Image, error) {
-	idx := ociindex.NewStoreIndex(path)
-	var desc *ocispec.Descriptor
-	var err error
-	if tag == "" {
-		desc, err = idx.GetSingle()
-	} else {
-		desc, err = idx.Get(tag)
-	}
+	desc, err := layoutRoot(path, tag)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image descriptor for %q: %w", tag, err)
+		return nil, err
 	}
 
 	store, err := local.NewStore(path)
@@ -63,20 +59,13 @@ func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform p
 		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
 
-	return LoadContent(ctx, store, *desc, platform)
+	return LoadContent(ctx, store, desc, platform)
 }
 
 func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) ([]*Image, error) {
-	idx := ociindex.NewStoreIndex(path)
-	var desc *ocispec.Descriptor
-	var err error
-	if tag == "" {
-		desc, err = idx.GetSingle()
-	} else {
-		desc, err = idx.Get(tag)
-	}
+	desc, err := layoutRoot(path, tag)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image descriptor for %q: %w", tag, err)
+		return nil, err
 	}
 
 	store, err := local.NewStore(path)
@@ -84,7 +73,7 @@ func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platfo
 		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
 
-	return LoadAllContent(ctx, store, *desc, platform)
+	return LoadAllContent(ctx, store, desc, platform)
 }
 
 func SaveOCILayout(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {
@@ -113,6 +102,66 @@ func SaveOCILayoutNamed(ctx context.Context, path string, tag string, image ...*
 	}
 
 	return desc, nil
+}
+
+// layoutRoot returns the root that tag names in the index of the layout at path, or the only root if tag is empty.
+func layoutRoot(path string, tag string) (ocispec.Descriptor, error) {
+	idx := ociindex.NewStoreIndex(path)
+	if tag == "" {
+		index, err := idx.Read()
+		if err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to read the index of layout %q: %w", path, err)
+		}
+		switch len(index.Manifests) {
+		case 0:
+			return ocispec.Descriptor{}, fmt.Errorf("no image in layout %q: %w", path, errdefs.ErrNotFound)
+		case 1:
+			return index.Manifests[0], nil
+		default:
+			return ocispec.Descriptor{}, fmt.Errorf("layout %q lists %d images: give a tag", path, len(index.Manifests))
+		}
+	}
+	desc, err := idx.Get(tag)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to read the index of layout %q: %w", path, err)
+	}
+	if desc == nil {
+		return ocispec.Descriptor{}, fmt.Errorf("no image tagged %q in %q: %w", tag, path, errdefs.ErrNotFound)
+	}
+	return *desc, nil
+}
+
+// openOCILayout returns the layout at path and the root of its image: desc, else the one of tag, else the only one.
+func openOCILayout(path string, tag string, desc ocispec.Descriptor) (content.Provider, ocispec.Descriptor, func() error, error) {
+	if desc.Digest == "" {
+		var err error
+		if desc, err = layoutRoot(path, tag); err != nil {
+			return nil, ocispec.Descriptor{}, nil, err
+		}
+	}
+	store, err := local.NewStore(path)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
+	}
+	return store, desc, func() error { return nil }, nil
+}
+
+// copyToOCILayout copies root from provider to the layout at path under tag, as copyContent does, and returns the root it wrote.
+func copyToOCILayout(ctx context.Context, path string, tag string, provider content.Provider, source reference.Reference, root ocispec.Descriptor, platform platforms.MatchComparer) (ocispec.Descriptor, error) {
+	store, err := local.NewStore(path)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to open content store at %q: %w", path, err)
+	}
+	ingester := ingestRef(store, tag)
+	root, err = copyContent(ctx, provider, ingester, ingester, source, root, platform)
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to copy image to %q: %w", path, err)
+	}
+	root = ocispec.Descriptor{MediaType: root.MediaType, Digest: root.Digest, Size: root.Size}
+	if err := ociindex.NewStoreIndex(path).Put(root, ociindex.Tag(tag)); err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to update index: %w", err)
+	}
+	return root, nil
 }
 
 func DeleteOCILayoutNamed(path string, tag string) error {

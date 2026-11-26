@@ -20,6 +20,11 @@ import (
 // names.
 var ErrDigestMismatch = errors.New("content does not match its digest")
 
+// blobKeeper is a provider that keeps the blobs that readVerifiedBlob reads from it.
+type blobKeeper interface {
+	keep(dgst digest.Digest, data []byte)
+}
+
 // maxConfigSize bounds the image configs that readVerifiedBlob reads.
 const maxConfigSize int64 = 64 << 20
 
@@ -52,6 +57,9 @@ func readVerifiedBlob(ctx context.Context, provider content.Provider, desc ocisp
 	}
 	if desc.Digest.Algorithm().FromBytes(data) != desc.Digest {
 		return nil, fmt.Errorf("%w: blob %s", ErrDigestMismatch, desc.Digest)
+	}
+	if keeper, ok := provider.(blobKeeper); ok {
+		keeper.keep(desc.Digest, data)
 	}
 
 	return data, nil

@@ -167,7 +167,7 @@ func TestBuildImageMultiPlatform(t *testing.T) {
 			store, err := local.NewStore(storeDir)
 			require.NoError(t, err)
 
-			_, err = packageLayer(ctx, ingestDefaults(store, content.WithRef("latest")), images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
+			_, err = packageLayer(ctx, ingestRef(store, "latest"), images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
 			require.NoError(t, err)
 
 			idxDesc, err := SaveContent(ctx, store, "latest", images...)
@@ -220,7 +220,7 @@ func TestPackageLayerTar(t *testing.T) {
 
 		store, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		desc, err := packageLayer(t.Context(), ingestDefaults(store, content.WithRef("latest")), testImage, &staticFile{"initrd.img", data}, ocispec.MediaTypeImageLayer, "/initrd")
+		desc, err := packageLayer(t.Context(), ingestRef(store, "latest"), testImage, &staticFile{"initrd.img", data}, ocispec.MediaTypeImageLayer, "/initrd")
 		require.NoError(t, err)
 
 		got, err := content.ReadBlob(t.Context(), store, desc)

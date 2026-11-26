@@ -178,7 +178,7 @@ func SaveRegistryIndex(ctx context.Context, named distref.Named, remote remotes.
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to get pusher for image %q: %w", named, err)
 	}
-	ingester := ingestDefaults(contentutil.FromPusher(pusher), content.WithRef(named.Name()))
+	ingester := ingestRef(contentutil.FromPusher(pusher), named.Name())
 
 	idx := ocispec.Index{
 		SchemaVersion: 2,

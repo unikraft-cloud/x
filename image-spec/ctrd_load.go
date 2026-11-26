@@ -71,6 +71,9 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 	return imgs, nil
 }
 
+// annotationReferenceType marks an index entry that is no image, such as an attestation of BuildKit.
+const annotationReferenceType = "vnd.docker.reference.type"
+
 // loadCtrdImageMfst loads the image whose manifest is desc, recording root as
 // what it was loaded from.
 func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec.Descriptor, desc ocispec.Descriptor) (*Image, error) {
