@@ -8,6 +8,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"slices"
 
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/docker/cli/cli/config"
@@ -15,7 +16,8 @@ import (
 	"unikraft.com/x/version"
 )
 
-func newAccessor(insecure bool) *imagespec.Accessor {
+// newAccessor returns an accessor that reaches the registries of hosts, or all of them if none, over plain HTTP if insecure.
+func newAccessor(insecure bool, hosts ...string) *imagespec.Accessor {
 	headers := http.Header{}
 	headers.Set("User-Agent", version.UserAgent())
 
@@ -34,7 +36,11 @@ func newAccessor(insecure bool) *imagespec.Accessor {
 		))),
 	}
 	if insecure {
-		opts = append(opts, docker.WithPlainHTTP(docker.MatchAllHosts))
+		match := docker.MatchAllHosts
+		if len(hosts) > 0 {
+			match = func(host string) (bool, error) { return slices.Contains(hosts, host), nil }
+		}
+		opts = append(opts, docker.WithPlainHTTP(match))
 	}
 
 	dro := docker.ResolverOptions{

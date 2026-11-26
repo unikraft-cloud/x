@@ -8,8 +8,10 @@ require (
 	github.com/alecthomas/kong v1.17.0
 	github.com/containerd/containerd/v2 v2.4.2
 	github.com/containerd/platforms v1.0.0-rc.5
+	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v29.9.3+incompatible
 	github.com/opencontainers/image-spec v1.1.1
+	github.com/stretchr/testify v1.12.1
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
 	unikraft.com/x/image-spec v0.0.0-00010101000000-000000000000
 	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8
@@ -29,7 +31,6 @@ require (
 	github.com/containerd/log/otel v0.1.0 // indirect
 	github.com/containerd/ttrpc v1.2.10 // indirect
 	github.com/containerd/typeurl/v2 v2.3.0 // indirect
-	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/docker-credential-helpers v0.9.9 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
@@ -51,6 +52,7 @@ require (
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
