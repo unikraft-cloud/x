@@ -13,6 +13,7 @@ import (
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -40,7 +41,7 @@ func Manifests(ctx context.Context, provider content.Provider, image ocispec.Des
 }
 
 func readManifest(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) (ocispec.Manifest, error) {
-	p, err := readVerifiedBlob(ctx, provider, desc)
+	p, err := readVerifiedBlob(ctx, provider, desc, docker.MaxManifestSize)
 	if err != nil {
 		return ocispec.Manifest{}, err
 	}
@@ -56,7 +57,7 @@ func indexAnnotations(ctx context.Context, provider content.Provider, desc ocisp
 	if !images.IsIndexType(desc.MediaType) {
 		return nil, nil
 	}
-	p, err := readVerifiedBlob(ctx, provider, desc)
+	p, err := readVerifiedBlob(ctx, provider, desc, docker.MaxManifestSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read image index: %w", err)
 	}
@@ -70,7 +71,7 @@ func indexAnnotations(ctx context.Context, provider content.Provider, desc ocisp
 // ConfigPlatform is a forked version of images.ConfigPlatform that checks the
 // config against its digest.
 func ConfigPlatform(ctx context.Context, provider content.Provider, configDesc ocispec.Descriptor) (ocispec.Platform, error) {
-	p, err := readVerifiedBlob(ctx, provider, configDesc)
+	p, err := readVerifiedBlob(ctx, provider, configDesc, maxConfigSize)
 	if err != nil {
 		return ocispec.Platform{}, err
 	}
@@ -117,7 +118,7 @@ func ManifestDescriptors(ctx context.Context, provider content.Provider, image o
 
 			return nil, nil
 		} else if images.IsIndexType(desc.MediaType) {
-			p, err := readVerifiedBlob(ctx, provider, desc)
+			p, err := readVerifiedBlob(ctx, provider, desc, docker.MaxManifestSize)
 			if err != nil {
 				return nil, err
 			}
