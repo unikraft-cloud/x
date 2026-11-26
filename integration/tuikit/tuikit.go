@@ -27,14 +27,14 @@ import (
 
 // Runner drives a Bubble Tea model and exposes snapshot-oriented helpers.
 //
-// Create a Runner with New, send input with PressKeys, and use WaitUntil to
-// block until the rendered snapshot matches a condition.
-//
-// Always call Stop when you're done to avoid goroutine leaks.
+// A test starts one with Start, sends input with Press and Type, and waits
+// for the screen with WaitFor. Anything else creates one with New, and
+// calls Stop when it's done.
 type Runner struct {
-	model  tea.Model
-	width  int
-	height int
+	model   tea.Model
+	width   int
+	height  int
+	timeout time.Duration
 
 	mu sync.RWMutex
 
@@ -45,25 +45,43 @@ type Runner struct {
 	wg     sync.WaitGroup
 }
 
+// Option configures a Runner.
+type Option func(*Runner)
+
+// WithSize sets the size of the window, which is 80x24 by default.
+// Snapshots are truncated to it.
+func WithSize(width, height int) Option {
+	return func(r *Runner) {
+		r.width, r.height = width, height
+	}
+}
+
+// WithTimeout sets how long WaitFor and its variants wait before failing
+// the test, which is 5 seconds by default.
+func WithTimeout(timeout time.Duration) Option {
+	return func(r *Runner) {
+		r.timeout = timeout
+	}
+}
+
 // New starts a Runner and immediately schedules model.Init().
-//
-// width/height are applied by sending a tea.WindowSizeMsg; snapshots are
-// truncated to these dimensions.
-func New(model tea.Model, width, height int) *Runner {
+func New(model tea.Model, opts ...Option) *Runner {
 	runner := &Runner{
 		model:     model,
-		width:     width,
-		height:    height,
+		width:     80,
+		height:    24,
+		timeout:   5 * time.Second,
 		updatedCh: make(chan struct{}, 1),
 		msgCh:     make(chan queuedMsg, 128),
 		stopCh:    make(chan struct{}),
 	}
+	for _, opt := range opts {
+		opt(runner)
+	}
 	// Run like a tea.Program by default.
 	runner.wg.Go(runner.loop)
 
-	if width > 0 || height > 0 {
-		runner.send(tea.WindowSizeMsg{Width: width, Height: height})
-	}
+	runner.send(tea.WindowSizeMsg{Width: runner.width, Height: runner.height})
 
 	runner.mu.RLock()
 	initCmd := runner.model.Init()
@@ -132,26 +150,6 @@ func (r *Runner) WaitUntil(timeout, interval time.Duration, pred func(snapshot s
 			return nil
 		}
 	}
-}
-
-// WaitUntilSnapshot is like WaitUntil, but returns the exact snapshot that
-// satisfied pred.
-func (r *Runner) WaitUntilSnapshot(timeout, interval time.Duration, pred func(snapshot string) bool) (string, error) {
-	var snap string
-	err := r.WaitUntil(timeout, interval, func(s string) bool {
-		if pred == nil {
-			return false
-		}
-		if pred(s) {
-			snap = s
-			return true
-		}
-		return false
-	})
-	if err != nil {
-		return "", err
-	}
-	return snap, nil
 }
 
 // Stop terminates the runner loop and waits for in-flight commands.
