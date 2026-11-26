@@ -19,7 +19,7 @@ import (
 // of the screen that is not there yet.
 //
 // A Runner is the Region of its whole screen. Line, Lines, Match, LineMatch,
-// and Inset find a Region inside another.
+// Inset and Heuristic find a Region inside another.
 type Region struct {
 	r      *Runner
 	parent *Region
@@ -79,6 +79,12 @@ func (g *Region) Inset(n int) *Region {
 		inner := in.Inset(n)
 		return inner, n >= 0 && !inner.Empty()
 	})
+}
+
+// Heuristic returns the part of the region that h finds. Unlike the other
+// ways to find a region, this one is a guess from how the screen looks.
+func (g *Region) Heuristic(h Heuristic) *Region {
+	return g.child(fmt.Sprintf("Heuristic(%s)", h.name()), h.find)
 }
 
 // Exists reports whether the region is on the screen now.

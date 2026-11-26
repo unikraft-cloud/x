@@ -12,7 +12,7 @@
 // program wrote. Nothing calls Update or View directly.
 //
 // A test waits for what it expects on the screen, or on a Region of it: a
-// line, or some text.
+// line, some text, or a box that it finds by its border.
 package tuikit
 
 import (
