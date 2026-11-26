@@ -278,6 +278,17 @@ tasks:
       {{.CLI_ARGS}}
       {{.paths}}
 
+  dockerfile:
+    desc: "Check that every Dockerfile pins its images by tag and digest"
+    vars:
+      paths:
+        ref: .paths | default "."
+    cmd: >-
+      {{.go_bin}} run unikraft.com/x/tools/dockerfile-check@prod-staging
+      {{.dockerfile_check_args}}
+      {{.CLI_ARGS}}
+      {{.paths}}
+
   static-check:
     desc: "Run static checks: tidy?, fmt, lint"
     cmds:
@@ -285,6 +296,7 @@ tasks:
     - task: fmt
     - task: lint
     - task: license
+    - task: dockerfile
 
   # ci steps
 
