@@ -3,7 +3,7 @@ module unikraft.com/x/kingkong
 go 1.27.4
 
 require (
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.2-0.20261126165533-22b09d7f3566
 	github.com/alecthomas/kong v1.17.0
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/stretchr/testify v1.12.1
@@ -31,6 +31,3 @@ require (
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 )
-
-// Use the fork with charmbracelet/lipgloss#746 until a release has it.
-replace charm.land/lipgloss/v2 => github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507

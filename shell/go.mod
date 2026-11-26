@@ -3,7 +3,7 @@ module unikraft.com/x/shell
 go 1.27.4
 
 require (
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.2-0.20261126165533-22b09d7f3566
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/charmbracelet/x/term v0.2.2
@@ -47,9 +47,6 @@ require (
 	golang.org/x/term v0.48.0 // indirect
 	unikraft.com/x/guesstermwidth v0.0.0-20260904140856-1944f6df62e1 // indirect
 )
-
-// Use the fork with charmbracelet/lipgloss#746 until a release has it.
-replace charm.land/lipgloss/v2 => github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507
 
 // Use master with mvdan/sh#1433 until a release has it.
 // It resolves the instance's Unix paths as such on Windows.

@@ -4,9 +4,6 @@ go 1.27.4
 
 replace unikraft.com/x/shell => ../../shell
 
-// Use the fork with charmbracelet/lipgloss#746 until a release has it.
-replace charm.land/lipgloss/v2 => github.com/unikraft-cloud/lipgloss/v2 v2.0.0-20260921145830-9a285e5dd507
-
 // Use master with mvdan/sh#1433 until a release has it.
 // It resolves the instance's Unix paths as such on Windows.
 replace mvdan.cc/sh/v3 => mvdan.cc/sh/v3 v3.14.1-0.20261019164542-27edea01b10f
@@ -18,7 +15,7 @@ require (
 )
 
 require (
-	charm.land/lipgloss/v2 v2.0.6 // indirect
+	charm.land/lipgloss/v2 v2.1.2-0.20261126165533-22b09d7f3566 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260812204455-68fa937c71be // indirect
