@@ -6,11 +6,15 @@
 package imagespec
 
 import (
+	"bytes"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/platforms"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 
@@ -155,4 +159,69 @@ func TestSaveKeepsEdits(t *testing.T) {
 	require.Equal(t, map[string]string{"edited": "yes"}, again.Annotations)
 	got, _ := again.Kernel.Source()
 	require.Equal(t, kernel.Digest, got.Digest)
+}
+
+func TestLoadRefusesOtherLayers(t *testing.T) {
+	ctx := t.Context()
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+
+	write := func(mediaType string, data []byte, annotations map[string]string) ocispec.Descriptor {
+		desc := ocispec.Descriptor{MediaType: mediaType, Digest: digest.FromBytes(data), Size: int64(len(data)), Annotations: annotations}
+		require.NoError(t, content.WriteBlob(ctx, store, desc.Digest.String(), bytes.NewReader(data), desc))
+		return desc
+	}
+	kernel := write(ocispec.MediaTypeImageLayer, []byte("kernel"), map[string]string{AnnotationKernelPath: WellKnownKernelPath})
+	files := write(ocispec.MediaTypeImageLayer, []byte("a layer of files"), nil)
+	manifest := func(p ocispec.Platform, layers ...ocispec.Descriptor) ocispec.Descriptor {
+		config := writeJSON(t, store, ocispec.MediaTypeImageConfig, ocispec.Image{Platform: p})
+		return writeJSON(t, store, ocispec.MediaTypeImageManifest, ocispec.Manifest{
+			SchemaVersion: 2, MediaType: ocispec.MediaTypeImageManifest, Config: config, Layers: layers,
+		})
+	}
+
+	// A Unikraft image with a layer that is no part, as the old debug images have.
+	_, err = LoadAllContent(ctx, store, manifest(ocispec.Platform{OS: "kraftcloud", Architecture: "x86_64"}, kernel, files), platforms.All)
+	require.ErrorContains(t, err, files.Digest.String())
+
+	// A linux image loads without its other layers, but does not save.
+	linux := ocispec.Platform{OS: "linux", Architecture: "amd64"}
+	loaded, err := LoadAllContent(ctx, store, manifest(linux, kernel, files), platforms.All)
+	require.NoError(t, err)
+	require.NotNil(t, loaded[0].Kernel)
+	_, err = SaveContent(ctx, store, "latest", loaded...)
+	require.ErrorContains(t, err, "not Unikraft parts")
+}
+
+func TestLoadSkipsAttestations(t *testing.T) {
+	ctx := t.Context()
+	store, err := local.NewStore(t.TempDir())
+	require.NoError(t, err)
+
+	mfst, err := SaveManifest(ctx, store, "latest", unikraftImage(fcIntel))
+	require.NoError(t, err)
+	data := []byte(`{"_type":"https://in-toto.io/Statement/v0.1"}`)
+	statement := ocispec.Descriptor{MediaType: "application/vnd.in-toto+json", Digest: digest.FromBytes(data), Size: int64(len(data))}
+	require.NoError(t, content.WriteBlob(ctx, store, statement.Digest.String(), bytes.NewReader(data), statement))
+	attestation := writeJSON(t, store, ocispec.MediaTypeImageManifest, ocispec.Manifest{
+		SchemaVersion: 2, MediaType: ocispec.MediaTypeImageManifest,
+		Config: writeJSON(t, store, "application/vnd.oci.empty.v1+json", struct{}{}),
+		Layers: []ocispec.Descriptor{statement},
+	})
+	attestation.Platform = &ocispec.Platform{OS: "unknown", Architecture: "unknown"}
+	attestation.Annotations = map[string]string{annotationReferenceType: "attestation-manifest", "vnd.docker.reference.digest": mfst.Digest.String()}
+	// The attestation comes first, where a load of one image would take it.
+	idx := writeJSON(t, store, ocispec.MediaTypeImageIndex, ocispec.Index{
+		SchemaVersion: 2, MediaType: ocispec.MediaTypeImageIndex, Manifests: []ocispec.Descriptor{attestation, mfst},
+	})
+
+	loaded, err := LoadAllContent(ctx, store, idx, platforms.All)
+	require.NoError(t, err)
+	require.Len(t, loaded, 1)
+	require.Equal(t, mfst.Digest, loaded[0].ManifestDescriptor.Digest)
+	require.NotNil(t, loaded[0].Kernel)
+
+	img, err := LoadContent(ctx, store, idx, platforms.All)
+	require.NoError(t, err)
+	require.Equal(t, mfst.Digest, img.ManifestDescriptor.Digest)
 }

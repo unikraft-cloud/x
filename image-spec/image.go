@@ -31,7 +31,8 @@ type Image struct {
 	Annotations      map[string]string
 	IndexAnnotations map[string]string
 
-	cleanup []func() error
+	skippedLayers bool // the load left out layers that are not Unikraft parts
+	cleanup       []func() error
 }
 
 func (i *Image) Close() error {

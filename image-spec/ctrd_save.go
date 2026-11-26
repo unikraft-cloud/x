@@ -65,6 +65,11 @@ func SaveManifest(ctx context.Context, store content.Ingester, ref string, image
 }
 
 func saveManifests(ctx context.Context, store content.Ingester, ref string, images ...*Image) ([]ocispec.Descriptor, error) {
+	for _, image := range images {
+		if image.skippedLayers {
+			return nil, fmt.Errorf("image %s has layers that are not Unikraft parts, which a save cannot write: copy it with Accessor.Copy", image.ManifestDescriptor.Digest)
+		}
+	}
 	store = ingestRef(store, ref)
 
 	eg, egCtx := errgroup.WithContext(ctx)
@@ -155,12 +160,6 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 	var mfstDescs []ocispec.Descriptor
 
 	for i, image := range images {
-		// An image without parts names a manifest that the store already has.
-		if image.Kernel == nil && image.KernelDebug == nil && image.Initrd == nil && len(image.Roms) == 0 && image.ManifestDescriptor.Digest != "" {
-			mfstDescs = append(mfstDescs, image.ManifestDescriptor)
-			continue
-		}
-
 		layers := make([]ocispec.Descriptor, len(imageLayers[i]))
 		for j, layer := range imageLayers[i] {
 			layers[j] = *layer

@@ -14,18 +14,20 @@ import (
 	"io/fs"
 	"maps"
 	"path/filepath"
+	"slices"
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 )
 
 func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
-	mfsts, err := ManifestDescriptors(ctx, store, desc, ignoringOSFeatures(platform))
+	mfsts, err := imageManifests(ctx, store, desc, platform)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image manifest: %w", err)
+		return nil, err
 	}
 	annotations, err := indexAnnotations(ctx, store, desc)
 	if err != nil {
@@ -40,9 +42,9 @@ func LoadContent(ctx context.Context, store content.Provider, desc ocispec.Descr
 }
 
 func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
-	mfsts, err := ManifestDescriptors(ctx, store, desc, ignoringOSFeatures(platform))
+	mfsts, err := imageManifests(ctx, store, desc, platform)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image manifest: %w", err)
+		return nil, err
 	}
 
 	annotations, err := indexAnnotations(ctx, store, desc)
@@ -74,6 +76,21 @@ func LoadAllContent(ctx context.Context, store content.Provider, desc ocispec.De
 // annotationReferenceType marks an index entry that is no image, such as an attestation of BuildKit.
 const annotationReferenceType = "vnd.docker.reference.type"
 
+// imageManifests returns the manifests of the images of platform that desc names, without attestations.
+func imageManifests(ctx context.Context, store content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]ocispec.Descriptor, error) {
+	mfsts, err := ManifestDescriptors(ctx, store, desc, ignoringOSFeatures(platform))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get image manifest: %w", err)
+	}
+	mfsts = slices.DeleteFunc(mfsts, func(mfst ocispec.Descriptor) bool {
+		return mfst.Annotations[annotationReferenceType] == "attestation-manifest"
+	})
+	if len(mfsts) == 0 {
+		return nil, fmt.Errorf("failed to get image manifest: %s has only attestations: %w", desc.Digest, errdefs.ErrNotFound)
+	}
+	return mfsts, nil
+}
+
 // loadCtrdImageMfst loads the image whose manifest is desc, recording root as
 // what it was loaded from.
 func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec.Descriptor, desc ocispec.Descriptor) (*Image, error) {
@@ -98,22 +115,39 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 	img.Image = &config
 
 	for _, layer := range mfst.Layers {
+		part := true
 		switch layer.MediaType {
 		// Classic OCI layer (old-style image layer).
 		case ocispec.MediaTypeImageLayer, images.MediaTypeDockerSchema2Layer:
+			part = false
 			if p := layer.Annotations[AnnotationKernelPath]; p != "" {
 				img.Kernel = NewContentStoreFile(store, layer, p)
+				part = true
 			}
 			if p := layer.Annotations[AnnotationKernelDbgPath]; p != "" {
 				img.KernelDebug = NewContentStoreFile(store, layer, p)
+				part = true
 			}
 			if p := layer.Annotations[AnnotationKernelInitrdPath]; p != "" {
 				img.Initrd = NewContentStoreFile(store, layer, p)
+				part = true
 			}
 
 		case MediaTypeRom:
 			img.Roms = append(img.Roms, NewContentStoreFile(store, layer, ""))
+
+		default:
+			part = false
 		}
+		if part {
+			continue
+		}
+		// A Unikraft image, or an old one without an OS, has only parts.
+		// Another image loads without its other layers, for the rootfs of a build, and Save refuses it.
+		if slices.Contains([]string{"", PlatformKraftcloud, PlatformFirecracker, PlatformQemu}, config.OS) {
+			return nil, fmt.Errorf("layer %s of type %s of manifest %s is not a kernel, an initrd or a ROM: copy the image with Accessor.Copy", layer.Digest, layer.MediaType, desc.Digest)
+		}
+		img.skippedLayers = true
 	}
 
 	return img, nil
