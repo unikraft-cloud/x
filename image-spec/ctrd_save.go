@@ -96,7 +96,7 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 				if kernelDesc.Annotations == nil {
 					kernelDesc.Annotations = make(map[string]string)
 				}
-				kernelDesc.Annotations[AnnotationKernelPath] = WellKnownKernelPath
+				kernelDesc.Annotations[AnnotationKernelPath] = partPath(image.Kernel, WellKnownKernelPath)
 				*layer = savedLayer{kernelDesc, diffID}
 				return nil
 			})
@@ -115,7 +115,7 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 				if kernelDesc.Annotations == nil {
 					kernelDesc.Annotations = make(map[string]string)
 				}
-				kernelDesc.Annotations[AnnotationKernelDbgPath] = WellKnownKernelDbgPath
+				kernelDesc.Annotations[AnnotationKernelDbgPath] = partPath(image.KernelDebug, WellKnownKernelDbgPath)
 				*layer = savedLayer{kernelDesc, diffID}
 				return nil
 			})
@@ -134,7 +134,7 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 				if initrdDesc.Annotations == nil {
 					initrdDesc.Annotations = make(map[string]string)
 				}
-				initrdDesc.Annotations[AnnotationKernelInitrdPath] = WellKnownInitrdPath
+				initrdDesc.Annotations[AnnotationKernelInitrdPath] = partPath(image.Initrd, WellKnownInitrdPath)
 				*layer = savedLayer{initrdDesc, diffID}
 				return nil
 			})
@@ -207,6 +207,21 @@ func saveManifests(ctx context.Context, store content.Ingester, ref string, imag
 	}
 
 	return mfstDescs, nil
+}
+
+// copiesSource reports if a save copies the source layer of file, and does not write a new tar at path.
+// A part must have a source that holds it at its path; a ROM, with path "", must only have a source.
+func copiesSource(file File, path string) bool {
+	desc, _ := file.Source()
+	return desc.Digest != "" && (path == "" || file.Path() != "")
+}
+
+// partPath returns the path of file in the layer that a save writes for it at wellKnown.
+func partPath(file File, wellKnown string) string {
+	if copiesSource(file, wellKnown) {
+		return file.Path()
+	}
+	return wellKnown
 }
 
 // savedLayer is a layer of a save and the digest of its uncompressed content.
@@ -379,8 +394,8 @@ func copyBlob(ctx context.Context, store content.Ingester, source reference.Refe
 const maxResets = 4
 
 func packageLayer(ctx context.Context, store content.Ingester, image *Image, file File, mediaType string, path string, compression Compression) (_ ocispec.Descriptor, diffID digest.Digest, rerr error) {
-	if desc, provider := file.Source(); desc.Digest != "" && store != nil {
-		// if we have a source descriptor and provider, copy directly
+	if copiesSource(file, path) {
+		desc, provider := file.Source()
 		id, err := copyBlob(ctx, store, image.source(), provider, desc, true, diffIDHint(file))
 		if err != nil {
 			return ocispec.Descriptor{}, "", err
