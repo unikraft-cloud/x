@@ -7,11 +7,14 @@ package imagespec
 
 import (
 	"bytes"
+	"cmp"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/platforms"
 	"github.com/opencontainers/go-digest"
@@ -44,10 +47,12 @@ type loadedImage struct {
 	Config           *ocispec.Image
 	Annotations      map[string]string
 	IndexAnnotations map[string]string
+	Runtime          RuntimeKind
 	Kernel           ocispec.Descriptor
 	KernelDebug      ocispec.Descriptor
 	Initrd           ocispec.Descriptor
 	Roms             []ocispec.Descriptor
+	Layers           []ocispec.Descriptor
 }
 
 func loadedImages(t *testing.T, imgs []*Image) []loadedImage {
@@ -56,6 +61,9 @@ func loadedImages(t *testing.T, imgs []*Image) []loadedImage {
 	source := func(f File) ocispec.Descriptor {
 		if f == nil {
 			return ocispec.Descriptor{}
+		}
+		if isRootfs(f) {
+			return ocispec.Descriptor{MediaType: "rootfs of the layers"}
 		}
 		desc, _ := f.Source()
 		require.NotEmpty(t, desc.Digest, f.Path())
@@ -68,12 +76,16 @@ func loadedImages(t *testing.T, imgs []*Image) []loadedImage {
 			Config:           img.Image,
 			Annotations:      img.Annotations,
 			IndexAnnotations: img.IndexAnnotations,
+			Runtime:          img.Runtime,
 			Kernel:           source(img.Kernel),
 			KernelDebug:      source(img.KernelDebug),
 			Initrd:           source(img.Initrd),
 		}
 		for _, rom := range img.Roms {
 			l.Roms = append(l.Roms, source(rom))
+		}
+		for _, layer := range img.Layers {
+			l.Layers = append(l.Layers, source(layer))
 		}
 		loaded = append(loaded, l)
 	}
@@ -83,8 +95,20 @@ func loadedImages(t *testing.T, imgs []*Image) []loadedImage {
 func TestLoadSaveLoad(t *testing.T) {
 	_, host, resolver := startTestRegistry(t)
 
-	kinds := map[string]func() []*Image{
-		"every part and annotation": func() []*Image {
+	// docker loads a Docker image for platform, from a store with its manifests for linux.
+	docker := func(platform ocispec.Platform) func(t *testing.T) []*Image {
+		return func(t *testing.T) []*Image {
+			store, desc := genericImage(t, t.TempDir(), nil, linuxAmd64)
+			imgs, err := LoadAllContent(t.Context(), store, desc, platforms.Only(platform))
+			require.NoError(t, err)
+			return imgs
+		}
+	}
+	kinds := map[string]struct {
+		images   func(t *testing.T) []*Image
+		platform platforms.MatchComparer
+	}{
+		"every part and annotation": {images: func(*testing.T) []*Image {
 			img := unikraftImage(fcIntel,
 				WithDebugKernel(NewStaticFile("kernel.dbg", []byte("debug kernel"))),
 				WithRom(NewStaticFile("rom0", []byte("first rom"))),
@@ -93,47 +117,71 @@ func TestLoadSaveLoad(t *testing.T) {
 			img.Annotations[AnnotationName] = "app"
 			img.IndexAnnotations = map[string]string{AnnotationBuildID: "42"}
 			return []*Image{img}
-		},
-		"multi-platform": func() []*Image {
+		}},
+		"multi-platform": {images: func(*testing.T) []*Image {
 			return []*Image{unikraftImage(fcIntel), unikraftImage(fcArm)}
-		},
+		}},
+		"docker for linux":      {images: docker(linuxAmd64), platform: platforms.Only(linuxAmd64)},
+		"docker for kraftcloud": {images: docker(kraftcloud), platform: platforms.Only(kraftcloud)},
 	}
-	backends := map[string]func(t *testing.T, name string) *Location{
-		"layout": func(t *testing.T, name string) *Location {
-			return &Location{Scheme: schemes.OCILayout, Path: t.TempDir() + ":" + name}
+	// Each backend saves the images, and loads them again for the platform.
+	backends := map[string]func(t *testing.T, name string, imgs []*Image, platform platforms.MatchComparer) (digest.Digest, []*Image){
+		"layout": func(t *testing.T, name string, imgs []*Image, platform platforms.MatchComparer) (digest.Digest, []*Image) {
+			return saveLoad(t, resolver, &Location{Scheme: schemes.OCILayout, Path: t.TempDir() + ":" + name}, imgs, platform)
 		},
-		"tarball": func(t *testing.T, name string) *Location {
-			return &Location{Scheme: schemes.OCIArchive, Path: filepath.Join(t.TempDir(), name+".tar")}
+		"tarball": func(t *testing.T, name string, imgs []*Image, platform platforms.MatchComparer) (digest.Digest, []*Image) {
+			return saveLoad(t, resolver, &Location{Scheme: schemes.OCIArchive, Path: filepath.Join(t.TempDir(), name+".tar")}, imgs, platform)
 		},
-		"registry": func(t *testing.T, name string) *Location {
-			return &Location{Scheme: schemes.OCI, Path: host + "/acme/" + name + ":v1"}
+		"registry": func(t *testing.T, name string, imgs []*Image, platform platforms.MatchComparer) (digest.Digest, []*Image) {
+			return saveLoad(t, resolver, &Location{Scheme: schemes.OCI, Path: host + "/acme/" + name + ":v1"}, imgs, platform)
+		},
+		"store": func(t *testing.T, name string, imgs []*Image, platform platforms.MatchComparer) (digest.Digest, []*Image) {
+			store, err := local.NewStore(t.TempDir())
+			require.NoError(t, err)
+			desc, err := SaveContent(t.Context(), store, name, imgs...)
+			require.NoError(t, err)
+			loaded, err := LoadAllContent(t.Context(), store, desc, platform)
+			require.NoError(t, err)
+			return desc.Digest, loaded
 		},
 	}
 
-	for kind, images := range kinds {
-		for backend, location := range backends {
+	for kind, tc := range kinds {
+		for backend, saveLoad := range backends {
 			t.Run(kind+"/"+backend, func(t *testing.T) {
-				ctx := t.Context()
-				a := NewAccessor(WithResolver(resolver))
+				platform := cmp.Or[platforms.MatchComparer](tc.platform, platforms.All)
+				images := tc.images(t)
+				saved, first := saveLoad(t, "first", images, platform)
+				again, second := saveLoad(t, "second", first, platform)
 
-				saved, err := a.Save(ctx, location(t, "first"), images()...)
-				require.NoError(t, err)
-				first, err := a.LoadAll(ctx, saved, platforms.All)
-				require.NoError(t, err)
-
-				again, err := a.Save(ctx, location(t, "second"), first...)
-				require.NoError(t, err)
-				second, err := a.LoadAll(ctx, again, platforms.All)
-				require.NoError(t, err)
-
-				require.Equal(t, saved.Descriptor.Digest, again.Descriptor.Digest)
+				require.Equal(t, saved, again)
 				require.Equal(t, loadedImages(t, first), loadedImages(t, second))
-				for _, img := range append(first, second...) {
+				if tc.platform != nil {
+					// The save of a Docker image keeps all but its manifest.
+					want, got := loadedImages(t, images), loadedImages(t, first)
+					for i := range want {
+						want[i].Manifest, got[i].Manifest = ocispec.Descriptor{}, ocispec.Descriptor{}
+					}
+					require.Equal(t, want, got)
+				}
+				for _, img := range slices.Concat(images, first, second) {
 					require.NoError(t, img.Close())
 				}
 			})
 		}
 	}
+}
+
+// saveLoad saves imgs to dest with an accessor of resolver, and loads them again for the platform.
+func saveLoad(t *testing.T, resolver remotes.Resolver, dest *Location, imgs []*Image, platform platforms.MatchComparer) (digest.Digest, []*Image) {
+	t.Helper()
+
+	a := NewAccessor(WithResolver(resolver))
+	saved, err := a.Save(t.Context(), dest, imgs...)
+	require.NoError(t, err)
+	loaded, err := a.LoadAll(t.Context(), saved, platform)
+	require.NoError(t, err)
+	return saved.Descriptor.Digest, loaded
 }
 
 func TestSaveKeepsEdits(t *testing.T) {
@@ -184,8 +232,23 @@ func TestLoadRefusesOtherLayers(t *testing.T) {
 	_, err = LoadAllContent(ctx, store, manifest(ocispec.Platform{OS: "kraftcloud", Architecture: "x86_64"}, kernel, files), platforms.All)
 	require.ErrorContains(t, err, files.Digest.String())
 
-	// A linux image loads without its other layers, but does not save.
+	// A linux image with a layer that is no tar layer, or a windows image, loads without its layers, but does not save.
 	linux := ocispec.Platform{OS: "linux", Architecture: "amd64"}
+	other := write("application/octet-stream", []byte("no tar"), nil)
+	for _, m := range []ocispec.Descriptor{manifest(linux, files, other), manifest(ocispec.Platform{OS: "windows", Architecture: "amd64"}, files)} {
+		loaded, err := LoadAllContent(ctx, store, m, platforms.All)
+		require.NoError(t, err)
+		require.Len(t, loaded, 1)
+		require.Equal(t, RuntimeKindUnikraft, loaded[0].Runtime)
+		require.Empty(t, loaded[0].Layers)
+		require.Nil(t, loaded[0].Kernel)
+		require.Nil(t, loaded[0].Initrd)
+		_, err = SaveContent(ctx, store, "latest", loaded...)
+		require.ErrorContains(t, err, "not Unikraft parts")
+		require.ErrorContains(t, err, "Accessor.Copy")
+	}
+
+	// A linux image with Unikraft parts and other layers does not save either.
 	loaded, err := LoadAllContent(ctx, store, manifest(linux, kernel, files), platforms.All)
 	require.NoError(t, err)
 	require.NotNil(t, loaded[0].Kernel)

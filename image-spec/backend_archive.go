@@ -37,39 +37,39 @@ import (
 
 // LoadTarball loads an image from a tarball (OCI or Docker format), from desc
 // if it is set, or else from the tarball's own index.json.
-func LoadTarball(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+func LoadTarball(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	f, err := os.Open(tarballPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tarball: %w", err)
 	}
 	defer f.Close()
 
-	return LoadTarballReader(ctx, f, desc, platform)
+	return LoadTarballReader(ctx, f, desc, platform, opts...)
 }
 
 // LoadAllTarballs loads all images from a tarball (OCI or Docker format).
 // The images share one temporary store, which stays until all of them are
 // closed. It loads them from
 // desc if it is set, or else from the tarball's own index.json.
-func LoadAllTarballs(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllTarballs(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	f, err := os.Open(tarballPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tarball: %w", err)
 	}
 	defer f.Close()
 
-	return LoadAllTarballReaders(ctx, f, desc, platform)
+	return LoadAllTarballReaders(ctx, f, desc, platform, opts...)
 }
 
 // LoadTarballReader loads an image from a tarball reader (OCI or Docker
 // format), from desc if it is set, or else from the tarball's own index.json.
-func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	store, root, _, cleanup, err := importTarball(ctx, r, desc)
 	if err != nil {
 		return nil, err
 	}
 
-	img, err := LoadContent(ctx, store, root, platform)
+	img, err := LoadContent(ctx, store, root, platform, opts...)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("failed to load image from imported tarball: %w", err), cleanup())
 	}
@@ -81,13 +81,13 @@ func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor
 // share one temporary store, which stays until all of them are closed. It
 // loads them (OCI or Docker
 // format), from desc if it is set, or else from the tarball's own index.json.
-func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	store, root, _, cleanup, err := importTarball(ctx, r, desc)
 	if err != nil {
 		return nil, err
 	}
 
-	imgs, err := LoadAllContent(ctx, store, root, platform)
+	imgs, err := LoadAllContent(ctx, store, root, platform, opts...)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("failed to load images from imported tarball: %w", err), cleanup())
 	}

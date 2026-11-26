@@ -82,6 +82,7 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 	unikraft.com/x/io v0.0.0-20261126143640-3a5ba07339c1 // indirect
 	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8 // indirect
+	unikraft.com/x/mergefs v0.0.0-20261126153254-779ca0a37468 // indirect
 )
 
 replace (

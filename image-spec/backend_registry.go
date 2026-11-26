@@ -66,13 +66,13 @@ func ResolveRegistryImage(ctx context.Context, named distref.Named, remote remot
 
 // LoadRegistryImage loads the image desc names from a remote registry, under
 // the repository named. Both come from ResolveRegistryImage.
-func LoadRegistryImage(ctx context.Context, named distref.Named, desc ocispec.Descriptor, remote remotes.Resolver, platform platforms.MatchComparer) (*Image, error) {
+func LoadRegistryImage(ctx context.Context, named distref.Named, desc ocispec.Descriptor, remote remotes.Resolver, platform platforms.MatchComparer, opts ...LoadOpt) (*Image, error) {
 	provider, err := registryProvider(ctx, named, desc, remote)
 	if err != nil {
 		return nil, err
 	}
 
-	img, err := LoadContent(ctx, provider, desc, platform)
+	img, err := LoadContent(ctx, provider, desc, platform, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load image %q: %w", named, err)
 	}
@@ -82,13 +82,13 @@ func LoadRegistryImage(ctx context.Context, named distref.Named, desc ocispec.De
 
 // LoadAllRegistryImages loads all available images desc names from a remote
 // registry, under the repository named. Both come from ResolveRegistryImage.
-func LoadAllRegistryImages(ctx context.Context, named distref.Named, desc ocispec.Descriptor, remote remotes.Resolver, platform platforms.MatchComparer) ([]*Image, error) {
+func LoadAllRegistryImages(ctx context.Context, named distref.Named, desc ocispec.Descriptor, remote remotes.Resolver, platform platforms.MatchComparer, opts ...LoadOpt) ([]*Image, error) {
 	provider, err := registryProvider(ctx, named, desc, remote)
 	if err != nil {
 		return nil, err
 	}
 
-	imgs, err := LoadAllContent(ctx, provider, desc, platform)
+	imgs, err := LoadAllContent(ctx, provider, desc, platform, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load image %q: %w", named, err)
 	}
