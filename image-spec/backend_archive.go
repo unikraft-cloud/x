@@ -210,7 +210,7 @@ func SaveTarballWriter(ctx context.Context, w io.Writer, image ...*Image) (ocisp
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to save image to local store: %w", err)
 	}
-	return exportTarball(ctx, w, store, desc, nil)
+	return exportTarball(ctx, w, store, desc)
 }
 
 // copyToTarball copies root from provider to a tarball, as copyContent does, and returns its own index.json.
@@ -235,19 +235,16 @@ func copyToTarball(ctx context.Context, tarballPath string, provider content.Pro
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("failed to create tarball file: %w", err)
 	}
-	desc, err := exportTarball(ctx, f, store, root, platform)
+	desc, err := exportTarball(ctx, f, store, root)
 	if err = errors.Join(err, f.Close()); err != nil {
 		return ocispec.Descriptor{}, errors.Join(err, os.Remove(tarballPath))
 	}
 	return desc, nil
 }
 
-// exportTarball writes root from store to w as a tarball, with the manifests of platform or all, and returns its own index.json.
-func exportTarball(ctx context.Context, w io.Writer, store content.InfoReaderProvider, root ocispec.Descriptor, platform platforms.MatchComparer) (ocispec.Descriptor, error) {
+// exportTarball writes root and all its tree from store to w as a tarball, and returns its own index.json.
+func exportTarball(ctx context.Context, w io.Writer, store content.InfoReaderProvider, root ocispec.Descriptor) (ocispec.Descriptor, error) {
 	opts := []archive.ExportOpt{archive.WithManifest(root), archive.WithSkipNonDistributableBlobs()}
-	if platform != nil {
-		opts = append(opts, archive.WithPlatform(platform))
-	}
 
 	pr, pw := io.Pipe()
 	index := make(chan ocispec.Descriptor, 1)

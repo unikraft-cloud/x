@@ -88,6 +88,22 @@ func ConfigPlatform(ctx context.Context, provider content.Provider, configDesc o
 	return platforms.Normalize(imagePlatform), nil
 }
 
+// manifestMatches reports whether platform matches the manifest desc: its platform, else the platform of its config.
+func manifestMatches(ctx context.Context, provider content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) (bool, error) {
+	if desc.Platform != nil {
+		return platform.Match(*desc.Platform), nil
+	}
+	manifest, err := readManifest(ctx, provider, desc)
+	if err != nil {
+		return false, err
+	}
+	imagePlatform, err := ConfigPlatform(ctx, provider, manifest.Config)
+	if err != nil {
+		return false, err
+	}
+	return platform.Match(imagePlatform), nil
+}
+
 // ManifestDescriptors is like Manifests, but returns the descriptors of the
 // matching manifests instead of the manifests themselves.
 func ManifestDescriptors(ctx context.Context, provider content.Provider, image ocispec.Descriptor, platform platforms.MatchComparer) ([]ocispec.Descriptor, error) {
@@ -99,22 +115,12 @@ func ManifestDescriptors(ctx context.Context, provider content.Provider, image o
 	if err := images.Walk(ctx, images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 		if images.IsManifestType(desc.MediaType) {
 			if desc.Digest != image.Digest && platform != nil {
-				if desc.Platform != nil && !platform.Match(*desc.Platform) {
-					return nil, nil
+				ok, err := manifestMatches(ctx, provider, desc, platform)
+				if err != nil {
+					return nil, err
 				}
-
-				if desc.Platform == nil {
-					manifest, err := readManifest(ctx, provider, desc)
-					if err != nil {
-						return nil, err
-					}
-					imagePlatform, err := ConfigPlatform(ctx, provider, manifest.Config)
-					if err != nil {
-						return nil, err
-					}
-					if !platform.Match(imagePlatform) {
-						return nil, nil
-					}
+				if !ok {
+					return nil, nil
 				}
 			}
 

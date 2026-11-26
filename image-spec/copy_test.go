@@ -327,6 +327,119 @@ func TestCopyToRegistry(t *testing.T) {
 	})
 }
 
+// platformManifest writes to store a manifest of p with one layer, and returns it with all its blobs.
+func platformManifest(t *testing.T, store content.Ingester, p ocispec.Platform) (ocispec.Descriptor, []ocispec.Descriptor) {
+	t.Helper()
+
+	data := []byte("layer of " + platforms.Format(p))
+	layer := ocispec.Descriptor{MediaType: ocispec.MediaTypeImageLayerGzip, Digest: digest.FromBytes(data), Size: int64(len(data))}
+	require.NoError(t, content.WriteBlob(t.Context(), store, layer.Digest.String(), bytes.NewReader(data), layer))
+	config := writeJSON(t, store, ocispec.MediaTypeImageConfig, ocispec.Image{Platform: p})
+	mfst := writeJSON(t, store, ocispec.MediaTypeImageManifest, ocispec.Manifest{
+		SchemaVersion: 2, MediaType: ocispec.MediaTypeImageManifest, Config: config, Layers: []ocispec.Descriptor{layer},
+	})
+	return mfst, []ocispec.Descriptor{mfst, config, layer}
+}
+
+func TestCopyPlatform(t *testing.T) {
+	ctx := t.Context()
+	src := t.TempDir()
+	store := mustStore(t, src)
+	a := NewAccessor()
+
+	amd64 := ocispec.Platform{OS: "linux", Architecture: "amd64"}
+	arm64 := ocispec.Platform{OS: "linux", Architecture: "arm64"}
+	withFeatures := ocispec.Platform{OS: "linux", Architecture: "amd64", OSFeatures: []string{"feature"}}
+	amd64Mfst, amd64Blobs := platformManifest(t, store, amd64)
+	arm64Mfst, arm64Blobs := platformManifest(t, store, arm64)
+	labelled := func(desc ocispec.Descriptor, p ocispec.Platform) ocispec.Descriptor {
+		desc.Platform = &p
+		return desc
+	}
+	index := func(entries ...ocispec.Descriptor) ocispec.Descriptor {
+		return writeJSON(t, store, ocispec.MediaTypeImageIndex, ocispec.Index{SchemaVersion: 2, MediaType: ocispec.MediaTypeImageIndex, Manifests: entries})
+	}
+	amd64Index := index(labelled(amd64Mfst, amd64))
+	arm64Index := index(labelled(arm64Mfst, arm64))
+
+	for _, tc := range []struct {
+		name string
+		root ocispec.Descriptor
+		kept ocispec.Descriptor   // the only entry of the new root
+		has  []ocispec.Descriptor // what the copy has
+	}{{
+		name: "a sub-index without a match is dropped",
+		root: index(arm64Index, amd64Index),
+		kept: amd64Index,
+		has:  append([]ocispec.Descriptor{amd64Index}, amd64Blobs...),
+	}, {
+		name: "an entry without a platform matches by its config",
+		root: index(arm64Mfst, labelled(amd64Mfst, amd64)),
+		kept: labelled(amd64Mfst, amd64),
+		has:  amd64Blobs,
+	}, {
+		name: "an entry matches whatever its os.features",
+		root: index(labelled(arm64Mfst, arm64), labelled(amd64Mfst, withFeatures)),
+		kept: labelled(amd64Mfst, withFeatures),
+		has:  amd64Blobs,
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, ociindex.NewStoreIndex(src).Put(tc.root, ociindex.Tag("v1")))
+			from := Resolved{Location: Location{Scheme: schemes.OCILayout, Path: src + ":v1"}}
+			want, err := a.LoadAll(ctx, from, platforms.OnlyStrict(amd64))
+			require.NoError(t, err)
+			require.Len(t, want, 1)
+
+			for _, dest := range []*Location{
+				{Scheme: schemes.OCILayout, Path: t.TempDir() + ":v1"},
+				{Scheme: schemes.OCIArchive, Path: filepath.Join(t.TempDir(), "app.tar")},
+			} {
+				copied, err := a.Copy(ctx, from, dest, platforms.OnlyStrict(amd64))
+				require.NoError(t, err, dest.Scheme)
+				got, err := a.LoadAll(ctx, copied, platforms.All)
+				require.NoError(t, err, dest.Scheme)
+				require.Len(t, got, 1, dest.Scheme)
+				require.Equal(t, want[0].ManifestDescriptor.Digest, got[0].ManifestDescriptor.Digest, dest.Scheme)
+				if dest.Scheme != schemes.OCILayout {
+					continue
+				}
+
+				dir, _ := splitPathTag(dest.Path)
+				data, err := content.ReadBlob(ctx, mustStore(t, dir), copied.Descriptor)
+				require.NoError(t, err)
+				var idx ocispec.Index
+				require.NoError(t, json.Unmarshal(data, &idx))
+				require.Equal(t, []ocispec.Descriptor{tc.kept}, idx.Manifests)
+				requireLayoutHas(t, dir, tc.has...)
+				for _, desc := range append([]ocispec.Descriptor{arm64Index}, arm64Blobs...) {
+					_, err := mustStore(t, dir).Info(ctx, desc.Digest)
+					require.Error(t, err, desc.Digest)
+				}
+			}
+		})
+	}
+
+	t.Run("a copy from a registry fetches each blob once", func(t *testing.T) {
+		reg, host, resolver := startTestRegistry(t)
+		remote := NewAccessor(WithResolver(resolver))
+		root := index(arm64Mfst, labelled(amd64Mfst, amd64))
+		require.NoError(t, ociindex.NewStoreIndex(src).Put(root, ociindex.Tag("v1")))
+		pushed, err := remote.Copy(ctx, Resolved{Location: Location{Scheme: schemes.OCILayout, Path: src + ":v1"}},
+			&Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}, nil)
+		require.NoError(t, err)
+		require.Empty(t, reg.fetches())
+
+		_, err = remote.Copy(ctx, pushed, &Location{Scheme: schemes.OCILayout, Path: t.TempDir() + ":v1"}, platforms.OnlyStrict(amd64))
+		require.NoError(t, err)
+		// The copy reads the arm64 manifest and its config to match them, and not its layer.
+		want := map[digest.Digest]int{root.Digest: 1, arm64Blobs[0].Digest: 1, arm64Blobs[1].Digest: 1}
+		for _, desc := range amd64Blobs {
+			want[desc.Digest] = 1
+		}
+		require.Equal(t, want, reg.fetches())
+	})
+}
+
 func TestLayoutRoot(t *testing.T) {
 	dir := t.TempDir()
 	idx, _ := genericIndex(t, dir, "one")
