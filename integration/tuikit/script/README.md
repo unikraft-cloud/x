@@ -21,9 +21,18 @@ wait <expr>
 
 `time.Duration` is parsed by Go (e.g. `150ms`, `2s`, `1m`).
 
+A `key` returns once the program has handled it, but the screen follows
+later. So `wait` for what the key puts on the screen before a `snapshot`:
+
+```
+key enter
+wait contains("Home > instances")
+snapshot
+```
+
 By default:
 
-- `snapshot` prints the current view (ANSI is stripped).
+- `snapshot` prints the text on the screen.
 - other commands are silent.
 
 With `Executor.JSON`:
@@ -85,7 +94,7 @@ wait (not contains("ERROR")) or contains("No results")
 
 ### Keys
 
-`key <key>` sends a Bubble Tea key press.
+`key <key>` presses a key, as the bytes a terminal sends for it.
 
 Supported named keys:
 
@@ -94,7 +103,12 @@ Supported named keys:
 
 Modifiers are written with `+`:
 
-`ctrl+<key>`, `alt+<key>`, `shift+<key>`, `meta+<key>`, `super+<key>`, `hyper+<key>`.
+`ctrl+<key>`, `alt+<key>`, `shift+<key>`.
+
+A capital with a modifier is its letter with shift: `alt+G` is `alt+shift+g`.
+
+A key that a terminal has no bytes for is an error: `super+a`, `ctrl+shift+a`,
+`shift+enter`. So is a name that is not a key, such as `f1` or `entr`.
 
 Examples:
 

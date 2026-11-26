@@ -6,6 +6,7 @@
 package tuikit
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -23,7 +24,8 @@ func Start(t testing.TB, model tea.Model, opts ...Option) *Runner {
 }
 
 // Press presses each of keys, written as ParseKey reads them: "enter",
-// "ctrl+c", "?".
+// "ctrl+c", "?". The screen follows later, so wait for what the key puts on
+// it, with WaitFor, before reading a snapshot.
 func (r *Runner) Press(t testing.TB, keys ...string) {
 	t.Helper()
 
@@ -32,16 +34,19 @@ func (r *Runner) Press(t testing.TB, keys ...string) {
 		if err != nil {
 			t.Fatalf("tuikit: press %q: %v", spec, err)
 		}
-		r.PressKeys(key)
+		if err := r.PressKeys(key); err != nil {
+			t.Fatalf("tuikit: press %q: %v", spec, err)
+		}
 	}
 }
 
-// Type presses the key of each character of text.
+// Type types text, as a terminal sends it: a new line in it is not the
+// enter key.
 func (r *Runner) Type(t testing.TB, text string) {
 	t.Helper()
 
-	for _, c := range text {
-		r.PressKeys(tea.Key{Code: c, Text: string(c)})
+	if err := r.TypeText(text); err != nil {
+		t.Fatalf("tuikit: type %q: %v", text, err)
 	}
 }
 
@@ -70,16 +75,15 @@ func (r *Runner) WaitForFunc(t testing.TB, pred func(snapshot string) bool) stri
 func (r *Runner) wait(t testing.TB, what string, pred func(string) bool) string {
 	t.Helper()
 
-	var snap string
-	err := r.WaitUntil(r.timeout, 0, func(s string) bool {
-		snap = s
-		return pred(s)
-	})
+	err := r.WaitUntil(r.timeout, pred)
+	if errors.Is(err, ErrStopped) {
+		t.Fatalf("tuikit: waiting %s: %v\n\nlast snapshot:\n%s", what, err, r.last())
+	}
 	if err != nil {
-		t.Fatalf("tuikit: gave up waiting %s after %s\n\nlast snapshot:\n%s", what, r.timeout, snap)
+		t.Fatalf("tuikit: gave up waiting %s after %s\n\nlast snapshot:\n%s", what, r.timeout, r.last())
 	}
 
-	return snap
+	return r.last()
 }
 
 func quote(text string) string {

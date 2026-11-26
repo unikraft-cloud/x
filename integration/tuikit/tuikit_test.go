@@ -30,9 +30,17 @@ type app struct {
 	lastKey       string
 	text          string
 	status        string
+	steps         []string
 }
 
-type loadedMsg struct{}
+type (
+	loadedMsg struct{}
+	stepMsg   string
+)
+
+func step(name string) tea.Cmd {
+	return func() tea.Msg { return stepMsg(name) }
+}
 
 func newApp() *app {
 	return &app{release: make(chan struct{}), status: "idle"}
@@ -46,6 +54,8 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width, a.height = msg.Width, msg.Height
 	case loadedMsg:
 		a.status = "loaded"
+	case stepMsg:
+		a.steps = append(a.steps, string(msg))
 	case tea.KeyPressMsg:
 		a.lastKey = msg.String()
 		switch a.lastKey {
@@ -57,6 +67,14 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				<-a.release
 				return loadedMsg{}
 			}
+		case "ctrl+s":
+			return a, tea.Sequence(step("one"), step("two"), step("three"))
+		case "ctrl+b":
+			return a, tea.Batch(step("batched"), step("batched"))
+		case "ctrl+x":
+			panic("the program is broken")
+		case "ctrl+w":
+			<-a.release
 		case "ctrl+q":
 			return a, tea.Quit
 		default:
@@ -68,16 +86,27 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a *app) View() tea.View {
-	return tea.NewView(strings.Join([]string{
+	v := tea.NewView(strings.Join([]string{
 		fmt.Sprintf("size: %dx%d", a.width, a.height),
 		fmt.Sprintf("count: %d", a.count),
 		fmt.Sprintf("key: %s", a.lastKey),
 		fmt.Sprintf("text: %s", a.text),
 		fmt.Sprintf("status: %s", a.status),
+		fmt.Sprintf("steps: %s", strings.Join(a.steps, " ")),
 		strings.Repeat("=", 200),
 		"end",
 	}, "\n"))
+	v.AltScreen = true
+
+	return v
 }
+
+// blank is a program that shows nothing.
+type blank struct{}
+
+func (blank) Init() tea.Cmd                       { return nil }
+func (blank) Update(tea.Msg) (tea.Model, tea.Cmd) { return blank{}, nil }
+func (blank) View() tea.View                      { return tea.NewView("") }
 
 // failure runs fn with a testing.TB that records a Fatalf instead of
 // failing t, and returns its message, or "" if fn did not fail.
@@ -117,15 +146,31 @@ func TestRunner(t *testing.T) {
 		r.WaitFor(t, "size: 80x24")
 	})
 
+	t.Run("a snapshot right after the start has the first frame", func(t *testing.T) {
+		t.Parallel()
+		r := tuikit.Start(t, newApp())
+
+		assert.Contains(t, r.Snapshot(), "status: idle")
+	})
+
+	t.Run("a program that shows nothing starts without a wait", func(t *testing.T) {
+		t.Parallel()
+
+		start := time.Now()
+		r := tuikit.Start(t, blank{}, tuikit.WithTimeout(10*time.Second))
+		assert.Less(t, time.Since(start), 5*time.Second)
+		assert.Empty(t, r.Snapshot())
+	})
+
 	t.Run("the screen is the size that was asked for", func(t *testing.T) {
 		t.Parallel()
-		r := tuikit.Start(t, newApp(), tuikit.WithSize(30, 6))
+		r := tuikit.Start(t, newApp(), tuikit.WithSize(30, 7))
 
-		snap := r.WaitFor(t, "size: 30x6")
+		snap := r.WaitFor(t, "size: 30x7")
 		lines := strings.Split(snap, "\n")
-		require.Len(t, lines, 6)
-		assert.Equal(t, strings.Repeat("=", 30), lines[5], "a long line is cut at the width")
-		assert.NotContains(t, snap, "end", "the seventh line of the view is off the screen")
+		require.Len(t, lines, 7)
+		assert.Equal(t, strings.Repeat("=", 30), lines[6], "a long line is cut at the width")
+		assert.NotContains(t, snap, "end", "the eighth line of the view is off the screen")
 	})
 
 	t.Run("a pressed key reaches the program", func(t *testing.T) {
@@ -144,6 +189,8 @@ func TestRunner(t *testing.T) {
 			"up", "down", "left", "right",
 			"home", "end", "pgup", "pgdown", "delete",
 			"shift+tab", "ctrl+a", "alt+x", "?", "G",
+			"shift+up", "ctrl+right", "alt+enter", "ctrl+shift+end", "shift+delete",
+			"alt+shift+up", "ctrl+alt+left", "alt+pgup",
 		} {
 			t.Run(key, func(t *testing.T) {
 				t.Parallel()
@@ -161,6 +208,31 @@ func TestRunner(t *testing.T) {
 
 		msg := failure(t, func(tb testing.TB) { r.Press(tb, "ctrl+") })
 		assert.Contains(t, msg, `press "ctrl+"`)
+	})
+
+	t.Run("a key that a terminal cannot send fails the test", func(t *testing.T) {
+		t.Parallel()
+
+		for _, key := range []string{"super+a", "ctrl+shift+a", "shift+enter", "alt+shift+enter", "alt+[", "alt+shift+o", "alt+shift+p"} {
+			t.Run(key, func(t *testing.T) {
+				t.Parallel()
+				r := tuikit.Start(t, newApp())
+
+				msg := failure(t, func(tb testing.TB) { r.Press(tb, key) })
+				assert.Contains(t, msg, "a terminal cannot send "+key)
+			})
+		}
+	})
+
+	t.Run("a shifted letter reaches the program as its capital", func(t *testing.T) {
+		t.Parallel()
+		r := tuikit.Start(t, newApp())
+
+		r.Press(t, "shift+g")
+		r.WaitFor(t, "key: G\n")
+
+		r.Press(t, "alt+shift+g")
+		r.WaitFor(t, "key: alt+shift+g\n")
 	})
 
 	t.Run("typed text reaches the program in order", func(t *testing.T) {
@@ -211,6 +283,85 @@ func TestRunner(t *testing.T) {
 
 		msg := failure(t, func(tb testing.TB) { r.WaitForGone(tb, "status: idle") })
 		assert.Contains(t, msg, `waiting for "status: idle" to be gone`)
+	})
+
+	t.Run("the commands of a sequence run in order", func(t *testing.T) {
+		t.Parallel()
+		r := tuikit.Start(t, newApp())
+
+		r.Press(t, "ctrl+s")
+		r.WaitFor(t, "steps: one two three")
+	})
+
+	t.Run("the commands of a batch all run", func(t *testing.T) {
+		t.Parallel()
+		r := tuikit.Start(t, newApp())
+
+		r.Press(t, "ctrl+b")
+		r.WaitFor(t, "steps: batched batched")
+	})
+
+	t.Run("a wait on a program that has quit fails the test", func(t *testing.T) {
+		t.Parallel()
+		r := tuikit.Start(t, newApp())
+
+		r.Press(t, "ctrl+q")
+		msg := failure(t, func(tb testing.TB) { r.WaitFor(tb, "status: loaded") })
+		assert.Contains(t, msg, "the program has ended")
+		require.ErrorIs(t, r.Err(), tuikit.ErrStopped)
+	})
+
+	t.Run("a wait on a program that has panicked fails the test with the panic", func(t *testing.T) {
+		t.Parallel()
+		r := tuikit.Start(t, newApp())
+
+		r.Press(t, "ctrl+x")
+		msg := failure(t, func(tb testing.TB) { r.WaitFor(tb, "status: loaded") })
+		assert.Contains(t, msg, "the program has ended")
+		assert.Contains(t, msg, "panic")
+	})
+
+	t.Run("a wait for text to go fails on a program that has ended", func(t *testing.T) {
+		t.Parallel()
+
+		for _, key := range []string{"ctrl+q", "ctrl+x"} {
+			t.Run(key, func(t *testing.T) {
+				t.Parallel()
+				r := tuikit.Start(t, newApp())
+
+				r.WaitFor(t, "status: idle")
+				r.Press(t, key)
+				msg := failure(t, func(tb testing.TB) { r.WaitForGone(tb, "status: idle") })
+				assert.Contains(t, msg, "the program has ended")
+				assert.Contains(t, msg, "last snapshot:\nsize: 80x24", "the screen from before it ended")
+
+			})
+		}
+	})
+
+	t.Run("an escape is not the alt of the key after it", func(t *testing.T) {
+		t.Parallel()
+		r := tuikit.Start(t, newApp())
+
+		esc, err := tuikit.ParseKey("esc")
+		require.NoError(t, err)
+		x, err := tuikit.ParseKey("x")
+		require.NoError(t, err)
+		require.NoError(t, r.PressKeys(esc, x))
+		r.WaitFor(t, "key: x\ntext: x")
+	})
+
+	t.Run("a key that the program does not update for fails the test", func(t *testing.T) {
+		t.Parallel()
+		a := newApp()
+		r := tuikit.Start(t, a, tuikit.WithTimeout(50*time.Millisecond))
+		t.Cleanup(func() { close(a.release) })
+
+		msg := failure(t, func(tb testing.TB) { r.Press(tb, "ctrl+w") })
+		assert.Contains(t, msg, `press "ctrl+w": tuikit: the program did not update for its input within 50ms`)
+
+		msg = failure(t, func(tb testing.TB) { r.Type(tb, "hello") })
+		assert.Contains(t, msg, `type "hello"`)
 	})
 
 	t.Run("a program that quits stops taking keys", func(t *testing.T) {

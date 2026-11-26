@@ -29,8 +29,7 @@ type Executor struct {
 	JSON bool
 
 	// WaitTimeout is how long a wait may take, which is 5 seconds if it is zero.
-	WaitTimeout  time.Duration
-	WaitInterval time.Duration
+	WaitTimeout time.Duration
 
 	seq int
 }
@@ -126,8 +125,7 @@ func (e *Executor) runCommand(ctx context.Context, c Command) (string, error) {
 			return "", ctx.Err()
 		}
 	case CommandKey:
-		e.Runner.PressKeys(c.Key)
-		return "", nil
+		return "", e.Runner.PressKeys(c.Key)
 	case CommandWait:
 		if c.Wait == nil {
 			return "", fmt.Errorf("wait expression is nil")
@@ -136,7 +134,7 @@ func (e *Executor) runCommand(ctx context.Context, c Command) (string, error) {
 		if deadline, ok := ctx.Deadline(); ok {
 			timeout = min(timeout, time.Until(deadline))
 		}
-		return "", e.Runner.WaitUntil(timeout, e.WaitInterval, c.Wait.Eval)
+		return "", e.Runner.WaitUntil(timeout, c.Wait.Eval)
 	case CommandSnapshot:
 		snap := e.Runner.Snapshot()
 		if !e.JSON {
