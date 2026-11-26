@@ -12,12 +12,10 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"time"
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
-	remoteerrors "github.com/containerd/containerd/v2/core/remotes/errors"
 	ctrdreference "github.com/containerd/containerd/v2/pkg/reference"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
@@ -158,68 +156,6 @@ func SaveRegistryImage(ctx context.Context, named distref.Named, remote remotes.
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to save image %q: %w", named, err)
 	}
 	return named, desc, nil
-}
-
-// SaveRegistryIndex pushes to named an index over mfsts, after it checks that the repository holds each.
-func SaveRegistryIndex(ctx context.Context, named distref.Named, remote remotes.Resolver, mfsts ...ocispec.Descriptor) (distref.Named, ocispec.Descriptor, error) {
-	named = distref.TagNameOnly(named)
-
-	for _, mfst := range mfsts {
-		ref, err := distref.WithDigest(distref.TrimNamed(named), mfst.Digest)
-		if err != nil {
-			return nil, ocispec.Descriptor{}, fmt.Errorf("naming manifest %s of image %q: %w", mfst.Digest, named, err)
-		}
-		if err := findManifest(ctx, remote, ref.String()); err != nil {
-			return nil, ocispec.Descriptor{}, fmt.Errorf("failed to find manifest %s of image %q: %w", mfst.Digest, named, err)
-		}
-	}
-
-	pusher, err := remote.Pusher(ctx, named.String())
-	if err != nil {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to get pusher for image %q: %w", named, err)
-	}
-	ingester := ingestDefaults(contentutil.FromPusher(pusher), content.WithRef(named.Name()))
-
-	idx := ocispec.Index{
-		SchemaVersion: 2,
-		MediaType:     ocispec.MediaTypeImageIndex,
-		Manifests:     mfsts,
-	}
-	desc, err := packageJSON(ctx, ingester, idx.MediaType, idx)
-	if err != nil {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to save index of image %q: %w", named, err)
-	}
-	return named, desc, nil
-}
-
-// manifestWait bounds the retries of findManifest: Harbor refuses pulls for seconds after a push.
-const manifestWait = 30 * time.Second
-
-// findManifest resolves ref, and tries again with backoff until manifestWait while the registry answers 401.
-func findManifest(ctx context.Context, remote remotes.Resolver, ref string) error {
-	deadline := time.Now().Add(manifestWait)
-	delay := 250 * time.Millisecond
-	for {
-		_, _, err := remote.Resolve(ctx, ref)
-		if err == nil || !unauthorized(err) || time.Now().Add(delay).After(deadline) {
-			return err
-		}
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return errors.Join(err, ctx.Err())
-		case <-timer.C:
-		}
-		delay = min(2*delay, 5*time.Second)
-	}
-}
-
-// unauthorized reports whether err is a 401 of the registry, after the resolver tried a new token.
-func unauthorized(err error) bool {
-	var status remoteerrors.ErrUnexpectedStatus
-	return errors.Is(err, docker.ErrInvalidAuthorization) ||
-		(errors.As(err, &status) && status.StatusCode == http.StatusUnauthorized)
 }
 
 // DeleteRegistryImage deletes a image from a remote registry.

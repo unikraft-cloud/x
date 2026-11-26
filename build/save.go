@@ -6,8 +6,11 @@
 package build
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,11 +18,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/remotes"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
+	remoteerrors "github.com/containerd/containerd/v2/core/remotes/errors"
 	distref "github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	imagespec "unikraft.com/x/image-spec"
+	"unikraft.com/x/image-spec/contentutil"
 	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/image-spec/schemes"
 	"unikraft.com/x/log"
@@ -79,7 +86,7 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 
 	err := progress.Step(progress.WithPrefix(b.progressWriter(), verb), saved.Ref, func() error {
 		if len(pushed) > 0 {
-			_, desc, err := imagespec.SaveRegistryIndex(ctx, named, access.Resolver(), pushed...)
+			desc, err := pushIndex(ctx, access.Resolver(), named, pushed...)
 			saved.Digest = desc.Digest
 			return err
 		}
@@ -97,6 +104,74 @@ func (b Builder) Save(ctx context.Context, dest *imagespec.Location, images ...*
 		Msg("saved images")
 
 	return saved, nil
+}
+
+// pushIndex pushes to named an index over mfsts, after it checks that the repository holds each.
+func pushIndex(ctx context.Context, remote remotes.Resolver, named distref.Named, mfsts ...ocispec.Descriptor) (ocispec.Descriptor, error) {
+	named = distref.TagNameOnly(named)
+
+	for _, mfst := range mfsts {
+		ref, err := distref.WithDigest(distref.TrimNamed(named), mfst.Digest)
+		if err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("naming manifest %s of image %q: %w", mfst.Digest, named, err)
+		}
+		if err := findManifest(ctx, remote, ref.String()); err != nil {
+			return ocispec.Descriptor{}, fmt.Errorf("failed to find manifest %s of image %q: %w", mfst.Digest, named, err)
+		}
+	}
+
+	data, err := json.MarshalIndent(ocispec.Index{
+		SchemaVersion: 2,
+		MediaType:     ocispec.MediaTypeImageIndex,
+		Manifests:     mfsts,
+	}, "", "  ")
+	if err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	desc := ocispec.Descriptor{
+		MediaType: ocispec.MediaTypeImageIndex,
+		Digest:    digest.FromBytes(data),
+		Size:      int64(len(data)),
+	}
+
+	pusher, err := remote.Pusher(ctx, named.String())
+	if err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to get pusher for image %q: %w", named, err)
+	}
+	if err := content.WriteBlob(ctx, contentutil.FromPusher(pusher), named.Name(), bytes.NewReader(data), desc); err != nil {
+		return ocispec.Descriptor{}, fmt.Errorf("failed to push index of image %q: %w", named, err)
+	}
+	return desc, nil
+}
+
+// manifestWait bounds the retries of findManifest: Harbor refuses pulls for seconds after a push.
+const manifestWait = 30 * time.Second
+
+// findManifest resolves ref, and tries again with backoff until manifestWait while the registry answers 401.
+func findManifest(ctx context.Context, remote remotes.Resolver, ref string) error {
+	deadline := time.Now().Add(manifestWait)
+	delay := 250 * time.Millisecond
+	for {
+		_, _, err := remote.Resolve(ctx, ref)
+		if err == nil || !unauthorized(err) || time.Now().Add(delay).After(deadline) {
+			return err
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return errors.Join(err, ctx.Err())
+		case <-timer.C:
+		}
+		delay = min(2*delay, 5*time.Second)
+	}
+}
+
+// unauthorized reports whether err is a 401 of the registry, after the resolver tried a new token.
+func unauthorized(err error) bool {
+	var status remoteerrors.ErrUnexpectedStatus
+	return errors.Is(err, docker.ErrInvalidAuthorization) ||
+		(errors.As(err, &status) && status.StatusCode == http.StatusUnauthorized)
 }
 
 // Untag removes the temporary tags that the packer pushed images under in the
