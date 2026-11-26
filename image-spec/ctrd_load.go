@@ -84,7 +84,7 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 		Annotations:        mfst.Annotations,
 	}
 
-	dt, err := readVerifiedBlob(ctx, store, mfst.Config)
+	dt, err := readVerifiedBlob(ctx, store, mfst.Config, maxConfigSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read image config blob: %w", err)
 	}

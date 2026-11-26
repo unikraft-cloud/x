@@ -466,6 +466,15 @@ func packageLayer(ctx context.Context, store content.Ingester, image *Image, fil
 	return desc, nil
 }
 
+// inlineData returns the data that desc embeds if it matches desc, as content.ReadBlob reads it, or nil.
+func inlineData(desc ocispec.Descriptor) []byte {
+	if len(desc.Data) == 0 || int64(len(desc.Data)) != desc.Size || desc.Digest.Validate() != nil ||
+		desc.Digest.Algorithm().FromBytes(desc.Data) != desc.Digest {
+		return nil
+	}
+	return desc.Data
+}
+
 func ingestDefaults(store content.Ingester, opts ...content.WriterOpt) content.Ingester {
 	return defaultIngester{store, opts}
 }

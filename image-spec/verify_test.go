@@ -9,13 +9,18 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
+	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/errdefs"
+	"github.com/containerd/platforms"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +28,25 @@ import (
 
 	"unikraft.com/x/image-spec/contentutil"
 )
+
+// writeJSON writes v to store as a blob of mediaType.
+func writeJSON(t *testing.T, store content.Ingester, mediaType string, v any) ocispec.Descriptor {
+	t.Helper()
+
+	data, err := json.Marshal(v)
+	require.NoError(t, err)
+	desc := ocispec.Descriptor{MediaType: mediaType, Digest: digest.FromBytes(data), Size: int64(len(data))}
+	require.NoError(t, content.WriteBlob(t.Context(), store, desc.Digest.String(), bytes.NewReader(data), desc))
+	return desc
+}
+
+func mustStore(t *testing.T, dir string) content.Store {
+	t.Helper()
+
+	store, err := local.NewStore(dir)
+	require.NoError(t, err)
+	return store
+}
 
 // served is a registry that serves data for each digest, whatever it is.
 type served map[digest.Digest][]byte
@@ -56,7 +80,7 @@ func TestReadVerifiedBlob(t *testing.T) {
 		t.Parallel()
 
 		p := contentutil.FromFetcher(served{describe(data).Digest: data})
-		got, err := readVerifiedBlob(t.Context(), p, describe(data))
+		got, err := readVerifiedBlob(t.Context(), p, describe(data), maxConfigSize)
 		require.NoError(t, err)
 		assert.Equal(t, data, got)
 	})
@@ -65,7 +89,7 @@ func TestReadVerifiedBlob(t *testing.T) {
 		t.Parallel()
 
 		p := contentutil.FromFetcher(served{describe(data).Digest: tampered(data)})
-		_, err := readVerifiedBlob(t.Context(), p, describe(data))
+		_, err := readVerifiedBlob(t.Context(), p, describe(data), maxConfigSize)
 		require.ErrorIs(t, err, ErrDigestMismatch)
 	})
 
@@ -74,9 +98,101 @@ func TestReadVerifiedBlob(t *testing.T) {
 
 		desc := ocispec.Descriptor{Digest: "sha256:nope", Size: 1}
 		p := contentutil.FromFetcher(served{desc.Digest: []byte("x")})
-		_, err := readVerifiedBlob(t.Context(), p, desc)
+		_, err := readVerifiedBlob(t.Context(), p, desc, maxConfigSize)
 		require.ErrorIs(t, err, digest.ErrDigestInvalidLength)
 	})
+
+	t.Run("a blob with a size out of range is refused before a read", func(t *testing.T) {
+		t.Parallel()
+
+		for _, size := range []int64{-1, maxConfigSize + 1} {
+			desc := describe(data)
+			desc.Size = size
+			p := contentutil.FromFetcher(served{desc.Digest: data})
+			_, err := readVerifiedBlob(t.Context(), p, desc, maxConfigSize)
+			require.ErrorContains(t, err, fmt.Sprintf("size %d is not between", size))
+		}
+	})
+
+	t.Run("a blob of another size than its descriptor is refused", func(t *testing.T) {
+		t.Parallel()
+
+		// A local store gives the size of the file, not that of the descriptor.
+		big := bytes.Repeat([]byte("x"), 1<<20)
+		store := mustStore(t, t.TempDir())
+		require.NoError(t, content.WriteBlob(t.Context(), store, "big", bytes.NewReader(big), describe(big)))
+		for _, size := range []int64{100, int64(len(big)) + 1} {
+			desc := describe(big)
+			desc.Size = size
+			_, err := readVerifiedBlob(t.Context(), store, desc, maxConfigSize)
+			require.ErrorContains(t, err, fmt.Sprintf("size is not the %d bytes of its descriptor", size))
+		}
+	})
+
+	t.Run("a blob in its descriptor is not fetched", func(t *testing.T) {
+		t.Parallel()
+
+		desc := describe(data)
+		desc.Data = data
+		got, err := readVerifiedBlob(t.Context(), contentutil.FromFetcher(served{}), desc, maxConfigSize)
+		require.NoError(t, err)
+		assert.Equal(t, data, got)
+	})
+}
+
+// largestRead is a provider that records the largest buffer that a read asks to fill.
+type largestRead struct {
+	content.Provider
+	largest int
+}
+
+func (p *largestRead) ReaderAt(ctx context.Context, desc ocispec.Descriptor) (content.ReaderAt, error) {
+	ra, err := p.Provider.ReaderAt(ctx, desc)
+	if err != nil {
+		return nil, err
+	}
+	return largestReadAt{ReaderAt: ra, largest: &p.largest}, nil
+}
+
+type largestReadAt struct {
+	content.ReaderAt
+	largest *int
+}
+
+func (r largestReadAt) ReadAt(b []byte, off int64) (int, error) {
+	*r.largest = max(*r.largest, len(b))
+	return r.ReaderAt.ReadAt(b, off)
+}
+
+func TestReadVerifiedBlobFalseSize(t *testing.T) {
+	// A false size does not cause a large buffer.
+	data := []byte("a manifest")
+	desc := describe(data)
+	desc.Size = maxConfigSize
+	p := &largestRead{Provider: contentutil.FromFetcher(served{desc.Digest: data})}
+	_, err := readVerifiedBlob(t.Context(), p, desc, maxConfigSize)
+	require.ErrorContains(t, err, "size is not")
+	require.Positive(t, p.largest)
+	require.Less(t, p.largest, 1<<20)
+}
+
+func TestLoadConfigOverManifestLimit(t *testing.T) {
+	ctx := t.Context()
+	store := mustStore(t, t.TempDir())
+	linux := ocispec.Platform{OS: "linux", Architecture: "amd64"}
+	config := writeJSON(t, store, ocispec.MediaTypeImageConfig, ocispec.Image{
+		Platform: linux,
+		Config:   ocispec.ImageConfig{Env: []string{"BIG=" + strings.Repeat("x", int(docker.MaxManifestSize))}},
+	})
+	require.Greater(t, config.Size, docker.MaxManifestSize)
+	mfst := writeJSON(t, store, ocispec.MediaTypeImageManifest, ocispec.Manifest{SchemaVersion: 2, MediaType: ocispec.MediaTypeImageManifest, Config: config})
+	// The entry has no platform, so the load reads the config to match it.
+	idx := writeJSON(t, store, ocispec.MediaTypeImageIndex, ocispec.Index{SchemaVersion: 2, MediaType: ocispec.MediaTypeImageIndex, Manifests: []ocispec.Descriptor{mfst}})
+
+	imgs, err := LoadAllContent(ctx, store, idx, platforms.OnlyStrict(linux))
+	require.NoError(t, err)
+	require.Len(t, imgs, 1)
+	require.Equal(t, mfst.Digest, imgs[0].ManifestDescriptor.Digest)
 }
 
 // layer returns a tar layer of a kernel, followed by another file.
