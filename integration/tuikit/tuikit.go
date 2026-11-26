@@ -10,6 +10,9 @@
 // instead of a TTY. Keys go in as the bytes a terminal sends, and a snapshot
 // is what the emulator has on its screen once it has parsed everything the
 // program wrote. Nothing calls Update or View directly.
+//
+// A test waits for what it expects on the screen, or on a Region of it: a
+// line, or some text.
 package tuikit
 
 import (
@@ -29,7 +32,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
 	uv "github.com/charmbracelet/ultraviolet"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 )
 
@@ -43,9 +45,12 @@ const syncPrefix = "\x1b_tuikit-sync:"
 // Runner runs a Bubble Tea model in a terminal emulator.
 //
 // A test starts one with Start, sends input with Press and Type, and waits
-// for the screen with WaitFor. Anything else creates one with New, and
+// for the screen with WaitMatch. Anything else creates one with New, and
 // calls Stop when it's done.
 type Runner struct {
+	// Region is the whole screen.
+	*Region
+
 	width   int
 	height  int
 	timeout time.Duration
@@ -71,7 +76,7 @@ type Runner struct {
 	syncs  map[string]chan struct{}
 	syncID int
 	// shown is the last screen that a wait saw while the program ran.
-	shown string
+	shown screen
 }
 
 // Option configures a Runner.
@@ -84,7 +89,7 @@ func WithSize(width, height int) Option {
 	}
 }
 
-// WithTimeout sets how long WaitFor and its variants wait before failing
+// WithTimeout sets how long Wait and its variants wait before failing
 // the test, which is 5 seconds by default.
 func WithTimeout(timeout time.Duration) Option {
 	return func(r *Runner) {
@@ -106,6 +111,7 @@ func New(model tea.Model, opts ...Option) *Runner {
 	for _, opt := range opts {
 		opt(r)
 	}
+	r.Region = &Region{r: r}
 
 	r.term = vt.NewSafeEmulator(r.width, r.height)
 	// What the terminal sends: the keys, and its answers to the program's queries.
@@ -113,7 +119,7 @@ func New(model tea.Model, opts ...Option) *Runner {
 
 	r.program = tea.NewProgram(framed{model, r},
 		tea.WithInput(r.input),
-		tea.WithOutput(screen{r}),
+		tea.WithOutput(output{r}),
 		tea.WithWindowSize(r.width, r.height),
 		tea.WithEnvironment([]string{"TERM=xterm-256color", "COLORTERM=truecolor"}),
 		tea.WithColorProfile(colorprofile.TrueColor),
@@ -256,19 +262,23 @@ func (r *Runner) TypeText(text string) error {
 	return r.sync()
 }
 
-// Snapshot returns the text on the screen of the terminal, without the
-// trailing spaces of each line or the empty lines at the bottom.
-func (r *Runner) Snapshot() string {
-	// HACK: not the emulator's String, which reads the screen without its lock.
+// screen returns what the terminal shows now.
+func (r *Runner) screen() screen {
+	// HACK: not the emulator's CellAt, whose cells are read after its lock.
 	// https://github.com/charmbracelet/x/pull/1054
-	lines := strings.Split(strings.ReplaceAll(ansi.Strip(r.term.Render()), "\r\n", "\n"), "\n")
-	for i, line := range lines {
-		lines[i] = strings.TrimRight(line, " ")
+	buf := uv.NewScreenBuffer(r.width, r.height)
+	r.term.Draw(buf, buf.Bounds())
+
+	s := make(screen, r.height)
+	for y := range s {
+		s[y] = make([]cell, r.width)
+		for x := range s[y] {
+			if c := buf.CellAt(x, y); c != nil {
+				s[y][x] = cell{text: c.Content}
+			}
+		}
 	}
-	for len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-	return strings.Join(lines, "\n")
+	return s
 }
 
 // WaitUntil blocks until pred returns true for the current Snapshot. It
@@ -276,6 +286,10 @@ func (r *Runner) Snapshot() string {
 // context.DeadlineExceeded after timeout, or with ErrStopped if the program
 // ends first.
 func (r *Runner) WaitUntil(timeout time.Duration, pred func(snapshot string) bool) error {
+	return r.waitScreen(timeout, func(s screen) bool { return pred(s.text(s.bounds())) })
+}
+
+func (r *Runner) waitScreen(timeout time.Duration, pred func(screen) bool) error {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
@@ -286,7 +300,7 @@ func (r *Runner) WaitUntil(timeout time.Duration, pred func(snapshot string) boo
 
 		// A program that has ended has cleared its screen, or is about to:
 		// that is not a screen to wait on.
-		s := r.Snapshot()
+		s := r.screen()
 		if r.quit.Load() {
 			<-r.done
 		}
@@ -311,7 +325,7 @@ func (r *Runner) WaitUntil(timeout time.Duration, pred func(snapshot string) boo
 }
 
 // last returns the last screen that a wait saw while the program ran.
-func (r *Runner) last() string {
+func (r *Runner) last() screen {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -400,10 +414,10 @@ func (r *Runner) redrawn() {
 	r.mu.Unlock()
 }
 
-// screen is the program's output: the terminal of a Runner.
-type screen struct{ r *Runner }
+// output is the program's output: the terminal of a Runner.
+type output struct{ r *Runner }
 
-func (s screen) Write(p []byte) (int, error) {
+func (s output) Write(p []byte) (int, error) {
 	// The program is not on a TTY, so it leaves the carriage return of a
 	// new line to the line discipline that a TTY would have. Windows has
 	// none, and there the program returns the carriage itself.

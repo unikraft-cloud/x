@@ -143,7 +143,7 @@ func TestRunner(t *testing.T) {
 		t.Parallel()
 		r := tuikit.Start(t, newApp())
 
-		r.WaitFor(t, "size: 80x24")
+		r.WaitMatch(t, "size: 80x24")
 	})
 
 	t.Run("a snapshot right after the start has the first frame", func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestRunner(t *testing.T) {
 		t.Parallel()
 		r := tuikit.Start(t, newApp(), tuikit.WithSize(30, 7))
 
-		snap := r.WaitFor(t, "size: 30x7")
+		snap := r.WaitMatch(t, "size: 30x7")
 		lines := strings.Split(snap, "\n")
 		require.Len(t, lines, 7)
 		assert.Equal(t, strings.Repeat("=", 30), lines[6], "a long line is cut at the width")
@@ -178,7 +178,7 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, newApp())
 
 		r.Press(t, "+", "+", "+")
-		r.WaitFor(t, "count: 3")
+		r.WaitMatch(t, "count: 3")
 	})
 
 	t.Run("named keys and modifiers reach the program as themselves", func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestRunner(t *testing.T) {
 				r := tuikit.Start(t, newApp())
 
 				r.Press(t, key)
-				r.WaitFor(t, "key: "+key+"\n")
+				r.WaitMatch(t, "key: "+key+"\n")
 			})
 		}
 	})
@@ -229,10 +229,10 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, newApp())
 
 		r.Press(t, "shift+g")
-		r.WaitFor(t, "key: G\n")
+		r.WaitMatch(t, "key: G\n")
 
 		r.Press(t, "alt+shift+g")
-		r.WaitFor(t, "key: alt+shift+g\n")
+		r.WaitMatch(t, "key: alt+shift+g\n")
 	})
 
 	t.Run("typed text reaches the program in order", func(t *testing.T) {
@@ -240,7 +240,7 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, newApp())
 
 		r.Type(t, "hello, wörld")
-		r.WaitFor(t, "text: hello, wörld")
+		r.WaitMatch(t, "text: hello, wörld")
 	})
 
 	t.Run("the screen follows a command that answers later", func(t *testing.T) {
@@ -249,31 +249,39 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, a)
 
 		r.Press(t, "ctrl+l")
-		r.WaitFor(t, "status: loading")
+		r.WaitMatch(t, "status: loading")
 
 		close(a.release)
-		r.WaitForGone(t, "status: loading")
+		r.WaitNotMatch(t, "status: loading")
 		assert.Contains(t, r.Snapshot(), "status: loaded")
 	})
 
-	t.Run("WaitForFunc returns the snapshot that it accepted", func(t *testing.T) {
+	t.Run("Wait returns the text that its condition accepted", func(t *testing.T) {
 		t.Parallel()
 		r := tuikit.Start(t, newApp())
 
 		r.Press(t, "+")
-		snap := r.WaitForFunc(t, func(s string) bool {
-			return strings.Contains(s, "count: 1") && strings.Contains(s, "key: +")
+		snap := r.Wait(t, func(text string, exists bool) bool {
+			return exists && strings.Contains(text, "count: 1") && strings.Contains(text, "key: +")
 		})
 		assert.Contains(t, snap, "count: 1")
 	})
 
-	t.Run("text that never shows fails the test with the last snapshot", func(t *testing.T) {
+	t.Run("a condition that never holds fails the test", func(t *testing.T) {
 		t.Parallel()
 		r := tuikit.Start(t, newApp(), tuikit.WithTimeout(50*time.Millisecond))
 
-		msg := failure(t, func(tb testing.TB) { r.WaitFor(tb, "status: loaded") })
-		assert.Contains(t, msg, `waiting for "status: loaded" after 50ms`)
-		assert.Contains(t, msg, "last snapshot:\nsize: 80x24")
+		msg := failure(t, func(tb testing.TB) { r.Wait(tb, func(string, bool) bool { return false }) })
+		assert.Contains(t, msg, "gave up waiting for a condition on the screen after 50ms")
+	})
+
+	t.Run("text that never shows fails the test with the last screen", func(t *testing.T) {
+		t.Parallel()
+		r := tuikit.Start(t, newApp(), tuikit.WithTimeout(50*time.Millisecond))
+
+		msg := failure(t, func(tb testing.TB) { r.WaitMatch(tb, "status: loaded") })
+		assert.Contains(t, msg, `gave up waiting for the screen to contain "status: loaded" after 50ms`)
+		assert.Contains(t, msg, "last screen:\nsize: 80x24")
 		assert.Contains(t, msg, "status: idle")
 	})
 
@@ -281,8 +289,8 @@ func TestRunner(t *testing.T) {
 		t.Parallel()
 		r := tuikit.Start(t, newApp(), tuikit.WithTimeout(50*time.Millisecond))
 
-		msg := failure(t, func(tb testing.TB) { r.WaitForGone(tb, "status: idle") })
-		assert.Contains(t, msg, `waiting for "status: idle" to be gone`)
+		msg := failure(t, func(tb testing.TB) { r.WaitNotMatch(tb, "status: idle") })
+		assert.Contains(t, msg, `gave up waiting for the screen to not contain "status: idle"`)
 	})
 
 	t.Run("the commands of a sequence run in order", func(t *testing.T) {
@@ -290,7 +298,7 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, newApp())
 
 		r.Press(t, "ctrl+s")
-		r.WaitFor(t, "steps: one two three")
+		r.WaitMatch(t, "steps: one two three")
 	})
 
 	t.Run("the commands of a batch all run", func(t *testing.T) {
@@ -298,7 +306,7 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, newApp())
 
 		r.Press(t, "ctrl+b")
-		r.WaitFor(t, "steps: batched batched")
+		r.WaitMatch(t, "steps: batched batched")
 	})
 
 	t.Run("a wait on a program that has quit fails the test", func(t *testing.T) {
@@ -306,7 +314,7 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, newApp())
 
 		r.Press(t, "ctrl+q")
-		msg := failure(t, func(tb testing.TB) { r.WaitFor(tb, "status: loaded") })
+		msg := failure(t, func(tb testing.TB) { r.WaitMatch(tb, "status: loaded") })
 		assert.Contains(t, msg, "the program has ended")
 		require.ErrorIs(t, r.Err(), tuikit.ErrStopped)
 	})
@@ -316,7 +324,7 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, newApp())
 
 		r.Press(t, "ctrl+x")
-		msg := failure(t, func(tb testing.TB) { r.WaitFor(tb, "status: loaded") })
+		msg := failure(t, func(tb testing.TB) { r.WaitMatch(tb, "status: loaded") })
 		assert.Contains(t, msg, "the program has ended")
 		assert.Contains(t, msg, "panic")
 	})
@@ -329,12 +337,14 @@ func TestRunner(t *testing.T) {
 				t.Parallel()
 				r := tuikit.Start(t, newApp())
 
-				r.WaitFor(t, "status: idle")
+				r.WaitMatch(t, "status: idle")
 				r.Press(t, key)
-				msg := failure(t, func(tb testing.TB) { r.WaitForGone(tb, "status: idle") })
+				msg := failure(t, func(tb testing.TB) { r.WaitNotMatch(tb, "status: idle") })
 				assert.Contains(t, msg, "the program has ended")
-				assert.Contains(t, msg, "last snapshot:\nsize: 80x24", "the screen from before it ended")
+				assert.Contains(t, msg, "last screen:\nsize: 80x24", "the screen from before it ended")
 
+				msg = failure(t, func(tb testing.TB) { r.Line(4).WaitNotMatch(tb, "idle") })
+				assert.Contains(t, msg, "the program has ended")
 			})
 		}
 	})
@@ -348,7 +358,7 @@ func TestRunner(t *testing.T) {
 		x, err := tuikit.ParseKey("x")
 		require.NoError(t, err)
 		require.NoError(t, r.PressKeys(esc, x))
-		r.WaitFor(t, "key: x\ntext: x")
+		r.WaitMatch(t, "key: x\ntext: x")
 	})
 
 	t.Run("a key that the program does not update for fails the test", func(t *testing.T) {
@@ -369,7 +379,7 @@ func TestRunner(t *testing.T) {
 		r := tuikit.Start(t, newApp())
 
 		r.Press(t, "+")
-		r.WaitFor(t, "count: 1")
+		r.WaitMatch(t, "count: 1")
 		r.Press(t, "ctrl+q")
 
 		// Keys after the quit are dropped, and do not block the test.
@@ -382,7 +392,7 @@ func TestRunner(t *testing.T) {
 		r := tuikit.New(a)
 
 		r.Press(t, "ctrl+l")
-		r.WaitFor(t, "status: loading")
+		r.WaitMatch(t, "status: loading")
 
 		stopped := make(chan struct{})
 		go func() {

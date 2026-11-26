@@ -6,8 +6,6 @@
 package tuikit
 
 import (
-	"errors"
-	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -25,7 +23,7 @@ func Start(t testing.TB, model tea.Model, opts ...Option) *Runner {
 
 // Press presses each of keys, written as ParseKey reads them: "enter",
 // "ctrl+c", "?". The screen follows later, so wait for what the key puts on
-// it, with WaitFor, before reading a snapshot.
+// it, with WaitMatch, before reading a snapshot.
 func (r *Runner) Press(t testing.TB, keys ...string) {
 	t.Helper()
 
@@ -48,44 +46,4 @@ func (r *Runner) Type(t testing.TB, text string) {
 	if err := r.TypeText(text); err != nil {
 		t.Fatalf("tuikit: type %q: %v", text, err)
 	}
-}
-
-// WaitFor waits for text to be on the screen, and returns the snapshot that
-// has it. It fails the test with the last snapshot if the text never shows.
-func (r *Runner) WaitFor(t testing.TB, text string) string {
-	t.Helper()
-
-	return r.wait(t, "for "+quote(text), func(s string) bool { return strings.Contains(s, text) })
-}
-
-// WaitForGone is WaitFor, for text to be gone from the screen.
-func (r *Runner) WaitForGone(t testing.TB, text string) string {
-	t.Helper()
-
-	return r.wait(t, "for "+quote(text)+" to be gone", func(s string) bool { return !strings.Contains(s, text) })
-}
-
-// WaitForFunc is WaitFor, for a snapshot that pred accepts.
-func (r *Runner) WaitForFunc(t testing.TB, pred func(snapshot string) bool) string {
-	t.Helper()
-
-	return r.wait(t, "for the screen", pred)
-}
-
-func (r *Runner) wait(t testing.TB, what string, pred func(string) bool) string {
-	t.Helper()
-
-	err := r.WaitUntil(r.timeout, pred)
-	if errors.Is(err, ErrStopped) {
-		t.Fatalf("tuikit: waiting %s: %v\n\nlast snapshot:\n%s", what, err, r.last())
-	}
-	if err != nil {
-		t.Fatalf("tuikit: gave up waiting %s after %s\n\nlast snapshot:\n%s", what, r.timeout, r.last())
-	}
-
-	return r.last()
-}
-
-func quote(text string) string {
-	return `"` + text + `"`
 }
