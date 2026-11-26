@@ -64,7 +64,7 @@ require (
 	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/tonistiigi/fsutil v0.0.0-20261103091533-a72de9dcf763 // indirect
 	github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0 // indirect
-	github.com/unikraft/go-archivefs v0.0.0-20261106133356-c81ad57e55c4 // indirect
+	github.com/unikraft/go-archivefs v0.0.0-20261124155100-7c53c03d86ce // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.71.0 // indirect

@@ -21,6 +21,7 @@ use (
 	./kraftfile
 	./limiter
 	./log
+	./mergefs
 	./middleware
 	./oidext
 	./processmetrics

@@ -59,5 +59,5 @@ require (
 	google.golang.org/grpc v1.85.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
-	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624 // indirect
+	unikraft.com/x/io v0.0.0-20261126143640-3a5ba07339c1 // indirect
 )

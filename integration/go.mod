@@ -6,7 +6,7 @@ require (
 	github.com/containerd/containerd/v2 v2.4.2
 	github.com/moby/buildkit v0.34.2
 	github.com/stretchr/testify v1.12.1
-	github.com/unikraft/go-archivefs v0.0.0-20261106133356-c81ad57e55c4
+	github.com/unikraft/go-archivefs v0.0.0-20261124155100-7c53c03d86ce
 	unikraft.com/x/dockerfile v0.0.0-20261117112737-6700b805fc2e
 	unikraft.com/x/image-spec v0.0.0-20260930145451-e11e6b4df7f4
 	unikraft.com/x/kraftfile v0.0.0-20261016161647-b131a3b8e05d
@@ -80,7 +80,7 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 	mvdan.cc/sh/v3 v3.14.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-	unikraft.com/x/io v0.0.0-20261013095502-1607ff4bc624 // indirect
+	unikraft.com/x/io v0.0.0-20261126143640-3a5ba07339c1 // indirect
 	unikraft.com/x/log v0.0.0-20261113145058-65fc641f4af8 // indirect
 )
 
@@ -88,4 +88,5 @@ replace (
 	unikraft.com/x/dockerfile => ../dockerfile
 	unikraft.com/x/image-spec => ../image-spec
 	unikraft.com/x/kraftfile => ../kraftfile
+	unikraft.com/x/mergefs => ../mergefs
 )
