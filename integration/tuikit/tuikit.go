@@ -12,7 +12,8 @@
 // program wrote. Nothing calls Update or View directly.
 //
 // A test waits for what it expects on the screen, or on a Region of it: a
-// line, some text, or a box that it finds by its border.
+// line, some text, or a box that it finds by its border. It waits for the
+// text of a region, or for how it is drawn.
 package tuikit
 
 import (
@@ -274,7 +275,7 @@ func (r *Runner) screen() screen {
 		s[y] = make([]cell, r.width)
 		for x := range s[y] {
 			if c := buf.CellAt(x, y); c != nil {
-				s[y][x] = cell{text: c.Content}
+				s[y][x] = cell{text: c.Content, style: c.Style}
 			}
 		}
 	}

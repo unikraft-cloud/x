@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	uv "github.com/charmbracelet/ultraviolet"
 )
 
 // A Region is a rectangle of the screen. It is found again each time it is
@@ -243,7 +245,8 @@ func index(n, size int) int {
 type screen [][]cell
 
 type cell struct {
-	text string
+	text  string
+	style uv.Style
 }
 
 func (s screen) bounds() image.Rectangle {
