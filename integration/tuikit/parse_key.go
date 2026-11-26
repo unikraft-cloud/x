@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
@@ -30,22 +31,53 @@ func ParseKey(spec string) (tea.Key, error) {
 		return tea.Key{}, errors.New("empty key")
 	}
 
-	if strings.Contains(spec, "+") {
-		return parseKeystroke(spec)
+	// The key is what follows the last +, which is itself a + in "ctrl++".
+	mods, name, modified := "", spec, false
+	if i := strings.LastIndex(spec[:len(spec)-1], "+"); i >= 0 {
+		mods, name, modified = spec[:i], spec[i+1:], true
 	}
 
-	lower := strings.ToLower(spec)
-	if code, ok := keyNameToCode[lower]; ok {
-		return tea.Key{Code: code}, nil
+	var key tea.Key
+	if code, ok := keyNameToCode[strings.ToLower(name)]; ok {
+		key.Code = code
+	} else if r, size := utf8.DecodeRuneInString(name); size == len(name) {
+		key.Code, key.Text = r, name
+	} else {
+		return tea.Key{}, fmt.Errorf("unknown key: %q", name)
+	}
+	if !modified {
+		return key, nil
 	}
 
-	if utf8.RuneCountInString(spec) == 1 {
-		r, _ := utf8.DecodeRuneInString(spec)
-		return tea.Key{Code: r, Text: spec}, nil
+	key.Text = ""
+	for mod := range strings.SplitSeq(mods, "+") {
+		switch strings.ToLower(strings.TrimSpace(mod)) {
+		case "ctrl", "control":
+			key.Mod |= tea.ModCtrl
+		case "alt", "option":
+			key.Mod |= tea.ModAlt
+		case "shift":
+			key.Mod |= tea.ModShift
+		case "meta", "cmd", "command":
+			key.Mod |= tea.ModMeta
+		case "super":
+			key.Mod |= tea.ModSuper
+		case "hyper":
+			key.Mod |= tea.ModHyper
+		default:
+			return tea.Key{}, fmt.Errorf("unknown modifier: %q", mod)
+		}
+	}
+	// A capital with a modifier is the shift of its letter, but for ctrl,
+	// which has no capitals.
+	if unicode.IsUpper(key.Code) {
+		key.Code = unicode.ToLower(key.Code)
+		if !key.Mod.Contains(tea.ModCtrl) {
+			key.Mod |= tea.ModShift
+		}
 	}
 
-	// Multi-rune input (e.g. paste).
-	return tea.Key{Code: tea.KeyExtended, Text: spec}, nil
+	return key, nil
 }
 
 var keyNameToCode = map[string]rune{
@@ -66,76 +98,4 @@ var keyNameToCode = map[string]rune{
 	"end":       tea.KeyEnd,
 	"insert":    tea.KeyInsert,
 	"delete":    tea.KeyDelete,
-}
-
-func parseKeystroke(spec string) (tea.Key, error) {
-	parts := strings.Split(spec, "+")
-	if len(parts) == 0 {
-		return tea.Key{}, fmt.Errorf("invalid keystroke: %q", spec)
-	}
-
-	var (
-		mod  tea.KeyMod
-		code rune
-		text string
-		saw  bool
-	)
-
-	for _, raw := range parts {
-		part := strings.ToLower(strings.TrimSpace(raw))
-		if part == "" {
-			return tea.Key{}, fmt.Errorf("invalid keystroke: %q", spec)
-		}
-		switch part {
-		case "ctrl", "control":
-			mod |= tea.ModCtrl
-			continue
-		case "alt", "option":
-			mod |= tea.ModAlt
-			continue
-		case "shift":
-			mod |= tea.ModShift
-			continue
-		case "meta", "cmd", "command":
-			mod |= tea.ModMeta
-			continue
-		case "super":
-			mod |= tea.ModSuper
-			continue
-		case "hyper":
-			mod |= tea.ModHyper
-			continue
-		}
-
-		if c, ok := keyNameToCode[part]; ok {
-			code = c
-			saw = true
-			continue
-		}
-
-		if utf8.RuneCountInString(part) == 1 {
-			r, _ := utf8.DecodeRuneInString(part)
-			// Normalize ctrl+<letter> to lowercase.
-			if mod.Contains(tea.ModCtrl) && r >= 'A' && r <= 'Z' {
-				r = r + ('a' - 'A')
-			}
-			code = r
-			saw = true
-			continue
-		}
-
-		code = tea.KeyExtended
-		text = raw
-		saw = true
-	}
-
-	if !saw {
-		return tea.Key{}, fmt.Errorf("invalid keystroke: %q", spec)
-	}
-
-	k := tea.Key{Code: code, Mod: mod}
-	if text != "" {
-		k.Text = text
-	}
-	return k, nil
 }
