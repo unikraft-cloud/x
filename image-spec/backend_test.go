@@ -320,7 +320,7 @@ func requireTarPayload(t *testing.T, blob []byte, target string, expected []byte
 	t.Helper()
 
 	tr := tar.NewReader(bytes.NewReader(blob))
-	_, rr, err := readTarFile(tr, target)
+	_, rr, err := ReadTarFile(tr, target)
 	require.NoError(t, err)
 
 	data, err := io.ReadAll(rr)

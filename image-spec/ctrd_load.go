@@ -9,6 +9,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -252,7 +253,7 @@ func (f *ContentStoreFile) Open(ctx context.Context) (rc io.ReadCloser, size int
 	target := filepath.Join("/", f.Path_)
 
 	tr := tar.NewReader(vr.blob)
-	hdr, rr, err := readTarFile(tr, target)
+	hdr, rr, err := ReadTarFile(tr, target)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -272,11 +273,17 @@ func (f *ContentStoreFile) Source() (ocispec.Descriptor, content.Provider) {
 	return f.Desc, f.Store
 }
 
-func readTarFile(tr *tar.Reader, target string) (*tar.Header, io.Reader, error) {
+// ReadTarFile returns the header and the contents of the regular file at
+// target in tr. It compares the paths as clean absolute paths.
+//
+// Unlike [unikraft.com/x/mergefs.Merge], it uses the first entry at
+// target, not the last entry, and it does not follow links. A symlink or a
+// hard link at target causes an error.
+func ReadTarFile(tr *tar.Reader, target string) (*tar.Header, io.Reader, error) {
 	target = filepath.Join("/", target)
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -288,7 +295,7 @@ func readTarFile(tr *tar.Reader, target string) (*tar.Header, io.Reader, error) 
 		}
 
 		if t := hdr.Typeflag; t != tar.TypeReg {
-			return nil, nil, fmt.Errorf("file has wrong type %d", t)
+			return nil, nil, fmt.Errorf("%s is not a regular file (type %q)", target, t)
 		}
 
 		return hdr, tr, nil
