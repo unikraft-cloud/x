@@ -53,8 +53,8 @@ type BuildOpts struct {
 	// Push are the registry images that the packer pushes the image of each
 	// platform to from its solve, under a temporary tag, when Builder.Packer
 	// is set and the build has a runtime, no roms and a rootfs from a solve.
-	// Build then returns images of their manifests only, which Save can put
-	// under one index at each of Push. Otherwise Save pushes whole images.
+	// Build then returns what the packer pushed, which Save puts under one
+	// index at each of Push. Otherwise it returns images, which Save pushes whole.
 	Push []*imagespec.Location
 
 	// kconfig is the kernel-level KConfig, which also applies to a target
@@ -167,10 +167,17 @@ func defaultRootfsFormat(opts BuildOpts) kraftfile.FsType {
 	return kraftfile.FsTypeErofs
 }
 
+// Built is what Build made: the images to save, or else what the packer pushed.
+type Built struct {
+	Images []*imagespec.Image
+	// Pushed is the image of each platform that the packer pushed.
+	Pushed []Pushed
+}
+
 // Build a unikraft image based on the provided build options.
-func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Image, rerr error) {
+func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ Built, rerr error) {
 	if opts.Runtime == "" && opts.Kernel == "" && opts.Rootfs.Path == "" && len(opts.Roms) == 0 {
-		return nil, fmt.Errorf("no runtime, kernel, rootfs, or roms specified: nothing to build")
+		return Built{}, fmt.Errorf("no runtime, kernel, rootfs, or roms specified: nothing to build")
 	}
 
 	now := time.Now()
@@ -184,7 +191,7 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 		var err error
 		kernels, err = loadKernel(opts)
 		if err != nil {
-			return nil, err
+			return Built{}, err
 		}
 		defer func() {
 			for _, kernel := range kernels {
@@ -195,7 +202,7 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 		var err error
 		kernels, err = b.buildKernel(ctx, opts)
 		if err != nil {
-			return nil, err
+			return Built{}, err
 		}
 		defer func() {
 			for _, kernel := range kernels {
@@ -209,13 +216,13 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 	}
 
 	if len(opts.Platform) == 0 {
-		return nil, fmt.Errorf("no platform targets specified")
+		return Built{}, fmt.Errorf("no platform targets specified")
 	}
 
 	if (b.Packer != "" || b.PackerDir != "") && len(opts.Push) > 0 && opts.Kernel == "" && opts.Runtime != "" && len(opts.Roms) == 0 {
 		stop, err := b.startPush(&opts, kernels, now)
 		if err != nil {
-			return nil, err
+			return Built{}, err
 		}
 		defer stop()
 		defer func() {
@@ -230,7 +237,7 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 	// Build ROMs if any are specified.
 	romFiles, err := b.buildRoms(ctx, opts)
 	if err != nil {
-		return nil, err
+		return Built{}, err
 	}
 	defer func() {
 		for _, perPlat := range romFiles {
@@ -248,7 +255,7 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 		var err error
 		roots, err = b.BuildRootfs(ctx, opts)
 		if err != nil {
-			return nil, err
+			return Built{}, err
 		}
 		defer func() {
 			for _, root := range roots {
@@ -257,9 +264,16 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 		}()
 	}
 
+	if opts.push != nil && len(opts.push.pushed) > 0 {
+		if len(roots) > 0 {
+			return Built{}, fmt.Errorf("the packer pushed the images of %d of %d platforms: it must push all or none", len(opts.push.pushed), len(opts.Platform))
+		}
+		return Built{Pushed: opts.push.pushed}, nil
+	}
+
 	// When we have both kernels and rootfs, they must match 1:1 by platform.
 	if len(kernels) > 0 && len(roots) > 0 && len(kernels) != len(roots) {
-		return nil, fmt.Errorf("internal error: number of kernels (%d) does not match number of root filesystems (%d)",
+		return Built{}, fmt.Errorf("internal error: number of kernels (%d) does not match number of root filesystems (%d)",
 			len(kernels), len(roots))
 	}
 
@@ -269,17 +283,17 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 		pID := platforms.Format(p)
 		if i < len(kernels) {
 			if got := platforms.Format(kernels[i].Image.Platform); got != pID {
-				return nil, fmt.Errorf("internal error: kernel platform %s does not match expected platform %s", got, pID)
+				return Built{}, fmt.Errorf("internal error: kernel platform %s does not match expected platform %s", got, pID)
 			}
 		}
 		if i < len(roots) {
 			if got := platforms.Format(roots[i].Image.Platform); got != pID {
-				return nil, fmt.Errorf("internal error: rootfs platform %s does not match expected platform %s", got, pID)
+				return Built{}, fmt.Errorf("internal error: rootfs platform %s does not match expected platform %s", got, pID)
 			}
 		}
 		for j := range romFiles {
 			if i >= len(romFiles[j]) || romFiles[j][i] == nil {
-				return nil, fmt.Errorf("internal error: no rom %d built for platform %s", j, pID)
+				return Built{}, fmt.Errorf("internal error: no rom %d built for platform %s", j, pID)
 			}
 		}
 	}
@@ -287,11 +301,6 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 	// Assemble images, one per platform.
 	images := make([]*imagespec.Image, 0, len(opts.Platform))
 	for i, p := range opts.Platform {
-		if i < len(roots) && roots[i].ManifestDescriptor.Digest != "" {
-			images = append(images, roots[i]) // the packer pushed all of it
-			continue
-		}
-
 		// Date the image by its newest part. A part without a date is new.
 		var dates []*time.Time
 		if i < len(kernels) {
@@ -337,7 +346,7 @@ func (b Builder) Build(ctx context.Context, opts BuildOpts) (_ []*imagespec.Imag
 		images = append(images, imagespec.NewImage(imgOpts...))
 	}
 
-	return images, nil
+	return Built{Images: images}, nil
 }
 
 // newest returns the latest of dates. A nil date is now.

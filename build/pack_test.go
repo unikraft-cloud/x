@@ -164,11 +164,12 @@ func TestDockerfileIsDatedByItsBase(t *testing.T) {
 		TempDir: t.TempDir(),
 	}
 	start := time.Now()
-	imgs, err := b.Build(t.Context(), BuildOpts{
+	built, err := b.Build(t.Context(), BuildOpts{
 		Rootfs:   FSOpts{Path: filepath.Join(dir, "Dockerfile"), Type: kraftfile.SourceTypeDockerfile, Format: kraftfile.FsTypeErofs},
 		Platform: []ocispec.Platform{{OS: "fc", Architecture: "x86_64"}},
 	})
 	require.NoError(t, err)
+	imgs := built.Images
 	closeImages(t, imgs)
 	require.Len(t, imgs, 1)
 
@@ -318,7 +319,7 @@ func TestPushInSolve(t *testing.T) {
 		Credentials: func(string) (string, string, error) { return "", "", nil },
 	}
 	dest := &imagespec.Location{Scheme: schemes.OCI, Path: reg + "/app:v1"}
-	imgs, err := b.Build(t.Context(), BuildOpts{
+	built, err := b.Build(t.Context(), BuildOpts{
 		Runtime:  runtime.String(),
 		Rootfs:   FSOpts{Path: filepath.Join(dir, "Dockerfile"), Type: kraftfile.SourceTypeDockerfile, Format: kraftfile.FsTypeErofs},
 		Platform: []ocispec.Platform{fc},
@@ -326,11 +327,11 @@ func TestPushInSolve(t *testing.T) {
 		Push:     []*imagespec.Location{dest},
 	})
 	require.NoError(t, err)
-	closeImages(t, imgs)
-	require.Len(t, imgs, 1)
-	require.Nil(t, imgs[0].Initrd, "the initrd stays on the builder")
+	require.Empty(t, built.Images, "the initrd stays on the builder")
+	require.Len(t, built.Pushed, 1)
+	assert.Equal(t, fc, built.Pushed[0].Platform)
 
-	_, err = b.Save(t.Context(), dest, imgs...)
+	_, err = b.Save(t.Context(), dest, built)
 	require.NoError(t, err)
 
 	loaded, err := access.LoadAll(t.Context(), imagespec.Resolved{Location: *dest}, platforms.All)

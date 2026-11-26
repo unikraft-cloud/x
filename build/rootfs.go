@@ -445,11 +445,7 @@ func (b Builder) packDirectoryState(ctx context.Context, s *solver, opts BuildOp
 	}
 
 	if opts.push != nil {
-		img, err := opts.push.pushedImage(f, config())
-		if err != nil {
-			return nil, err
-		}
-		return []*imagespec.Image{img}, nil
+		return nil, opts.push.record(f, p)
 	}
 	return []*imagespec.Image{imagespec.NewImage(
 		imagespec.WithImageConfig(cfg),
@@ -640,11 +636,9 @@ func (b Builder) buildRootfsOCI(ctx context.Context, opts BuildOpts, part string
 			if err != nil {
 				return nil, err
 			}
-			img, err := opts.push.pushedImage(f, config())
-			if err != nil {
+			if err := opts.push.record(f, p); err != nil {
 				return nil, err
 			}
-			imgs = append(imgs, img)
 			continue
 		}
 
@@ -833,11 +827,9 @@ func (b Builder) buildRootfsDockerfile(ctx context.Context, opts BuildOpts, part
 			return nil, err
 		}
 		if opts.push != nil {
-			img, err := opts.push.pushedImage(f, pushConfig())
-			if err != nil {
+			if err := opts.push.record(f, p); err != nil {
 				return nil, err
 			}
-			imgs = append(imgs, img)
 			continue
 		}
 		defer func() {

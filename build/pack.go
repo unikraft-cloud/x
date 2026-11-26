@@ -64,6 +64,15 @@ func (b Builder) pack(ctx context.Context, part string, p ocispec.Platform, opts
 // registry credentials to Builder.Credentials.
 const AuthSSHID = "unikraft-registry-auth"
 
+// Pushed is the image of one platform that the packer pushed to each
+// repository of BuildOpts.Push: only its manifest, as the registry holds the rest.
+type Pushed struct {
+	Manifest ocispec.Descriptor
+	Platform ocispec.Platform
+	// Tag is the temporary tag that names the manifest until an index does.
+	Tag string
+}
+
 // packerPush is how the packer pushes the image of each platform from its
 // solve: with the runtime's kernel, to a temporary tag in each repository.
 type packerPush struct {
@@ -73,7 +82,7 @@ type packerPush struct {
 	socket  string                // serving Builder.Credentials, empty without
 	now     time.Time             // of the build, for the images' dates
 	kernels map[string]*time.Time // dates of the kernels by platform
-	pushed  []*imagespec.Image    // so far
+	pushed  []Pushed              // so far
 }
 
 // startPush has the packer of a build with kernels from a runtime push to the
@@ -124,17 +133,6 @@ func (b Builder) startPush(opts *BuildOpts, kernels []*imagespec.Image, now time
 	return stop, nil
 }
 
-// pushedTag returns the temporary tag that the packer pushed img under, or ""
-// for an image that the packer did not push.
-func pushedTag(img *imagespec.Image) string {
-	tag := img.Reference.Tag()
-	if img.Kernel != nil || img.KernelDebug != nil || img.Initrd != nil || len(img.Roms) > 0 ||
-		img.ManifestDescriptor.Digest == "" || !strings.HasPrefix(tag, "tmp-") {
-		return ""
-	}
-	return tag
-}
-
 // tagOf returns the temporary tag of the image of platform p.
 func (push *packerPush) tagOf(p ocispec.Platform) string {
 	return push.tag + "-" + strings.ReplaceAll(platforms.Format(p), "/", "-")
@@ -147,33 +145,21 @@ func (push *packerPush) image(p ocispec.Platform, cfg ocispec.ImageConfig, rootf
 	return ocispec.Image{Created: &created, Platform: p, Config: cfg}
 }
 
-// pushedImage returns the image of img that the packer pushed, from the
+// record takes the image of platform p that the packer pushed from the
 // descriptor of its manifest in f, which it removes.
-func (push *packerPush) pushedImage(f *os.File, img ocispec.Image) (*imagespec.Image, error) {
+func (push *packerPush) record(f *os.File, p ocispec.Platform) error {
 	f.Close()
 	data, err := os.ReadFile(f.Name())
 	os.Remove(f.Name())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var desc ocispec.Descriptor
 	if err := json.Unmarshal(data, &desc); err != nil {
-		return nil, fmt.Errorf("reading the descriptor of the pushed image: %w", err)
+		return fmt.Errorf("reading the descriptor of the pushed image: %w", err)
 	}
-	ref, err := reference.Parse(push.repos[0] + ":" + push.tagOf(img.Platform))
-	if err != nil {
-		return nil, err
-	}
-
-	pushed := imagespec.NewImage(
-		imagespec.WithImageConfig(img.Config),
-		imagespec.WithPlatform(img.Platform),
-		imagespec.WithImageMetadata(imagespec.ImageMetadata{Created: img.Created}),
-	)
-	pushed.ManifestDescriptor = desc
-	pushed.Reference = ref
-	push.pushed = append(push.pushed, pushed)
-	return pushed, nil
+	push.pushed = append(push.pushed, Pushed{Manifest: desc, Platform: p, Tag: push.tagOf(p)})
+	return nil
 }
 
 // packArgs is the packer command line that packs /src as format into

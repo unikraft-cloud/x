@@ -339,8 +339,9 @@ func writeBuildSecret(t *testing.T, contents string) string {
 
 func runIntegrationBuild(t *testing.T, ctx context.Context, opts build.BuildOpts) []*imagespec.Image {
 	t.Helper()
-	imgs, err := integrationBuilder(t, ctx).Build(ctx, opts)
+	built, err := integrationBuilder(t, ctx).Build(ctx, opts)
 	require.NoError(t, err)
+	imgs := built.Images
 	t.Cleanup(func() {
 		for _, img := range imgs {
 			_ = img.Close()

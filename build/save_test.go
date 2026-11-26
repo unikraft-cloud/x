@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/containerd/containerd/v2/core/remotes/docker"
@@ -26,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 	imagespec "unikraft.com/x/image-spec"
 	"unikraft.com/x/image-spec/contentutil"
-	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/image-spec/schemes"
 
 	"unikraft.com/x/build"
@@ -97,6 +97,14 @@ func registryBuilder(creds registryauth.Credentials) build.Builder {
 func registryDigest(t *testing.T, host, repo, tag string) digest.Digest {
 	t.Helper()
 
+	dgst, _ := registryIndex(t, host, repo, tag)
+	return dgst
+}
+
+// registryIndex fetches the index that host serves for repo:tag, with its digest.
+func registryIndex(t *testing.T, host, repo, tag string) (digest.Digest, ocispec.Index) {
+	t.Helper()
+
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+host+"/v2/"+repo+"/manifests/"+tag, nil)
 	require.NoError(t, err)
 	req.SetBasicAuth("alice", "s3cret")
@@ -109,7 +117,9 @@ func registryDigest(t *testing.T, host, repo, tag string) digest.Digest {
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	return digest.FromBytes(body)
+	var idx ocispec.Index
+	require.NoError(t, json.Unmarshal(body, &idx))
+	return digest.FromBytes(body), idx
 }
 
 // registryTags returns the tags that host lists for repo.
@@ -147,7 +157,7 @@ func layoutDigest(t *testing.T, dir, tag string) digest.Digest {
 
 // packerPushed pushes an image per platform to repo under a temporary tag, as
 // the packer does, and returns what Build gives for them.
-func packerPushed(t *testing.T, repo string) []*imagespec.Image {
+func packerPushed(t *testing.T, repo string) []build.Pushed {
 	t.Helper()
 
 	resolver := docker.NewResolver(docker.ResolverOptions{
@@ -156,20 +166,15 @@ func packerPushed(t *testing.T, repo string) []*imagespec.Image {
 			docker.WithAuthorizer(alice.Authorizer()),
 		),
 	})
-	var pushed []*imagespec.Image
+	var pushed []build.Pushed
 	for _, img := range testImages(fcIntel, fcArm) {
-		ref := repo + ":tmp-test-fc-" + img.Image.Architecture
+		tag := "tmp-test-fc-" + img.Image.Architecture
+		ref := repo + ":" + tag
 		pusher, err := resolver.Pusher(t.Context(), ref)
 		require.NoError(t, err)
 		desc, err := imagespec.SaveManifest(t.Context(), contentutil.FromPusher(pusher), ref, img)
 		require.NoError(t, err)
-		parsed, err := reference.Parse(ref)
-		require.NoError(t, err)
-		pushed = append(pushed, &imagespec.Image{
-			Reference:          parsed,
-			ManifestDescriptor: desc,
-			Image:              img.Image,
-		})
+		pushed = append(pushed, build.Pushed{Manifest: desc, Platform: img.Image.Platform, Tag: tag})
 	}
 	return pushed
 }
@@ -183,7 +188,7 @@ func TestSave(t *testing.T) {
 
 		saved, err := b.Save(t.Context(),
 			&imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/app"},
-			testImages(fcIntel, fcArm)...)
+			build.Built{Images: testImages(fcIntel, fcArm)})
 		require.NoError(t, err)
 		assert.Equal(t, host+"/acme/app:latest", saved.Ref)
 		assert.Equal(t, []ocispec.Platform{fcIntel, fcArm}, saved.Platforms)
@@ -215,7 +220,7 @@ func TestSave(t *testing.T) {
 
 		b := registryBuilder(alice)
 		b.Credentials = alice
-		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/team/app:v1"}, pushed...)
+		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/team/app:v1"}, build.Built{Pushed: pushed})
 		require.NoError(t, err)
 		assert.Equal(t, []string{
 			"/api/v2.0/projects/acme/repositories/team%252Fapp/artifacts/tmp-test-fc-x86_64/tags/tmp-test-fc-x86_64",
@@ -229,10 +234,88 @@ func TestSave(t *testing.T) {
 
 		b := registryBuilder(alice)
 		b.Credentials = alice
-		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}, pushed...)
+		saved, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}, build.Built{Pushed: pushed})
 		require.NoError(t, err)
 
 		assert.Equal(t, []string{"v1"}, registryTags(t, host, "acme/app"))
+		dgst, idx := registryIndex(t, host, "acme/app", "v1")
+		assert.Equal(t, dgst, saved.Digest)
+		assert.Equal(t, []ocispec.Descriptor{pushed[0].Manifest, pushed[1].Manifest}, idx.Manifests)
+		assert.Equal(t, []ocispec.Platform{fcIntel, fcArm}, []ocispec.Platform{*idx.Manifests[0].Platform, *idx.Manifests[1].Platform})
+	})
+
+	t.Run("an index over a manifest that the registry lacks is not pushed", func(t *testing.T) {
+		host := startRegistry(t)
+		pushed := packerPushed(t, host+"/acme/app")
+
+		b := registryBuilder(alice)
+		b.Credentials = alice
+		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/other:v1"}, build.Built{Pushed: pushed})
+		require.ErrorContains(t, err, pushed[0].Manifest.Digest.String())
+
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodHead, "http://"+host+"/v2/acme/other/manifests/v1", nil)
+		require.NoError(t, err)
+		req.SetBasicAuth("alice", "s3cret")
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		resp.Body.Close()
+		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	})
+
+	t.Run("a manifest that the registry refuses for a while is found", func(t *testing.T) {
+		// A registry that refuses the first checks of a manifest, as Harbor does after a push.
+		reg := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
+		var refused atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodHead && strings.Contains(r.URL.Path, "/manifests/sha256:") && refused.Add(1) <= 3 {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			reg.ServeHTTP(w, r)
+		}))
+		t.Cleanup(srv.Close)
+		host := strings.TrimPrefix(srv.URL, "http://")
+		pushed := packerPushed(t, host+"/acme/slow")
+
+		saved, err := registryBuilder(alice).Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/slow:v1"}, build.Built{Pushed: pushed})
+		require.NoError(t, err)
+		assert.Greater(t, refused.Load(), int32(3))
+		dgst, _ := registryIndex(t, host, "acme/slow", "v1")
+		assert.Equal(t, dgst, saved.Digest)
+	})
+
+	t.Run("a manifest that the registry forbids fails at once", func(t *testing.T) {
+		reg := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
+		var forbidden atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/manifests/sha256:") && r.Method != http.MethodPut {
+				if r.Method == http.MethodHead {
+					forbidden.Add(1)
+				}
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			reg.ServeHTTP(w, r)
+		}))
+		t.Cleanup(srv.Close)
+		host := strings.TrimPrefix(srv.URL, "http://")
+		pushed := packerPushed(t, host+"/acme/denied")
+
+		_, err := registryBuilder(alice).Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/denied:v1"}, build.Built{Pushed: pushed})
+		require.ErrorContains(t, err, "403")
+		assert.Equal(t, int32(1), forbidden.Load())
+	})
+
+	t.Run("what the packer pushed is saved alone", func(t *testing.T) {
+		host := startRegistry(t)
+		pushed := packerPushed(t, host+"/acme/mixed")
+
+		b := registryBuilder(alice)
+		b.Credentials = alice
+		_, err := b.Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/mixed:v1"},
+			build.Built{Images: testImages(fcIntel), Pushed: pushed})
+		require.ErrorContains(t, err, "cannot be saved with other images")
+		assert.Empty(t, registryTags(t, host, "acme/mixed"))
 	})
 
 	t.Run("a push that fails leaves no temporary tags", func(t *testing.T) {
@@ -250,9 +333,19 @@ func TestSave(t *testing.T) {
 		pushed := packerPushed(t, host+"/acme/app")
 		require.Len(t, registryTags(t, host, "acme/app"), 2)
 
-		_, err := registryBuilder(alice).Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}, pushed...)
+		_, err := registryBuilder(alice).Save(t.Context(), &imagespec.Location{Scheme: schemes.OCI, Path: host + "/acme/app:v1"}, build.Built{Pushed: pushed})
 		require.Error(t, err)
 		assert.Empty(t, registryTags(t, host, "acme/app"))
+	})
+
+	t.Run("what the packer pushed is saved to a registry only", func(t *testing.T) {
+		host := startRegistry(t)
+		pushed := packerPushed(t, host+"/acme/local")
+
+		_, err := registryBuilder(alice).Save(t.Context(),
+			&imagespec.Location{Scheme: schemes.OCILayout, Path: t.TempDir() + ":v1"}, build.Built{Pushed: pushed})
+		require.ErrorContains(t, err, "only be saved to a registry")
+		assert.Len(t, registryTags(t, host, "acme/local"), 2)
 	})
 
 	t.Run("a local layout needs no accessor", func(t *testing.T) {
@@ -265,7 +358,7 @@ func TestSave(t *testing.T) {
 
 		saved, err := b.Save(t.Context(),
 			&imagespec.Location{Scheme: schemes.OCILayout, Path: dir + ":v1"},
-			testImages(fcIntel)...)
+			build.Built{Images: testImages(fcIntel)})
 		require.NoError(t, err)
 		assert.Equal(t, dir+":v1", saved.Ref)
 		assert.Equal(t, layoutDigest(t, dir, "v1"), saved.Digest)
