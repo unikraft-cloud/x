@@ -7,6 +7,7 @@ package imagespec
 
 import (
 	"bytes"
+	"io"
 	"path/filepath"
 	"testing"
 	"time"
@@ -48,6 +49,7 @@ type loadedImage struct {
 	KernelDebug      ocispec.Descriptor
 	Initrd           ocispec.Descriptor
 	Roms             []ocispec.Descriptor
+	Compression      Compression
 }
 
 func loadedImages(t *testing.T, imgs []*Image) []loadedImage {
@@ -71,6 +73,7 @@ func loadedImages(t *testing.T, imgs []*Image) []loadedImage {
 			Kernel:           source(img.Kernel),
 			KernelDebug:      source(img.KernelDebug),
 			Initrd:           source(img.Initrd),
+			Compression:      img.Compression,
 		}
 		for _, rom := range img.Roms {
 			l.Roms = append(l.Roms, source(rom))
@@ -78,6 +81,32 @@ func loadedImages(t *testing.T, imgs []*Image) []loadedImage {
 		loaded = append(loaded, l)
 	}
 	return loaded
+}
+
+// readPart returns the content of f, or "" if f is nil.
+func readPart(t *testing.T, f File) string {
+	t.Helper()
+
+	if f == nil {
+		return ""
+	}
+	r, _, err := f.Open(t.Context())
+	require.NoError(t, err)
+	data, err := io.ReadAll(r)
+	require.NoError(t, err)
+	require.NoError(t, r.Close())
+	return string(data)
+}
+
+// parts returns the content of the kernel, the kernel debug image, the initrd and the ROMs of img.
+func parts(t *testing.T, img *Image) []string {
+	t.Helper()
+
+	var got []string
+	for _, f := range append([]File{img.Kernel, img.KernelDebug, img.Initrd}, img.Roms...) {
+		got = append(got, readPart(t, f))
+	}
+	return got
 }
 
 func TestLoadSaveLoad(t *testing.T) {
@@ -96,6 +125,14 @@ func TestLoadSaveLoad(t *testing.T) {
 		},
 		"multi-platform": func() []*Image {
 			return []*Image{unikraftImage(fcIntel), unikraftImage(fcArm)}
+		},
+		"zstd": func() []*Image {
+			img := unikraftImage(fcIntel,
+				WithDebugKernel(NewStaticFile("kernel.dbg", []byte("debug kernel"))),
+				WithRom(NewStaticFile("rom0", []byte("first rom"))),
+			)
+			img.Compression = CompressionZstd
+			return []*Image{img}
 		},
 	}
 	backends := map[string]func(t *testing.T, name string) *Location{
@@ -120,6 +157,16 @@ func TestLoadSaveLoad(t *testing.T) {
 				require.NoError(t, err)
 				first, err := a.LoadAll(ctx, saved, platforms.All)
 				require.NoError(t, err)
+				for i, want := range images() {
+					require.Equal(t, want.Compression, first[i].Compression)
+					require.Equal(t, parts(t, want), parts(t, first[i]))
+					for _, part := range []File{first[i].Kernel, first[i].KernelDebug, first[i].Initrd} {
+						if part != nil {
+							desc, _ := part.Source()
+							require.Equal(t, want.Compression == CompressionZstd, desc.MediaType == ocispec.MediaTypeImageLayerZstd)
+						}
+					}
+				}
 
 				again, err := a.Save(ctx, location(t, "second"), first...)
 				require.NoError(t, err)

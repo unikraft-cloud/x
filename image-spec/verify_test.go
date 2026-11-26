@@ -374,12 +374,16 @@ func (w *resettingWriter) Commit(ctx context.Context, size int64, expected diges
 func TestSaveContentWritesAgainAfterReset(t *testing.T) {
 	t.Parallel()
 
-	dst, err := local.NewStore(t.TempDir())
-	require.NoError(t, err)
-	store := &resetting{Ingester: dst}
+	for _, compression := range []Compression{CompressionNone, CompressionZstd} {
+		dst, err := local.NewStore(t.TempDir())
+		require.NoError(t, err)
+		store := &resetting{Ingester: dst}
+		img := *testImage
+		img.Compression = compression
 
-	// The store checks each digest on commit, so a layer written again wrong fails.
-	_, err = SaveContent(t.Context(), store, "latest", testImage)
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, store.resets.Load(), int32(3)) // the three layers at least
+		// The store checks each digest on commit, so a layer written again wrong fails.
+		_, err = SaveContent(t.Context(), store, "latest", &img)
+		require.NoError(t, err, compression)
+		assert.GreaterOrEqual(t, store.resets.Load(), int32(3)) // the three layers at least
+	}
 }

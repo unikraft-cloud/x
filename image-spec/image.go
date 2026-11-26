@@ -26,6 +26,10 @@ type Image struct {
 	Initrd      File
 	Roms        []File
 
+	// Compression is how Save compresses the new tar layers of the parts. Save copies a part that has a source without change.
+	// Load sets CompressionZstd if one or more of the tar layers of the parts are zstd, and CompressionNone if not.
+	Compression Compression
+
 	// Image configs
 	Image            *ocispec.Image
 	Annotations      map[string]string

@@ -9,6 +9,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -20,6 +21,7 @@ import (
 	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 )
@@ -114,23 +116,40 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 	}
 	img.Image = &config
 
-	for _, layer := range mfst.Layers {
+	for i, layer := range mfst.Layers {
+		// A save computes a DiffID with digest.Canonical, so it takes only a hint with that algorithm.
+		// The digest of a compressed layer is never its DiffID, so it is no hint.
+		var hint digest.Digest
+		if isCompressedLayer(layer.MediaType) && len(config.RootFS.DiffIDs) == len(mfst.Layers) {
+			if id := config.RootFS.DiffIDs[i]; id.Validate() == nil && id.Algorithm() == digest.Canonical && id != layer.Digest {
+				hint = id
+			}
+		}
+		file := func(p string) *ContentStoreFile {
+			f := NewContentStoreFile(store, layer, p)
+			f.diffID, f.hintFor = hint, layer.Digest
+			return f
+		}
 		part := true
 		switch layer.MediaType {
-		// Classic OCI layer (old-style image layer).
-		case ocispec.MediaTypeImageLayer, images.MediaTypeDockerSchema2Layer:
+		// Classic OCI layer (old-style image layer), which can be compressed.
+		case ocispec.MediaTypeImageLayer, images.MediaTypeDockerSchema2Layer, ocispec.MediaTypeImageLayerGzip,
+			ocispec.MediaTypeImageLayerZstd, images.MediaTypeDockerSchema2LayerGzip:
 			part = false
 			if p := layer.Annotations[AnnotationKernelPath]; p != "" {
-				img.Kernel = NewContentStoreFile(store, layer, p)
+				img.Kernel = file(p)
 				part = true
 			}
 			if p := layer.Annotations[AnnotationKernelDbgPath]; p != "" {
-				img.KernelDebug = NewContentStoreFile(store, layer, p)
+				img.KernelDebug = file(p)
 				part = true
 			}
 			if p := layer.Annotations[AnnotationKernelInitrdPath]; p != "" {
-				img.Initrd = NewContentStoreFile(store, layer, p)
+				img.Initrd = file(p)
 				part = true
+			}
+			if part && layer.MediaType == ocispec.MediaTypeImageLayerZstd {
+				img.Compression = CompressionZstd
 			}
 
 		case MediaTypeRom:
@@ -153,11 +172,29 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 	return img, nil
 }
 
+// closerFunc is a Closer that calls itself.
+type closerFunc func() error
+
+func (f closerFunc) Close() error { return f() }
+
 // ContentStoreFile is a File backed by a content.Provider and OCI descriptor.
 type ContentStoreFile struct {
 	Store content.Provider
 	Desc  ocispec.Descriptor
 	Path_ string
+
+	maxSize int64         // the limit of the decompressed bytes that Open reads, maxLayerSize if 0
+	diffID  digest.Digest // the DiffID that the config of the source gives, unchecked
+	hintFor digest.Digest // the layer that diffID applies to
+}
+
+// diffIDHint returns the DiffID that the config of the source of file gives for its layer, or "" if there is none.
+// A save uses it only if the destination has the layer already, as it then does not read the layer.
+func diffIDHint(file File) digest.Digest {
+	if f, ok := file.(*ContentStoreFile); ok && f.hintFor == f.Desc.Digest {
+		return f.diffID
+	}
+	return ""
 }
 
 // NewContentStoreFile creates a new ContentStoreFile.
@@ -196,13 +233,30 @@ func (f *ContentStoreFile) Open(ctx context.Context) (rc io.ReadCloser, size int
 
 	target := filepath.Join("/", f.Path_)
 
-	tr := tar.NewReader(vr.blob)
+	blob, err := decompressLayer(f.Desc.MediaType, vr.blob)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to decompress layer %s: %w", f.Desc.Digest, err)
+	}
+	limit := f.maxSize
+	if limit == 0 {
+		limit = maxLayerSize
+	}
+	tr := tar.NewReader(&boundedReader{ctx: ctx, r: blob, limit: limit})
 	hdr, rr, err := readTarFile(tr, target)
 	if err != nil {
+		blob.Close()
 		return nil, 0, err
 	}
-	vr.entry, vr.remaining = rr, hdr.Size
-	return vr, hdr.Size, nil
+	// The stream does not contain the holes of a sparse entry, so apply the limit and ctx to the entry also.
+	if hdr.Size > limit {
+		blob.Close()
+		return nil, 0, fmt.Errorf("%w: %s is %d bytes, more than %d", ErrLayerTooLarge, target, hdr.Size, limit)
+	}
+	vr.entry, vr.remaining = &boundedReader{ctx: ctx, r: rr, limit: limit}, hdr.Size
+	return struct {
+		io.Reader
+		io.Closer
+	}{vr, closerFunc(func() error { return errors.Join(blob.Close(), vr.Close()) })}, hdr.Size, nil
 }
 
 func (f *ContentStoreFile) Cleanup() error {
@@ -210,7 +264,9 @@ func (f *ContentStoreFile) Cleanup() error {
 }
 
 func (f *ContentStoreFile) Clone() (File, error) {
-	return NewContentStoreFile(f.Store, f.Desc, f.Path_), nil
+	c := NewContentStoreFile(f.Store, f.Desc, f.Path_)
+	c.maxSize, c.diffID, c.hintFor = f.maxSize, f.diffID, f.hintFor
+	return c, nil
 }
 
 func (f *ContentStoreFile) Source() (ocispec.Descriptor, content.Provider) {
