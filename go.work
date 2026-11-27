@@ -15,6 +15,8 @@ use (
 	./iata
 	./image-spec
 	./integration
+	./integration/golden
+	./integration/tuikit
 	./io
 	./joinerrgroup
 	./kingkong
