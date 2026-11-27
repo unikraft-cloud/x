@@ -64,10 +64,6 @@ func indexAnnotations(ctx context.Context, provider content.Provider, desc ocisp
 	if err := json.Unmarshal(p, &idx); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal image index: %w", err)
 	}
-	// An archive's own index.json lists the image index.
-	if len(idx.Manifests) == 1 && images.IsIndexType(idx.Manifests[0].MediaType) {
-		return indexAnnotations(ctx, provider, idx.Manifests[0])
-	}
 	return idx.Annotations, nil
 }
 

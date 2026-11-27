@@ -53,3 +53,18 @@ func TestLoadAllTarballClose(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, left)
 }
+
+func TestTarballIndexOfLargeImage(t *testing.T) {
+	ctx := t.Context()
+	tarPath := filepath.Join(t.TempDir(), "out.tar")
+	_, err := SaveTarballNamed(ctx, tarPath, "v1", NewImage(WithKernel(&staticFile{"kernel.img", make([]byte, 32<<20)})))
+	require.NoError(t, err)
+
+	// With no temp directory, the tarball can only be read, not imported.
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+	_, entries, err := tarballIndex(ctx, tarPath)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.NoError(t, DeleteTarballNamed(ctx, tarPath, "v1"))
+	require.NoFileExists(t, tarPath)
+}

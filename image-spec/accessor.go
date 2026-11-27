@@ -6,8 +6,10 @@
 package imagespec
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/platforms"
 	distref "github.com/distribution/reference"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"unikraft.com/x/image-spec/reference"
 	"unikraft.com/x/image-spec/schemes"
@@ -167,7 +170,12 @@ func (accessor *Accessor) Load(ctx context.Context, res Resolved, platform platf
 			img, err = LoadOCILayoutNamed(ctx, path, tag, platform)
 		}
 	case schemes.OCIArchive:
-		img, err = LoadTarball(ctx, res.Location.Path, res.Descriptor, platform)
+		path, tag := splitPathTag(res.Location.Path)
+		if res.Descriptor.Digest != "" {
+			img, err = LoadTarball(ctx, path, res.Descriptor, platform)
+		} else {
+			img, err = LoadTarballNamed(ctx, path, tag, platform)
+		}
 	default:
 		return nil, fmt.Errorf("unsupported location scheme: %q", res.Location.Scheme)
 	}
@@ -181,7 +189,8 @@ func (accessor *Accessor) Load(ctx context.Context, res Resolved, platform platf
 	return img, nil
 }
 
-// LoadAll loads all images a Resolve or Save pinned, as Load does.
+// LoadAll loads the images of every platform under the one root that Load
+// loads from, and not every image that a layout or archive lists.
 func (accessor *Accessor) LoadAll(ctx context.Context, res Resolved, platform platforms.MatchComparer) ([]*Image, error) {
 	res, err := accessor.pin(ctx, res)
 	if err != nil {
@@ -212,7 +221,12 @@ func (accessor *Accessor) LoadAll(ctx context.Context, res Resolved, platform pl
 			imgs, err = LoadAllOCILayoutsNamed(ctx, path, tag, platform)
 		}
 	case schemes.OCIArchive:
-		imgs, err = LoadAllTarballs(ctx, res.Location.Path, res.Descriptor, platform)
+		path, tag := splitPathTag(res.Location.Path)
+		if res.Descriptor.Digest != "" {
+			imgs, err = LoadAllTarballs(ctx, path, res.Descriptor, platform)
+		} else {
+			imgs, err = LoadAllTarballsNamed(ctx, path, tag, platform)
+		}
 	default:
 		return nil, fmt.Errorf("unsupported location scheme: %q", res.Location.Scheme)
 	}
@@ -238,9 +252,10 @@ func (accessor *Accessor) pin(ctx context.Context, res Resolved) (Resolved, erro
 	return accessor.Resolve(ctx, &res.Location)
 }
 
-// Save stores img at dest under one index, and returns dest pinned to the
-// root it wrote, so that Load reads back exactly what was saved. For an
-// archive, that root is the archive's own index.json, which lists the index.
+// Save stores img at dest under one index, and returns dest pinned to that
+// index, so that Load reads back exactly what was saved. A layout or archive
+// lists it under the tag of dest, or latest. An archive is written anew, so a
+// tag is refused if that would drop other images the archive lists.
 func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Image) (Resolved, error) {
 	switch dest.Scheme {
 	case schemes.OCI:
@@ -272,16 +287,19 @@ func (accessor *Accessor) Save(ctx context.Context, dest *Location, img ...*Imag
 		}, nil
 	case schemes.OCILayout:
 		path, tag := splitPathTag(dest.Path)
-		if tag == "" {
-			tag = "latest"
-		}
-		desc, err := SaveOCILayoutNamed(ctx, path, tag, img...)
+		desc, err := SaveOCILayoutNamed(ctx, path, cmp.Or(tag, "latest"), img...)
 		if err != nil {
 			return Resolved{}, err
 		}
 		return Resolved{Location: *dest, Descriptor: desc}, nil
 	case schemes.OCIArchive:
-		desc, err := SaveTarball(ctx, dest.Path, img...)
+		path, tag, err := tarballSaveTag(ctx, dest.Path)
+		if err != nil {
+			return Resolved{}, err
+		}
+		desc, err := replaceTarball(path, func(w io.Writer) (ocispec.Descriptor, error) {
+			return SaveTarballWriterNamed(ctx, w, tag, img...)
+		})
 		if err != nil {
 			return Resolved{}, err
 		}
@@ -309,7 +327,11 @@ func (accessor *Accessor) Delete(ctx context.Context, target *Location) error {
 		}
 		return DeleteOCILayoutNamed(path, tag)
 	case schemes.OCIArchive:
-		return os.Remove(target.Path)
+		path, tag := splitPathTag(target.Path)
+		if tag == "" {
+			return os.Remove(path)
+		}
+		return DeleteTarballNamed(ctx, path, tag)
 	default:
 		return fmt.Errorf("unsupported location scheme: %q", target.Scheme)
 	}

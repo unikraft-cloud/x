@@ -35,7 +35,7 @@ import (
 //
 // That digest only addresses the tarball: origins disagree on what it is the
 // digest of (the index.json, or the manifest), so it is never checked against
-// what they serve. The tarball's own index.json is its root, as for an archive.
+// what they serve. The tarball is read as an archive with no tag.
 
 // MediaTypeOCILayoutTar is the media type of an OCI image layout served as a
 // tarball.
@@ -120,8 +120,8 @@ func checkLayoutContentType(rsp *http.Response) error {
 }
 
 // LoadTarballRemote loads the layout tarball at u, from desc if it is set, or
-// else from the tarball's own index.json, as LoadTarballReader does. A digest
-// in u is not checked against what is served.
+// else as LoadTarballReader does with no tag. A digest in u is not checked
+// against what is served.
 func LoadTarballRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor, client *http.Client, header http.Header, platform platforms.MatchComparer) (*Image, error) {
 	body, err := openTarballRemote(ctx, u, client, header)
 	if err != nil {
@@ -131,16 +131,16 @@ func LoadTarballRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor,
 
 	img, err := LoadTarballReader(ctx, body, desc, platform)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tarball %q: %w", u, err)
 	}
 	img.Resolved = tarballResolved(u, img.Descriptor)
 	return img, nil
 }
 
-// LoadAllTarballsRemote loads all images from the layout tarball at u. The
-// images share one temporary store, which stays until all of them are closed.
-// It loads them as
-// LoadTarballRemote does.
+// LoadAllTarballsRemote loads the images of every platform from the layout
+// tarball at u, under the one root that LoadTarballRemote loads from, and not
+// every image the tarball lists. The images share one temporary store, which
+// stays until all of them are closed.
 func LoadAllTarballsRemote(ctx context.Context, u *url.URL, desc ocispec.Descriptor, client *http.Client, header http.Header, platform platforms.MatchComparer) ([]*Image, error) {
 	body, err := openTarballRemote(ctx, u, client, header)
 	if err != nil {
@@ -150,7 +150,7 @@ func LoadAllTarballsRemote(ctx context.Context, u *url.URL, desc ocispec.Descrip
 
 	imgs, err := LoadAllTarballReaders(ctx, body, desc, platform)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tarball %q: %w", u, err)
 	}
 	for _, img := range imgs {
 		img.Resolved = tarballResolved(u, img.Descriptor)
