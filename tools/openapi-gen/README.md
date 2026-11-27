@@ -234,6 +234,8 @@ These return sorted slices for deterministic output:
 | `uniqueTags`          | `operations → []string`       | Deduplicated, sorted tags from operations |
 | `sortedResponseCodes` | `responses → []ResponseEntry` | Response entries sorted by status code    |
 | `sortedContentTypes`  | `content → []ContentEntry`    | Content entries sorted by media type      |
+| `jsonContentType`     | `content → string`            | The JSON media type of a body: `application/json`, else the first `+json` type (e.g. `application/merge-patch+json`), else `""` |
+| `jsonMedia`           | `content → *MediaType`        | The media of `jsonContentType`, or nil    |
 
 ### Text helpers
 

@@ -94,6 +94,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeleteWidgetResponse'
+    patch:
+      operationId: PatchWidget
+      tags: [Widgets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: '#/components/schemas/PatchWidgetRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWidgetResponse'
+        default:
+          description: default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWidgetResponse'
   /widgets/{id}/events:
     get:
       operationId: WatchWidget
@@ -128,6 +156,13 @@ components:
     CreateWidgetRequest:
       type: object
       required: [name]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+    PatchWidgetRequest:
+      type: object
       properties:
         name:
           type: string

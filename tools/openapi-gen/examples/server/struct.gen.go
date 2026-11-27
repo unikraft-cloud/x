@@ -189,6 +189,29 @@ func (m ListWidgetsResponseData) MarshalJSON() ([]byte, error) {
 	return json.Marshal((Alias)(m))
 }
 
+type PatchWidgetRequest struct {
+	Name *string `json:"name,omitzero" yaml:"name,omitempty"`
+	Size *int    `json:"size,omitzero" yaml:"size,omitempty"`
+
+	// AdditionalProperties captures any JSON object members that do not map to
+	// an explicit field above.
+	AdditionalProperties map[string]jsontext.Value `json:",embed" yaml:"-"`
+}
+
+// UnmarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
+// (tagged `json:",embed"`) is populated with any unknown object members.
+func (m *PatchWidgetRequest) UnmarshalJSON(data []byte) error {
+	type Alias PatchWidgetRequest
+	return json.Unmarshal(data, (*Alias)(m))
+}
+
+// MarshalJSON delegates to encoding/json/v2 so that AdditionalProperties
+// (tagged `json:",embed"`) is flattened into the parent JSON object.
+func (m PatchWidgetRequest) MarshalJSON() ([]byte, error) {
+	type Alias PatchWidgetRequest
+	return json.Marshal((Alias)(m))
+}
+
 type Widget struct {
 	Id        *string    `json:"id,omitzero" yaml:"id,omitempty"`
 	Name      *string    `json:"name,omitzero" yaml:"name,omitempty"`
