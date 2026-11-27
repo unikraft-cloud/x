@@ -65,7 +65,7 @@ import (
 {{- if has $tagName .Operation.Tags}}
 {{- $op := .Operation}}
 {{- if and $op.RequestBody $op.RequestBody.Value}}
-{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- $content := jsonMedia $op.RequestBody.Value.Content}}
 {{- if $content}}
 {{- if $content.Schema.Ref}}
 {{- $p := getTypePackage $content.Schema}}
@@ -84,7 +84,7 @@ import (
 {{- $defaultResp := $op.Responses.Default}}
 {{- if not $defaultResp}}{{- $defaultResp = $op.Responses.Status 200}}{{- end}}
 {{- if and $defaultResp $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- $respContent := jsonMedia $defaultResp.Value.Content}}
 {{- if $respContent}}
 {{- if $respContent.Schema.Ref}}
 {{- $p := getTypePackage $respContent.Schema}}
@@ -150,7 +150,7 @@ type {{$serviceName}} interface {
 {{- $requestBodySchema := ""}}
 {{- $requestBodyIsArray := false}}
 {{- if $hasRequestBody}}
-{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- $content := jsonMedia $op.RequestBody.Value.Content}}
 {{- if $content}}
 {{- if $content.Schema.Ref}}
 {{- $requestBodyType = refName $content.Schema.Ref}}
@@ -175,7 +175,7 @@ type {{$serviceName}} interface {
 {{- if not $defaultResp}}{{- $defaultResp = $op.Responses.Status 200}}{{- end}}
 {{- if $defaultResp}}
 {{- if $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- $respContent := jsonMedia $defaultResp.Value.Content}}
 {{- if $respContent}}
 {{- if $respContent.Schema.Ref}}
 {{- $responseType = refName $respContent.Schema.Ref}}
@@ -268,7 +268,7 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- $requestBodySchema := ""}}
 {{- $requestBodyIsArray := false}}
 {{- if $hasRequestBody}}
-{{- $content := index $op.RequestBody.Value.Content "application/json"}}
+{{- $content := jsonMedia $op.RequestBody.Value.Content}}
 {{- if $content}}
 {{- if $content.Schema.Ref}}
 {{- $requestBodyType = refName $content.Schema.Ref}}
@@ -292,7 +292,7 @@ func Register{{$serviceName}}(engine gin.IRouter, service {{$serviceName}}, resp
 {{- if not $defaultResp}}{{- $defaultResp = $op.Responses.Status 200}}{{- end}}
 {{- if $defaultResp}}
 {{- if $defaultResp.Value}}
-{{- $respContent := index $defaultResp.Value.Content "application/json"}}
+{{- $respContent := jsonMedia $defaultResp.Value.Content}}
 {{- if $respContent}}
 {{- if $respContent.Schema.Ref}}
 {{- $responseType = refName $respContent.Schema.Ref}}
@@ -389,7 +389,7 @@ func (handler *{{$serviceName}}Handler) {{camelcase $op.OperationID}}(g *gin.Con
 {{- else}}
 
 	var req {{$qualifiedReqType}}
-	if err := g.ShouldBind(&req); err != nil {
+	if err := g.ShouldBindJSON(&req); err != nil {
 		log.G(g.Request.Context()).
 			Warn().
 			Err(err).

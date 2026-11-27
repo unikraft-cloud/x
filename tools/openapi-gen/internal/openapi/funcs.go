@@ -99,6 +99,8 @@ func (tf templateFuncs) Funcs() template.FuncMap {
 	funcs["inlineEnums"] = tf.inlineEnums
 	funcs["sortedResponseCodes"] = sortedResponseCodes
 	funcs["sortedContentTypes"] = sortedContentTypes
+	funcs["jsonContentType"] = jsonContentType
+	funcs["jsonMedia"] = jsonMedia
 	funcs["uniqueTags"] = uniqueTags
 
 	return funcs

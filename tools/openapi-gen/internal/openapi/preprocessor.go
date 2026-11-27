@@ -168,7 +168,7 @@ func (p *preprocessor) hoistRequestBody(op *openapi3.Operation) {
 	}
 	content := op.RequestBody.Value.Content
 
-	if json := content.Get("application/json"); json != nil {
+	if json := jsonMedia(content); json != nil {
 		p.hoistBody(json.Schema, op.OperationID+"Request")
 	}
 
@@ -196,11 +196,11 @@ func (p *preprocessor) hoistResponseBody(op *openapi3.Operation) error {
 	// hoistBody wouldn't rename anyway (e.g. a bare scalar) don't conflict, so
 	// don't count them.
 	var inline int
-	for _, resp := range op.Responses.Map() {
+	for code, resp := range op.Responses.Map() {
 		if resp == nil || resp.Value == nil {
 			continue
 		}
-		if json := resp.Value.Content.Get("application/json"); json != nil && isHoistableBody(json.Schema) {
+		if json := responseJSONMedia(code, resp.Value); json != nil && isHoistableBody(json.Schema) {
 			inline++
 		}
 	}
@@ -208,11 +208,11 @@ func (p *preprocessor) hoistResponseBody(op *openapi3.Operation) error {
 		return fmt.Errorf("operation %s has multiple inline response bodies; cannot derive a unique schema name", op.OperationID)
 	}
 
-	for _, resp := range op.Responses.Map() {
+	for code, resp := range op.Responses.Map() {
 		if resp == nil || resp.Value == nil {
 			continue
 		}
-		if json := resp.Value.Content.Get("application/json"); json != nil {
+		if json := responseJSONMedia(code, resp.Value); json != nil {
 			p.hoistBody(json.Schema, op.OperationID+"Response")
 		}
 	}

@@ -6,13 +6,61 @@
 package openapi
 
 import (
+	"maps"
+	"mime"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-// jsonMediaType is the request/response content type generators care about.
-const jsonMediaType = "application/json"
+// isJSONMediaType reports whether mediaType is application/json or a
+// structured +json type such as application/merge-patch+json.
+func isJSONMediaType(mediaType string) bool {
+	mt, _, err := mime.ParseMediaType(mediaType)
+	if err != nil {
+		return false
+	}
+	return mt == "application/json" || strings.HasSuffix(mt, "+json")
+}
+
+// jsonContentType returns the JSON media type of content, preferring
+// application/json over the other JSON media types, or "" when there is none.
+func jsonContentType(content openapi3.Content) string {
+	if content.Get("application/json") != nil {
+		return "application/json"
+	}
+	for _, ct := range slices.Sorted(maps.Keys(content)) {
+		if isJSONMediaType(ct) {
+			return ct
+		}
+	}
+	return ""
+}
+
+// jsonMedia returns the media of the JSON media type of content (see
+// jsonContentType), or nil when there is none.
+func jsonMedia(content openapi3.Content) *openapi3.MediaType {
+	switch ct := jsonContentType(content); ct {
+	case "":
+		return nil
+	case "application/json":
+		return content.Get(ct)
+	default:
+		return content[ct]
+	}
+}
+
+// responseJSONMedia returns the JSON media of the response with status code.
+// Only 2xx and default responses take the +json types, since those are the
+// bodies the templates read: an error body such as application/problem+json
+// stays out, so it doesn't count as a second inline response.
+func responseJSONMedia(code string, resp *openapi3.Response) *openapi3.MediaType {
+	if strings.HasPrefix(code, "2") || code == "default" {
+		return jsonMedia(resp.Content)
+	}
+	return resp.Content.Get("application/json")
+}
 
 // resolveParam returns the concrete Parameter for a ParameterRef, resolving a
 // $ref against components/parameters when the value is not already populated.
@@ -90,13 +138,12 @@ func (tf *templateFuncs) queryParameters(po PathOperation) []*openapi3.Parameter
 	return tf.paramsIn(po, "query")
 }
 
-// requestJSONSchema returns the schema of an operation's application/json
-// request body, or nil when there is none.
+// requestJSONSchema returns the schema of an operation's JSON request body, or nil when there is none.
 func (tf *templateFuncs) requestJSONSchema(op *openapi3.Operation) *openapi3.SchemaRef {
 	if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
 		return nil
 	}
-	mt := op.RequestBody.Value.Content.Get(jsonMediaType)
+	mt := jsonMedia(op.RequestBody.Value.Content)
 	if mt == nil {
 		return nil
 	}
@@ -132,7 +179,7 @@ func (tf *templateFuncs) responseJSONSchema(op *openapi3.Operation) *openapi3.Sc
 	if chosen == nil || chosen.Value == nil {
 		return nil
 	}
-	mt := chosen.Value.Content.Get(jsonMediaType)
+	mt := jsonMedia(chosen.Value.Content)
 	if mt == nil {
 		return nil
 	}
