@@ -151,13 +151,24 @@ func newLocation(scheme string, path string) (*Location, error) {
 }
 
 // splitPathTag splits a path from the tag that follows its last colon. The
-// tag is empty when the path carries none. A volume name, as in "C:", is not a tag.
+// tag is empty when the path carries none. A volume name, as in "C:", is not a
+// tag, and nor is anything that a path separator follows, as in "a:b/app.tar",
+// or that names a tarball, as in "app:v1.tar". A path that exists as it is
+// written has no tag either.
 func splitPathTag(src string) (string, string) {
 	vol := len(filepath.VolumeName(src))
-	if idx := strings.LastIndex(src[vol:], ":"); idx >= 0 {
-		return src[:vol+idx], src[vol+idx+1:]
+	idx := strings.LastIndex(src[vol:], ":")
+	if idx < 0 {
+		return src, ""
 	}
-	return src, ""
+	tag := src[vol+idx+1:]
+	if strings.ContainsAny(tag, "/"+string(filepath.Separator)) || looksLikeTarball(tag) {
+		return src, ""
+	}
+	if _, err := os.Lstat(src); err == nil {
+		return src, ""
+	}
+	return src[:vol+idx], tag
 }
 
 func looksLikePath(s string) bool {
@@ -184,5 +195,7 @@ func looksLikeTarball(s string) bool {
 	if len(parts) < 2 {
 		return false
 	}
-	return slices.Contains(parts[1:], "tar")
+	return slices.ContainsFunc(parts[1:], func(ext string) bool {
+		return slices.Contains([]string{"tar", "tgz", "oci"}, ext)
+	})
 }

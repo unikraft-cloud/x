@@ -133,6 +133,13 @@ func TestSplitPathTag(t *testing.T) {
 		{name: "a path without a tag", src: "layout", path: "layout"},
 		{name: "a path with a tag", src: "layout:v1", path: "layout", tag: "v1"},
 		{name: "the last colon starts the tag", src: "./a:b:v1", path: "./a:b", tag: "v1"},
+		{name: "a colon in a directory is not a tag", src: "./a:b/app.tar", path: "./a:b/app.tar"},
+		{name: "a tarball name is not a tag", src: "./app:v1.tar", path: "./app:v1.tar"},
+		{name: "a compressed tarball name is not a tag", src: "./app:1.0.tgz", path: "./app:1.0.tgz"},
+		{name: "an oci name is not a tag", src: "./app:1.0.oci", path: "./app:1.0.oci"},
+		{name: "a version is a tag", src: "./app:1.0", path: "./app", tag: "1.0"},
+		{name: "a tag after a tarball name", src: "./app:v1.tar:v2", path: "./app:v1.tar", tag: "v2"},
+		{name: "a tag after a colon in a directory", src: "./a:b/app.tar:v1", path: "./a:b/app.tar", tag: "v1"},
 	}
 	if runtime.GOOS == "windows" {
 		cases = append(cases, []splitCase{
