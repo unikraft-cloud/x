@@ -12,9 +12,12 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"unikraft.com/x/image-spec/reference"
 )
 
 // errLocalImages is returned on js, which has no local content store.
@@ -48,7 +51,15 @@ func DeleteOCILayoutNamed(path string, tag string) error {
 	return errLocalImages
 }
 
+func DeleteTarballNamed(ctx context.Context, tarballPath string, tag string) error {
+	return errLocalImages
+}
+
 func LoadTarball(ctx context.Context, tarballPath string, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+	return nil, errLocalImages
+}
+
+func LoadTarballNamed(ctx context.Context, tarballPath string, tag string, platform platforms.MatchComparer) (*Image, error) {
 	return nil, errLocalImages
 }
 
@@ -56,7 +67,15 @@ func LoadAllTarballs(ctx context.Context, tarballPath string, desc ocispec.Descr
 	return nil, errLocalImages
 }
 
+func LoadAllTarballsNamed(ctx context.Context, tarballPath string, tag string, platform platforms.MatchComparer) ([]*Image, error) {
+	return nil, errLocalImages
+}
+
 func LoadTarballReader(ctx context.Context, r io.Reader, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
+	return nil, errLocalImages
+}
+
+func LoadTarballReaderNamed(ctx context.Context, r io.Reader, tag string, platform platforms.MatchComparer) (*Image, error) {
 	return nil, errLocalImages
 }
 
@@ -64,10 +83,46 @@ func LoadAllTarballReaders(ctx context.Context, r io.Reader, desc ocispec.Descri
 	return nil, errLocalImages
 }
 
+func LoadAllTarballReadersNamed(ctx context.Context, r io.Reader, tag string, platform platforms.MatchComparer) ([]*Image, error) {
+	return nil, errLocalImages
+}
+
 func SaveTarball(ctx context.Context, tarballPath string, image ...*Image) (ocispec.Descriptor, error) {
 	return ocispec.Descriptor{}, errLocalImages
 }
 
+func SaveTarballNamed(ctx context.Context, tarballPath string, tag string, image ...*Image) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
+func tarballSaveTag(ctx context.Context, archivePath string) (string, string, error) {
+	return "", "", errLocalImages
+}
+
+func replaceTarball(tarballPath string, write func(io.Writer) (ocispec.Descriptor, error)) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
 func SaveTarballWriter(ctx context.Context, w io.Writer, image ...*Image) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
+func SaveTarballWriterNamed(ctx context.Context, w io.Writer, tag string, image ...*Image) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
+func openOCILayout(path string, tag string, desc ocispec.Descriptor) (content.Provider, ocispec.Descriptor, func() error, error) {
+	return nil, ocispec.Descriptor{}, nil, errLocalImages
+}
+
+func copyToOCILayout(ctx context.Context, path string, tag string, provider content.Provider, source reference.Reference, root ocispec.Descriptor, platform platforms.MatchComparer) (ocispec.Descriptor, error) {
+	return ocispec.Descriptor{}, errLocalImages
+}
+
+func importTarball(ctx context.Context, r io.Reader, tag string, desc ocispec.Descriptor) (content.Store, ocispec.Descriptor, func() error, error) {
+	return nil, ocispec.Descriptor{}, nil, errLocalImages
+}
+
+func copyToTarball(ctx context.Context, w io.Writer, tag string, provider content.Provider, source reference.Reference, root ocispec.Descriptor, platform platforms.MatchComparer) (ocispec.Descriptor, error) {
 	return ocispec.Descriptor{}, errLocalImages
 }

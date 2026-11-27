@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"maps"
 	"path/filepath"
+	"slices"
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
@@ -84,7 +85,7 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 		Annotations:        mfst.Annotations,
 	}
 
-	dt, err := readVerifiedBlob(ctx, store, mfst.Config)
+	dt, err := readVerifiedBlob(ctx, store, mfst.Config, maxConfigSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read image config blob: %w", err)
 	}
@@ -95,21 +96,33 @@ func loadCtrdImageMfst(ctx context.Context, store content.Provider, root ocispec
 	img.Image = &config
 
 	for _, layer := range mfst.Layers {
+		part := true
 		switch layer.MediaType {
 		// Classic OCI layer (old-style image layer).
 		case ocispec.MediaTypeImageLayer, images.MediaTypeDockerSchema2Layer:
+			part = false
 			if p := layer.Annotations[AnnotationKernelPath]; p != "" {
 				img.Kernel = NewContentStoreFile(store, layer, p)
+				part = true
 			}
 			if p := layer.Annotations[AnnotationKernelDbgPath]; p != "" {
 				img.KernelDebug = NewContentStoreFile(store, layer, p)
+				part = true
 			}
 			if p := layer.Annotations[AnnotationKernelInitrdPath]; p != "" {
 				img.Initrd = NewContentStoreFile(store, layer, p)
+				part = true
 			}
 
 		case MediaTypeRom:
 			img.Roms = append(img.Roms, NewContentStoreFile(store, layer, ""))
+
+		default:
+			part = false
+		}
+		// TODO: until linux images load as Docker images (#614), an image of another OS loads without its other layers, so saving it would leave them out.
+		if !part && slices.Contains(RuntimeKindUnikraft.oses(), config.OS) {
+			return nil, fmt.Errorf("image %s is a Unikraft image, but its layer %s of type %s is not a kernel, an initrd or a ROM", desc.Digest, layer.Digest, layer.MediaType)
 		}
 	}
 

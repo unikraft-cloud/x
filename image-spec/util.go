@@ -13,6 +13,7 @@ import (
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -40,7 +41,7 @@ func Manifests(ctx context.Context, provider content.Provider, image ocispec.Des
 }
 
 func readManifest(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) (ocispec.Manifest, error) {
-	p, err := readVerifiedBlob(ctx, provider, desc)
+	p, err := readVerifiedBlob(ctx, provider, desc, docker.MaxManifestSize)
 	if err != nil {
 		return ocispec.Manifest{}, err
 	}
@@ -56,7 +57,7 @@ func indexAnnotations(ctx context.Context, provider content.Provider, desc ocisp
 	if !images.IsIndexType(desc.MediaType) {
 		return nil, nil
 	}
-	p, err := readVerifiedBlob(ctx, provider, desc)
+	p, err := readVerifiedBlob(ctx, provider, desc, docker.MaxManifestSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read image index: %w", err)
 	}
@@ -64,17 +65,13 @@ func indexAnnotations(ctx context.Context, provider content.Provider, desc ocisp
 	if err := json.Unmarshal(p, &idx); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal image index: %w", err)
 	}
-	// An archive's own index.json lists the image index.
-	if len(idx.Manifests) == 1 && images.IsIndexType(idx.Manifests[0].MediaType) {
-		return indexAnnotations(ctx, provider, idx.Manifests[0])
-	}
 	return idx.Annotations, nil
 }
 
 // ConfigPlatform is a forked version of images.ConfigPlatform that checks the
 // config against its digest.
 func ConfigPlatform(ctx context.Context, provider content.Provider, configDesc ocispec.Descriptor) (ocispec.Platform, error) {
-	p, err := readVerifiedBlob(ctx, provider, configDesc)
+	p, err := readVerifiedBlob(ctx, provider, configDesc, maxConfigSize)
 	if err != nil {
 		return ocispec.Platform{}, err
 	}
@@ -85,6 +82,22 @@ func ConfigPlatform(ctx context.Context, provider content.Provider, configDesc o
 	}
 
 	return platforms.Normalize(imagePlatform), nil
+}
+
+// manifestMatches reports whether platform matches the manifest desc: its platform, else the platform of its config.
+func manifestMatches(ctx context.Context, provider content.Provider, desc ocispec.Descriptor, platform platforms.MatchComparer) (bool, error) {
+	if desc.Platform != nil {
+		return platform.Match(*desc.Platform), nil
+	}
+	manifest, err := readManifest(ctx, provider, desc)
+	if err != nil {
+		return false, err
+	}
+	imagePlatform, err := ConfigPlatform(ctx, provider, manifest.Config)
+	if err != nil {
+		return false, err
+	}
+	return platform.Match(imagePlatform), nil
 }
 
 // ManifestDescriptors is like Manifests, but returns the descriptors of the
@@ -98,22 +111,12 @@ func ManifestDescriptors(ctx context.Context, provider content.Provider, image o
 	if err := images.Walk(ctx, images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 		if images.IsManifestType(desc.MediaType) {
 			if desc.Digest != image.Digest && platform != nil {
-				if desc.Platform != nil && !platform.Match(*desc.Platform) {
-					return nil, nil
+				ok, err := manifestMatches(ctx, provider, desc, platform)
+				if err != nil {
+					return nil, err
 				}
-
-				if desc.Platform == nil {
-					manifest, err := readManifest(ctx, provider, desc)
-					if err != nil {
-						return nil, err
-					}
-					imagePlatform, err := ConfigPlatform(ctx, provider, manifest.Config)
-					if err != nil {
-						return nil, err
-					}
-					if !platform.Match(imagePlatform) {
-						return nil, nil
-					}
+				if !ok {
+					return nil, nil
 				}
 			}
 
@@ -121,7 +124,7 @@ func ManifestDescriptors(ctx context.Context, provider content.Provider, image o
 
 			return nil, nil
 		} else if images.IsIndexType(desc.MediaType) {
-			p, err := readVerifiedBlob(ctx, provider, desc)
+			p, err := readVerifiedBlob(ctx, provider, desc, docker.MaxManifestSize)
 			if err != nil {
 				return nil, err
 			}

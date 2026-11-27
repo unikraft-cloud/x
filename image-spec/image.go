@@ -10,9 +10,6 @@ import (
 	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-
-	"unikraft.com/x/image-spec/reference"
-	"unikraft.com/x/image-spec/schemes"
 )
 
 // Image represents a unikraft image stored in OCI format.
@@ -35,19 +32,6 @@ type Image struct {
 	IndexAnnotations map[string]string
 
 	cleanup []func() error
-}
-
-// source returns the registry repository the image's layers can be mounted
-// from, or the zero reference if it did not come from a registry.
-func (i *Image) source() reference.Reference {
-	ref := i.ResolvedReference
-	if ref.IsZero() {
-		ref = i.Reference
-	}
-	if ref.Scheme() != schemes.OCI {
-		return reference.Reference{}
-	}
-	return ref
 }
 
 func (i *Image) Close() error {

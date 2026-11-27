@@ -167,7 +167,7 @@ func TestBuildImageMultiPlatform(t *testing.T) {
 			store, err := local.NewStore(storeDir)
 			require.NoError(t, err)
 
-			_, err = packageLayer(ctx, ingestDefaults(store, content.WithRef("latest")), images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
+			_, err = packageLayer(ctx, ingestRef(store, "latest"), images[0], images[0].Initrd, ocispec.MediaTypeImageLayer, WellKnownInitrdPath)
 			require.NoError(t, err)
 
 			idxDesc, err := SaveContent(ctx, store, "latest", images...)
@@ -220,7 +220,7 @@ func TestPackageLayerTar(t *testing.T) {
 
 		store, err := local.NewStore(t.TempDir())
 		require.NoError(t, err)
-		desc, err := packageLayer(t.Context(), ingestDefaults(store, content.WithRef("latest")), testImage, &staticFile{"initrd.img", data}, ocispec.MediaTypeImageLayer, "/initrd")
+		desc, err := packageLayer(t.Context(), ingestRef(store, "latest"), testImage, &staticFile{"initrd.img", data}, ocispec.MediaTypeImageLayer, "/initrd")
 		require.NoError(t, err)
 
 		got, err := content.ReadBlob(t.Context(), store, desc)
@@ -423,30 +423,5 @@ func TestLoadIgnoresDescriptorOSFeatures(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, single)
 		})
-	}
-}
-
-func TestSaveByManifest(t *testing.T) {
-	ctx := t.Context()
-
-	store, err := local.NewStore(t.TempDir())
-	require.NoError(t, err)
-	var byManifest []*Image
-	for _, arch := range []string{"x86_64", "arm64"} {
-		img := *testImage
-		img.Image = &ocispec.Image{Architecture: arch, OS: "fc"}
-		desc, err := SaveManifest(ctx, store, "tmp-"+arch, &img)
-		require.NoError(t, err)
-		byManifest = append(byManifest, &Image{ManifestDescriptor: desc})
-	}
-
-	idxDesc, err := SaveContent(ctx, store, "latest", byManifest...)
-	require.NoError(t, err)
-
-	loaded, err := LoadAllContent(ctx, store, idxDesc, platforms.All)
-	require.NoError(t, err)
-	require.Len(t, loaded, 2)
-	for i, img := range loaded {
-		require.Equal(t, byManifest[i].ManifestDescriptor, img.ManifestDescriptor)
 	}
 }

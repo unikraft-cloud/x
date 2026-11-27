@@ -20,21 +20,41 @@ import (
 // names.
 var ErrDigestMismatch = errors.New("content does not match its digest")
 
-// readVerifiedBlob reads the blob that desc names, and fails unless it matches
-// the digest of desc.
-func readVerifiedBlob(ctx context.Context, provider content.Provider, desc ocispec.Descriptor) ([]byte, error) {
+// maxConfigSize bounds the image configs that readVerifiedBlob reads.
+const maxConfigSize int64 = 64 << 20
+
+// readVerifiedBlob reads the blob that desc names, of at most limit bytes, and
+// fails unless it matches the size and the digest of desc.
+func readVerifiedBlob(ctx context.Context, provider content.Provider, desc ocispec.Descriptor, limit int64) ([]byte, error) {
 	if err := desc.Digest.Validate(); err != nil {
 		return nil, fmt.Errorf("blob %q: %w", desc.Digest, err)
 	}
-	dt, err := content.ReadBlob(ctx, provider, desc)
+	if desc.Size < 0 || desc.Size > limit {
+		return nil, fmt.Errorf("blob %s: size %d is not between 0 and %d bytes", desc.Digest, desc.Size, limit)
+	}
+	if data := inlineData(desc); data != nil {
+		return data, nil
+	}
+
+	ra, err := provider.ReaderAt(ctx, desc)
 	if err != nil {
 		return nil, err
 	}
-	if desc.Digest.Algorithm().FromBytes(dt) != desc.Digest {
+	defer ra.Close()
+	// A store can give a larger size than desc: read a byte past desc, and no more.
+	// The buffer grows as data arrives, so a false size does not cause a large allocation.
+	data, err := io.ReadAll(io.NewSectionReader(ra, 0, desc.Size+1))
+	if err != nil {
+		return nil, fmt.Errorf("reading blob %s: %w", desc.Digest, err)
+	}
+	if int64(len(data)) != desc.Size {
+		return nil, fmt.Errorf("blob %s: size is not the %d bytes of its descriptor", desc.Digest, desc.Size)
+	}
+	if desc.Digest.Algorithm().FromBytes(data) != desc.Digest {
 		return nil, fmt.Errorf("%w: blob %s", ErrDigestMismatch, desc.Digest)
 	}
 
-	return dt, nil
+	return data, nil
 }
 
 // verifiedReader reads an entry of a blob, by default the whole blob, hashing
@@ -47,6 +67,7 @@ type verifiedReader struct {
 	blob      io.Reader
 	entry     io.Reader
 	remaining int64
+	size      int64
 	verifier  digest.Verifier
 	digest    digest.Digest
 	err       error // what every read returns once the entry is done
@@ -61,18 +82,27 @@ func newVerifiedReader(ra content.ReaderAt, desc ocispec.Descriptor) (*verifiedR
 	if desc.Size < 0 {
 		return nil, fmt.Errorf("blob %s: invalid size %d", desc.Digest, desc.Size)
 	}
-	verifier := desc.Digest.Verifier()
-	// A byte past desc, so a blob served with more after it fails its digest.
-	tee := io.TeeReader(io.NewSectionReader(ra, 0, desc.Size+1), verifier)
+	r := &verifiedReader{ra: ra, size: desc.Size, digest: desc.Digest}
+	r.rewind()
+	return r, nil
+}
 
-	return &verifiedReader{
-		ra:        ra,
-		blob:      tee,
-		entry:     tee,
-		remaining: desc.Size,
-		verifier:  verifier,
-		digest:    desc.Digest,
-	}, nil
+// rewind starts the read of the whole blob, and its hash, over.
+func (r *verifiedReader) rewind() {
+	r.verifier = r.digest.Verifier()
+	// A byte past desc, so a blob served with more after it fails its digest.
+	tee := io.TeeReader(io.NewSectionReader(r.ra, 0, r.size+1), r.verifier)
+	r.blob, r.entry, r.remaining, r.err = tee, tee, r.size, nil
+}
+
+// Seek reads the whole blob again from its start, as content.Copy does when a
+// pusher resets its upload. It cannot seek anywhere else, or in an entry.
+func (r *verifiedReader) Seek(offset int64, whence int) (int64, error) {
+	if offset != 0 || whence != io.SeekStart || r.entry != r.blob {
+		return 0, fmt.Errorf("blob %s: can only be read again from its start", r.digest)
+	}
+	r.rewind()
+	return 0, nil
 }
 
 func (r *verifiedReader) Read(p []byte) (int, error) {

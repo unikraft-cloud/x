@@ -35,9 +35,9 @@ func transport(s schemes.Scheme) string {
 //
 // or an OCI image layout served over HTTP:
 //
-//	<http|https>+oci://<host>[:<port>]/<repository>/<identifier>
+//	<http|https>+oci://<host>[:<port>]/<path>[?<query>]
 //
-// where <identifier> is the final path segment: a tag, or '@' and a digest.
+// which is only an address: no part of it is a tag or a digest.
 type Reference struct {
 	scheme schemes.Scheme
 
@@ -46,6 +46,11 @@ type Reference struct {
 	path   string
 	tag    string
 	digest digest.Digest
+
+	// query is the query of an HTTP reference, as it was written.
+	query string
+	// forceQuery is set for a URL from FromURL that ends in an empty '?'.
+	forceQuery bool
 }
 
 // Scheme returns the URI scheme the image is addressed by, never a local one.
@@ -55,13 +60,17 @@ func (r Reference) Scheme() schemes.Scheme { return r.scheme }
 // the layout for an HTTP one.
 func (r Reference) Domain() string { return r.domain }
 
-// Path returns the repository, without a leading or trailing '/'.
+// Path returns the repository, without a leading or trailing '/'. For an HTTP
+// reference it is the whole path of the URL, escaped as it was written, since
+// decoding it could name another path.
 func (r Reference) Path() string { return r.path }
 
-// Tag returns the tag naming the image, or "" if it has none.
+// Tag returns the tag naming the image, or "" if it has none, as an HTTP
+// reference never does.
 func (r Reference) Tag() string { return r.tag }
 
-// Digest returns the digest naming the image, or "" if it has none.
+// Digest returns the digest naming the image, or "" if it has none, as an HTTP
+// reference never does.
 func (r Reference) Digest() digest.Digest { return r.digest }
 
 // IsZero reports whether r is the unset reference.
@@ -120,22 +129,23 @@ func (r Reference) AsURL() *url.URL {
 	if !r.scheme.IsHTTP() || r.IsZero() {
 		return nil
 	}
-	identifier := r.tag
-	if identifier == "" {
-		identifier = defaultTag
+	u := &url.URL{
+		Scheme:     transport(r.scheme),
+		Host:       r.domain,
+		Path:       "/" + r.path,
+		RawPath:    "/" + r.path,
+		RawQuery:   r.query,
+		ForceQuery: r.forceQuery,
 	}
-	if r.digest != "" {
-		identifier = "@" + r.digest.String()
+	if decoded, err := url.PathUnescape(u.RawPath); err == nil {
+		u.Path = decoded
 	}
-	return &url.URL{
-		Scheme: transport(r.scheme),
-		Host:   r.domain,
-		Path:   "/" + r.path + "/" + identifier,
-	}
+	return u
 }
 
 // String returns the reference in the form Parse accepts, and the platform API
-// expects. An HTTP reference is named by its digest if it has one.
+// expects. A reference made by FromURL gives back the URL it was made of, which
+// Parse may not accept.
 func (r Reference) String() string {
 	if r.IsZero() {
 		return ""
@@ -168,9 +178,6 @@ func (r Reference) Format(o FormatOpts) string {
 		return ""
 	}
 	if r.scheme.IsHTTP() {
-		if o.OmitDigest && r.tag != "" {
-			r.digest = ""
-		}
 		return r.String()
 	}
 
@@ -202,10 +209,14 @@ func (r Reference) Format(o FormatOpts) string {
 }
 
 // WithTag returns the reference with its tag set to tag. Like
-// [distref.WithTag], the reference keeps its digest.
+// [distref.WithTag], the reference keeps its digest. An HTTP reference takes
+// no tag.
 func (r Reference) WithTag(tag string) (Reference, error) {
 	if r.IsZero() {
 		return Reference{}, fmt.Errorf("%w: no name", ErrInvalidReference)
+	}
+	if r.scheme.IsHTTP() {
+		return Reference{}, fmt.Errorf("%w: %q takes no tag", ErrInvalidReference, StripQuery(r.String()))
 	}
 	named, err := distref.WithName(r.Name())
 	if err != nil {
@@ -219,10 +230,14 @@ func (r Reference) WithTag(tag string) (Reference, error) {
 }
 
 // WithDigest returns the reference with its digest set to dgst. Like
-// [distref.WithDigest], the reference keeps its tag.
+// [distref.WithDigest], the reference keeps its tag. An HTTP reference takes
+// no digest.
 func (r Reference) WithDigest(dgst digest.Digest) (Reference, error) {
 	if r.IsZero() {
 		return Reference{}, fmt.Errorf("%w: no name", ErrInvalidReference)
+	}
+	if r.scheme.IsHTTP() {
+		return Reference{}, fmt.Errorf("%w: %q takes no digest", ErrInvalidReference, StripQuery(r.String()))
 	}
 	if err := dgst.Validate(); err != nil {
 		return Reference{}, fmt.Errorf("%w: %w", ErrInvalidReference, err)
@@ -251,12 +266,21 @@ func (r Reference) WithDomain(domain string) (Reference, error) {
 		return Reference{}, fmt.Errorf("%w: no name", ErrInvalidReference)
 	}
 	if r.scheme.IsHTTP() {
-		host, err := normalizeHost(domain, r.scheme)
+		address := domain + "/" + r.path
+		if r.query != "" {
+			address += "?" + r.query
+		}
+		moved, err := fromHTTP(r.scheme, address)
 		if err != nil {
 			return Reference{}, fmt.Errorf("%w: %w", ErrInvalidReference, err)
 		}
-		domain = host
-	} else if domain == legacyDockerDomain {
+		if moved.path != r.path || moved.query != r.query {
+			return Reference{}, fmt.Errorf("%w: %q is not a host", ErrInvalidReference, domain)
+		}
+		moved.forceQuery = r.forceQuery
+		return moved, nil
+	}
+	if domain == legacyDockerDomain {
 		domain = dockerDomain
 	}
 	if !isDomain(domain) {
@@ -298,7 +322,7 @@ func (r Reference) Matches(pattern Reference) bool {
 	if r.IsZero() || pattern.IsZero() {
 		return false
 	}
-	if pattern.scheme != r.scheme || pattern.Name() != r.Name() {
+	if pattern.scheme != r.scheme || pattern.Name() != r.Name() || pattern.query != r.query || pattern.forceQuery != r.forceQuery {
 		return false
 	}
 	if pattern.digest != "" {

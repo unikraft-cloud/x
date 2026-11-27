@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/containerd/containerd/v2/core/content"
@@ -17,6 +18,9 @@ import (
 	"github.com/containerd/errdefs"
 	"github.com/opencontainers/go-digest"
 )
+
+// ingesters counts the ingesters of FromPusher, to give each one its own push keys.
+var ingesters atomic.Uint64
 
 // FromPusher mirrors buildkit's contentutil.FromPusher.
 // Source: github.com/moby/buildkit/util/contentutil/pusher.go
@@ -27,12 +31,14 @@ func FromPusher(p remotes.Pusher) content.Ingester {
 		mu:     &mu,
 		c:      c,
 		p:      p,
+		prefix: fmt.Sprintf("push%d", ingesters.Add(1)),
 		active: map[digest.Digest]struct{}{},
 	}
 }
 
 type pushingIngester struct {
-	p remotes.Pusher
+	p      remotes.Pusher
+	prefix string // the key prefix of the pushes of this ingester
 
 	mu     *sync.Mutex
 	c      *sync.Cond
@@ -79,6 +85,8 @@ func (i *pushingIngester) Writer(ctx context.Context, opts ...content.WriterOpt)
 		})
 	}
 
+	// The pushers of a resolver share one push status for each key, so each ingester uses its own keys.
+	ctx = remotes.WithMediaTypeKeyPrefix(ctx, wOpts.Desc.MediaType, i.prefix)
 	// pusher requires desc.MediaType to determine the PUT URL, especially for manifest blobs.
 	contentWriter, err := i.p.Push(ctx, wOpts.Desc)
 	if err != nil {
