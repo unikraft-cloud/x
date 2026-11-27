@@ -7,6 +7,8 @@
 package ociindex
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,9 +19,12 @@ import (
 	"slices"
 	"syscall"
 
+	"github.com/containerd/containerd/v2/core/content"
+	ctrdimages "github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/errdefs"
 	"github.com/gofrs/flock"
+	"github.com/opencontainers/go-digest"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -55,8 +60,8 @@ func ReadIndex(r io.Reader, name string) ([]byte, error) {
 	return b, nil
 }
 
-// StoreIndex is a fork of buildkit's ociindex.StoreIndex, which can delete a
-// tag.
+// StoreIndex is a fork of buildkit's ociindex.StoreIndex, which picks an image
+// by Select, and can delete a tag.
 // Source: github.com/moby/buildkit/client/ociindex/ociindex.go
 type StoreIndex struct {
 	indexPath  string
@@ -74,7 +79,8 @@ func NewStoreIndex(storePath string) StoreIndex {
 	}
 }
 
-func (s StoreIndex) read() (*ocispecs.Index, error) {
+// Read returns the index.json as it is stored.
+func (s StoreIndex) Read() ([]byte, error) {
 	lock := flock.New(s.lockPath)
 	locked, err := lock.TryRLock()
 	if err != nil {
@@ -97,6 +103,14 @@ func (s StoreIndex) read() (*ocispecs.Index, error) {
 	}
 	defer f.Close()
 	b, err := ReadIndex(f, s.indexPath)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func (s StoreIndex) read() (*ocispecs.Index, error) {
+	b, err := s.Read()
 	if err != nil {
 		return nil, err
 	}
@@ -207,36 +221,146 @@ func (s StoreIndex) update(create bool, fn func(*ocispecs.Index) error) error {
 	return nil
 }
 
-func (s StoreIndex) Get(tag string) (*ocispecs.Descriptor, error) {
-	idx, err := s.read()
+// Get returns the image that tag names in the index, as Select picks it.
+func (s StoreIndex) Get(tag string) (ocispecs.Descriptor, error) {
+	b, err := s.Read()
 	if err != nil {
-		return nil, err
+		return ocispecs.Descriptor{}, err
 	}
-
-	for _, m := range idx.Manifests {
-		if t, ok := m.Annotations[annotationImageName]; ok && t == tag {
-			return &m, nil
-		}
+	var idx ocispecs.Index
+	if err := json.Unmarshal(b, &idx); err != nil {
+		return ocispecs.Descriptor{}, fmt.Errorf("could not unmarshal %s: %w", s.indexPath, err)
 	}
-
-	for _, m := range idx.Manifests {
-		if t, ok := m.Annotations[ocispecs.AnnotationRefName]; ok && t == tag {
-			return &m, nil
-		}
-	}
-	return nil, nil
+	return Select(Descriptor(b), idx.Manifests, tag)
 }
 
-func (s StoreIndex) GetSingle() (*ocispecs.Descriptor, error) {
-	idx, err := s.read()
+// Descriptor describes an index.json, which is an image index.
+func Descriptor(index []byte) ocispecs.Descriptor {
+	return ocispecs.Descriptor{
+		MediaType: ocispecs.MediaTypeImageIndex,
+		Digest:    digest.FromBytes(index),
+		Size:      int64(len(index)),
+	}
+}
+
+// WithIndex returns provider with index, an index.json, readable by the digest
+// of its Descriptor: it can be the root of an image, but is not a blob of its
+// layout.
+func WithIndex(provider content.Provider, index []byte) content.Provider {
+	return indexProvider{Provider: provider, desc: Descriptor(index), index: index}
+}
+
+type indexProvider struct {
+	content.Provider
+	desc  ocispecs.Descriptor
+	index []byte
+}
+
+func (p indexProvider) ReaderAt(ctx context.Context, desc ocispecs.Descriptor) (content.ReaderAt, error) {
+	if desc.Digest == p.desc.Digest {
+		return indexReaderAt{bytes.NewReader(p.index)}, nil
+	}
+	return p.Provider.ReaderAt(ctx, desc)
+}
+
+type indexReaderAt struct{ *bytes.Reader }
+
+func (indexReaderAt) Close() error { return nil }
+
+// maxEntries matches the maxReferences of containerd, which is how many
+// descriptors it takes in one walk of an image.
+const maxEntries = 10000
+
+// Select picks the image that tag names among the entries of the index.json
+// that index describes. Without a tag, that is the only image with a name, or
+// else the one named latest. If no entry has a name, it is the only image, or
+// else index itself, when the entries are the manifests of one image. The
+// descriptor is the image's, and carries none of the names of its entry.
+// NOTE: a tag has to match even for a lone image, unlike the agent, which takes the only entry.
+func Select(index ocispecs.Descriptor, entries []ocispecs.Descriptor, tag string) (ocispecs.Descriptor, error) {
+	if len(entries) > maxEntries {
+		return ocispecs.Descriptor{}, fmt.Errorf("index lists too many descriptors: %d, more than %d", len(entries), maxEntries)
+	}
+	root, err := selectEntry(index, entries, tag)
 	if err != nil {
-		return nil, err
+		return ocispecs.Descriptor{}, err
+	}
+	root.Annotations = maps.Clone(root.Annotations)
+	delete(root.Annotations, annotationImageName)
+	delete(root.Annotations, ocispecs.AnnotationRefName)
+	if len(root.Annotations) == 0 {
+		root.Annotations = nil
+	}
+	return root, nil
+}
+
+func selectEntry(index ocispecs.Descriptor, entries []ocispecs.Descriptor, tag string) (ocispecs.Descriptor, error) {
+	if tag != "" {
+		entry, ok, err := taggedEntry(entries, tag)
+		if err == nil && !ok {
+			err = fmt.Errorf("tag %q: %w", tag, errdefs.ErrNotFound)
+		}
+		return entry, err
 	}
 
-	if len(idx.Manifests) == 1 {
-		return &idx.Manifests[0], nil
+	// Next to an entry with a name, one without is a part of it, as its platforms and referrers are.
+	names := slices.DeleteFunc(slices.Clone(entries), func(d ocispecs.Descriptor) bool {
+		return d.Annotations[ocispecs.AnnotationRefName] == ""
+	})
+	if len(names) == 0 {
+		images := distinct(entries)
+		switch {
+		case len(images) == 0:
+			return ocispecs.Descriptor{}, fmt.Errorf("index lists no images: %w", errdefs.ErrNotFound)
+		case len(images) == 1:
+			return images[0], nil
+		case index.Digest != "" && !slices.ContainsFunc(images, func(d ocispecs.Descriptor) bool { return !ctrdimages.IsManifestType(d.MediaType) }):
+			return index, nil
+		}
+		return ocispecs.Descriptor{}, fmt.Errorf("index lists %d images with no name: give a tag", len(images))
 	}
-	return nil, nil
+
+	// docker save lists an image once per tag.
+	images := distinct(names)
+	if len(images) == 1 {
+		return images[0], nil
+	}
+	if entry, ok, err := taggedEntry(names, "latest"); ok || err != nil {
+		return entry, err
+	}
+	return ocispecs.Descriptor{}, fmt.Errorf("index lists %d images, and none is tagged latest: give a tag", len(images))
+}
+
+// distinct returns the first entry of each digest.
+func distinct(entries []ocispecs.Descriptor) []ocispecs.Descriptor {
+	seen := make(map[digest.Digest]struct{}, len(entries))
+	var images []ocispecs.Descriptor
+	for _, entry := range entries {
+		if _, ok := seen[entry.Digest]; !ok {
+			seen[entry.Digest] = struct{}{}
+			images = append(images, entry)
+		}
+	}
+	return images
+}
+
+// taggedEntry returns the entry that tag names. It does not pick between two
+// images that share the tag.
+func taggedEntry(entries []ocispecs.Descriptor, tag string) (ocispecs.Descriptor, bool, error) {
+	var match *ocispecs.Descriptor
+	for _, entry := range entries {
+		switch {
+		case !named(entry, tag):
+		case match == nil:
+			match = &entry
+		case match.Digest != entry.Digest:
+			return ocispecs.Descriptor{}, false, fmt.Errorf("tag %q names several images", tag)
+		}
+	}
+	if match == nil {
+		return ocispecs.Descriptor{}, false, nil
+	}
+	return *match, true, nil
 }
 
 // setOCIIndexDefaults updates zero values in index to their default values.

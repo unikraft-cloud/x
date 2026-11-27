@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -25,61 +26,57 @@ import (
 // unpacked and managing an index file. It's very useful for debugging :)
 
 func LoadOCILayout(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer) (*Image, error) {
-	store, err := local.NewStore(path)
+	store, err := layoutStore(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
+		return nil, err
 	}
 	return LoadContent(ctx, store, desc, platform)
 }
 
 func LoadAllOCILayouts(ctx context.Context, path string, desc ocispec.Descriptor, platform platforms.MatchComparer) ([]*Image, error) {
-	store, err := local.NewStore(path)
+	store, err := layoutStore(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
+		return nil, err
 	}
 	return LoadAllContent(ctx, store, desc, platform)
 }
 
-func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) (*Image, error) {
-	idx := ociindex.NewStoreIndex(path)
-	var desc *ocispec.Descriptor
-	var err error
-	if tag == "" {
-		desc, err = idx.GetSingle()
-	} else {
-		desc, err = idx.Get(tag)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get image descriptor for %q: %w", tag, err)
-	}
-
+// layoutStore opens the content store of a layout. Its index.json can be the
+// root of an image, but is not a blob, so it is served from memory.
+func layoutStore(path string) (content.Provider, error) {
 	store, err := local.NewStore(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
 	}
+	index, err := ociindex.NewStoreIndex(path).Read()
+	if err != nil {
+		return store, nil
+	}
+	return ociindex.WithIndex(store, index), nil
+}
 
-	return LoadContent(ctx, store, *desc, platform)
+func LoadOCILayoutNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) (*Image, error) {
+	desc, err := layoutRoot(path, tag)
+	if err != nil {
+		return nil, err
+	}
+	return LoadOCILayout(ctx, path, desc, platform)
 }
 
 func LoadAllOCILayoutsNamed(ctx context.Context, path string, tag string, platform platforms.MatchComparer) ([]*Image, error) {
-	idx := ociindex.NewStoreIndex(path)
-	var desc *ocispec.Descriptor
-	var err error
-	if tag == "" {
-		desc, err = idx.GetSingle()
-	} else {
-		desc, err = idx.Get(tag)
-	}
+	desc, err := layoutRoot(path, tag)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image descriptor for %q: %w", tag, err)
+		return nil, err
 	}
+	return LoadAllOCILayouts(ctx, path, desc, platform)
+}
 
-	store, err := local.NewStore(path)
+func layoutRoot(path string, tag string) (ocispec.Descriptor, error) {
+	desc, err := ociindex.NewStoreIndex(path).Get(tag)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open content store at %q: %w", path, err)
+		return ocispec.Descriptor{}, fmt.Errorf("layout %q: %w", path, err)
 	}
-
-	return LoadAllContent(ctx, store, *desc, platform)
+	return desc, nil
 }
 
 func SaveOCILayout(ctx context.Context, path string, tag string, image ...*Image) (ocispec.Descriptor, error) {

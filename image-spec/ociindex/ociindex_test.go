@@ -7,11 +7,13 @@ package ociindex
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/errdefs"
 	digest "github.com/opencontainers/go-digest"
@@ -107,11 +109,10 @@ func TestReadByTag(t *testing.T) {
 	desc, err := store.Get("ver1")
 	require.NoError(t, err)
 
-	assert.Equal(t, *desc, two)
+	assert.Equal(t, randDescriptor("bar"), desc)
 
-	desc, err = store.Get("ver3")
-	require.NoError(t, err)
-	assert.Nil(t, desc)
+	_, err = store.Get("ver3")
+	require.ErrorIs(t, err, errdefs.ErrNotFound)
 }
 
 func TestWriteSingleDescriptor(t *testing.T) {
@@ -122,9 +123,9 @@ func TestWriteSingleDescriptor(t *testing.T) {
 	err := store.Put(desc, "ver1")
 	require.NoError(t, err)
 
-	readDesc, err := store.GetSingle()
+	readDesc, err := store.Get("")
 	require.NoError(t, err)
-	assert.Equal(t, desc.Digest, readDesc.Digest)
+	assert.Equal(t, desc, readDesc)
 }
 
 func TestAddDescriptorWithTag(t *testing.T) {
@@ -152,7 +153,7 @@ func TestAddDescriptorWithTag(t *testing.T) {
 
 	desc, err := store.Get("ver1")
 	require.NoError(t, err)
-	assert.Equal(t, three.Digest, desc.Digest)
+	assert.Equal(t, three, desc)
 
 	readIdx, err := store.read()
 	require.NoError(t, err)
@@ -220,6 +221,10 @@ func TestReplaceNamedEntry(t *testing.T) {
 	err = store.Put(three, "v1")
 	require.NoError(t, err)
 
+	desc, err := store.Get("v1")
+	require.NoError(t, err)
+	assert.Equal(t, three.Digest, desc.Digest)
+
 	readIdx, err := store.read()
 	require.NoError(t, err)
 	require.Len(t, readIdx.Manifests, 2)
@@ -247,6 +252,90 @@ func TestDelete(t *testing.T) {
 	readIdx, err = store.read()
 	require.NoError(t, err)
 	assert.Len(t, readIdx.Manifests, 1)
+}
+
+type noProvider struct{}
+
+func (noProvider) ReaderAt(context.Context, ocispecs.Descriptor) (content.ReaderAt, error) {
+	return nil, errdefs.ErrNotFound
+}
+
+func TestWithIndex(t *testing.T) {
+	index := []byte(`{"schemaVersion":2}`)
+	provider := WithIndex(noProvider{}, index)
+
+	read, err := content.ReadBlob(t.Context(), provider, Descriptor(index))
+	require.NoError(t, err)
+	require.Equal(t, index, read)
+
+	_, err = content.ReadBlob(t.Context(), provider, randDescriptor("foo"))
+	require.ErrorIs(t, err, errdefs.ErrNotFound)
+}
+
+func TestSelect(t *testing.T) {
+	typed := func(mediaType string) func(string) ocispecs.Descriptor {
+		return func(image string) ocispecs.Descriptor {
+			desc := randDescriptor(image)
+			desc.MediaType = mediaType
+			return desc
+		}
+	}
+	manifest, index := typed(ocispecs.MediaTypeImageManifest), typed(ocispecs.MediaTypeImageIndex)
+	tagged := func(desc ocispecs.Descriptor, tag string) ocispecs.Descriptor {
+		desc.Annotations = map[string]string{ocispecs.AnnotationRefName: tag}
+		return desc
+	}
+	dockerSaved := func(desc ocispecs.Descriptor, tag string) ocispecs.Descriptor {
+		desc.Annotations = map[string]string{
+			annotationImageName:        "docker.io/library/app:" + tag,
+			ocispecs.AnnotationRefName: tag,
+		}
+		return desc
+	}
+	imageNamed := func(desc ocispecs.Descriptor, name string) ocispecs.Descriptor {
+		desc.Annotations = map[string]string{annotationImageName: name}
+		return desc
+	}
+	a, b, c := manifest("a"), manifest("b"), manifest("c")
+	self := Descriptor([]byte("index.json"))
+
+	for _, tc := range []struct {
+		name    string
+		entries []ocispecs.Descriptor
+		tag     string
+		want    ocispecs.Descriptor
+		wantErr string
+	}{
+		{name: "the only image", entries: []ocispecs.Descriptor{tagged(a, "v1")}, want: a},
+		{name: "the tagged image", entries: []ocispecs.Descriptor{tagged(a, "v1"), tagged(b, "v2")}, tag: "v2", want: b},
+		{name: "an untagged only image", entries: []ocispecs.Descriptor{a}, want: a},
+		{name: "an untagged only image under a tag", entries: []ocispecs.Descriptor{a}, tag: "v1", wantErr: `tag "v1": not found`},
+		{name: "a tagged only image under another tag", entries: []ocispecs.Descriptor{tagged(a, "v1")}, tag: "v2", wantErr: `tag "v2": not found`},
+		{name: "untagged images under a tag", entries: []ocispecs.Descriptor{a, b}, tag: "v1", wantErr: `tag "v1": not found`},
+		{name: "an image name is not a tag", entries: []ocispecs.Descriptor{imageNamed(a, "v1")}, tag: "v1", wantErr: `tag "v1": not found`},
+		{name: "one image listed per tag", entries: []ocispecs.Descriptor{dockerSaved(a, "v1"), dockerSaved(a, "v2")}, want: a},
+		{name: "one image listed per tag, by tag", entries: []ocispecs.Descriptor{dockerSaved(a, "v1"), dockerSaved(a, "v2")}, tag: "v2", want: a},
+		{name: "latest of several", entries: []ocispecs.Descriptor{tagged(a, "v1"), dockerSaved(b, "latest")}, want: b},
+		{name: "several without latest", entries: []ocispecs.Descriptor{tagged(a, "v1"), tagged(b, "v2")}, wantErr: "give a tag"},
+		{name: "a tag on two images", entries: []ocispecs.Descriptor{dockerSaved(a, "latest"), dockerSaved(b, "latest")}, tag: "latest", wantErr: `tag "latest" names several images`},
+		{name: "latest on two images", entries: []ocispecs.Descriptor{dockerSaved(a, "latest"), dockerSaved(b, "latest")}, wantErr: `tag "latest" names several images`},
+		{name: "the manifests of one image", entries: []ocispecs.Descriptor{a, b}, want: self},
+		{name: "several indexes without a name", entries: []ocispecs.Descriptor{index("a"), index("b")}, wantErr: "give a tag"},
+		{name: "a manifest and an index without a name", entries: []ocispecs.Descriptor{a, index("b")}, wantErr: "give a tag"},
+		{name: "a named index beside its parts", entries: []ocispecs.Descriptor{tagged(index("a"), "v1"), b, c}, want: index("a")},
+		{name: "no images", wantErr: "lists no images"},
+		{name: "too many entries", entries: make([]ocispecs.Descriptor, maxEntries+1), tag: "v1", wantErr: "too many descriptors"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root, err := Select(self, tc.entries, tc.tag)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, root)
+		})
+	}
 }
 
 func randDescriptor(seed string) ocispecs.Descriptor {
