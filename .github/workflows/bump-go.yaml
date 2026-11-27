@@ -17,9 +17,16 @@ on:
         description: Base branch to open the PR against
         type: string
         default: prod-staging
+      gh_client_id:
+        description: Client ID of a GitHub App to mint a token from, instead of using gh_pat
+        type: string
+        required: false
     secrets:
       gh_pat:
         description: GitHub PAT used to push the branch and open the PR
+        required: false
+      gh_private_key:
+        description: Private key of the GitHub App in gh_client_id
         required: false
 
 permissions:
@@ -29,8 +36,24 @@ jobs:
   bump-go:
     runs-on: ubuntu-latest
 
+    env:
+      # Direct runs have no inputs, so they use this repository's App.
+      APP_CLIENT_ID: ${{ inputs.gh_client_id || vars.TOOLING_APP_CLIENT_ID }}
+      HAS_APP_PRIVATE_KEY: ${{ (secrets.gh_private_key || secrets.TOOLING_APP_PRIVATE_KEY) != '' }}
+
     steps:
-      - uses: actions/checkout@v7
+      - name: Mint a token of the GitHub App
+        id: app-token
+        if: env.APP_CLIENT_ID != '' && env.HAS_APP_PRIVATE_KEY == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ env.APP_CLIENT_ID }}
+          private-key: ${{ secrets.gh_private_key || secrets.TOOLING_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Get latest Go version
         id: latest
@@ -42,7 +65,7 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ steps.latest.outputs.version }}
 
@@ -61,13 +84,19 @@ jobs:
         run: |
           LATEST="${{ steps.latest.outputs.version }}"
           while IFS= read -r dockerfile; do
-            sed -i -E "s#(FROM golang:)[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9]+)?#\1${LATEST}\3#g" "$dockerfile"
-          done < <(grep -rlE '^FROM golang:' --include=Dockerfile* .)
+            sed -i -E "s#(FROM (--platform=[^ ]+ )?golang:)[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9]+)?#\1${LATEST}\4#g" "$dockerfile"
+
+            # Docker ignores the tag when there's a digest, so a stale one keeps the old Go.
+            while IFS= read -r tag; do
+              digest="$(docker buildx imagetools inspect "golang:${tag}" --format '{{json .Manifest}}' | jq -r .digest)"
+              sed -i -E "s#(golang:${tag//./\\.})@sha256:[0-9a-f]{64}#\1@${digest}#g" "$dockerfile"
+            done < <(grep -oE 'golang:[^ @]+@sha256:' "$dockerfile" | sed -E 's/^golang:|@sha256:$//g' | sort -u)
+          done < <(grep -rlE '^FROM (--platform=[^ ]+ )?golang:' --include=Dockerfile* .)
 
       - name: Create pull request
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
         with:
-          token: ${{ secrets.gh_pat }}
+          token: ${{ steps.app-token.outputs.token || secrets.gh_pat }}
           signoff: true
           base: ${{ inputs.base || 'prod-staging' }}
           branch: chore/bump-go-version

@@ -440,7 +440,7 @@ func helpValueFormatter(value *kong.Value) string {
 		hasMetadata = true
 	}
 
-	if examples := parseExamples(value.Tag.Get(tagExample)); len(examples) > 0 {
+	if examples := ParseExamples(value.Tag.Get(tagExample)); len(examples) > 0 {
 		if hasMetadata {
 			buf.WriteString(DimmedColor(", "))
 		} else {
@@ -471,9 +471,9 @@ func enumChoices(enum string) []string {
 	})
 }
 
-// parseExamples parses a comma-separated list of examples, supporting escaped commas.
+// ParseExamples parses a comma-separated list of examples, supporting escaped commas.
 // Use \, to include a literal comma in an example.
-func parseExamples(s string) []string {
+func ParseExamples(s string) []string {
 	if s == "" {
 		return nil
 	}

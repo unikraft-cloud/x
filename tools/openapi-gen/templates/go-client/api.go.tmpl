@@ -73,7 +73,7 @@ type {{ pascalcase $op.OperationID }}Opts struct {
 {{- range $entry := sortedResponseCodes $op.Responses -}}
 {{- if or (eq $entry.Code "200") (eq $entry.Code "201") (eq $entry.Code "202") -}}
 {{- if $entry.Ref.Value -}}
-{{- with $entry.Ref.Value.Content.Get "application/json" -}}
+{{- with jsonMedia $entry.Ref.Value.Content -}}
 {{- if .Schema -}}
 {{- if .Schema.Ref -}}
 {{- $successResp = refName .Schema.Ref -}}
@@ -101,9 +101,11 @@ type {{ pascalcase $op.OperationID }}Opts struct {
 {{- /* Determine request body type */ -}}
 {{- $hasBody := false -}}
 {{- $bodyType := "" -}}
+{{- $bodyContentType := "" -}}
 {{- if $op.RequestBody -}}
 {{- if $op.RequestBody.Value -}}
-{{- with $op.RequestBody.Value.Content.Get "application/json" -}}
+{{- $bodyContentType = jsonContentType $op.RequestBody.Value.Content -}}
+{{- with jsonMedia $op.RequestBody.Value.Content -}}
 {{- if .Schema -}}
 {{- $hasBody = true -}}
 {{- if .Schema.Ref -}}
@@ -175,6 +177,11 @@ error) {
 	if err != nil {
 		return {{ if $successResp }}nil, {{ end }}err
 	}
+{{- if and $hasBody (ne $bodyContentType "application/json") }}
+	if bodyReader != nil {
+		req.Header.Set("Content-Type", "{{ $bodyContentType }}")
+	}
+{{- end }}
 {{- range $op.Parameters }}
 {{- if eq .Value.In "header" }}
 {{- if .Value.Required }}

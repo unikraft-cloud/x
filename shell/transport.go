@@ -24,10 +24,22 @@ import (
 // [os/exec.Cmd]'s too: NAME=value entries, and none of them means the
 // environment the instance would have given the command itself.
 type Command struct {
-	Args    []string
-	Dir     string
-	Env     []string
-	Streams stdio.Stdio
+	Args     []string
+	Dir      string
+	Env      []string
+	Streams  stdio.Stdio
+	Terminal *Terminal // the pty to run on; nil is pipes
+}
+
+// Terminal is a command's pty: its size at the start, and each size after.
+type Terminal struct {
+	Size   WinSize
+	Resize <-chan WinSize // the newest size only
+}
+
+// WinSize is a terminal's size in cells.
+type WinSize struct {
+	Cols, Rows int
 }
 
 // Transport is how the shell reaches the instance.
@@ -49,6 +61,9 @@ type Transport interface {
 
 	// Environ is the instance's own environment, as NAME=value
 	Environ(ctx context.Context) ([]string, error)
+
+	// Commands is every command name on the instance's PATH
+	Commands(ctx context.Context) ([]string, error)
 }
 
 // AccessMode is what a caller wants to do with a file.
@@ -76,20 +91,14 @@ func ExitStatus(err error) (int, error) {
 	}
 
 	coded, ok := errors.AsType[exitCoder](err)
-	switch {
-	case !ok:
+	if !ok {
 		return 0, err
-	case coded.ExitCode() < 0:
-		// -1 is a signal the error did not name, so the shell reports the one a
-		// prompt sees: the command was cut short, not that it exited.
-		return StatusInterrupted, nil
-	default:
-		return coded.ExitCode(), nil
 	}
+	return coded.ExitCode(), nil
 }
 
 // exitCoder is what a command that ran and ended answers with; ExitCode is
-// [exec.ExitError.ExitCode], -1 included.
+// its status, a signal negated as [Transport] asks.
 type exitCoder interface {
 	error
 	ExitCode() int

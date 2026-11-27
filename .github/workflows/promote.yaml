@@ -1,0 +1,73 @@
+name: promote
+
+on:
+  push:
+    branches: [prod-staging]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      from:
+        description: Branch to promote from
+        type: string
+        default: prod-staging
+      to:
+        description: Branch to promote to
+        type: string
+        default: prod-stable
+      gh_client_id:
+        description: Client ID of a GitHub App to mint a token from, instead of using gh_pat
+        type: string
+        required: false
+    secrets:
+      gh_pat:
+        description: GitHub PAT used to open the PR, so that its checks run
+        required: false
+      gh_private_key:
+        description: Private key of the GitHub App in gh_client_id
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    env:
+      # Direct runs have no inputs, so they use this repository's App.
+      APP_CLIENT_ID: ${{ inputs.gh_client_id || vars.TOOLING_APP_CLIENT_ID }}
+      HAS_APP_PRIVATE_KEY: ${{ (secrets.gh_private_key || secrets.TOOLING_APP_PRIVATE_KEY) != '' }}
+
+    concurrency:
+      group: promote-${{ inputs.to || 'prod-stable' }}
+
+    steps:
+      - name: Mint a token of the GitHub App
+        id: app-token
+        if: env.APP_CLIENT_ID != '' && env.HAS_APP_PRIVATE_KEY == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ env.APP_CLIENT_ID }}
+          private-key: ${{ secrets.gh_private_key || secrets.TOOLING_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: write
+
+      - name: Open promotion PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.gh_pat }}
+          GH_REPO: ${{ github.repository }}
+          FROM: ${{ inputs.from || 'prod-staging' }}
+          TO: ${{ inputs.to || 'prod-stable' }}
+        run: |
+          if [ "$(gh api "repos/$GH_REPO/compare/$TO...$FROM" -q .ahead_by)" = 0 ]; then
+            echo "$FROM has nothing new for $TO"
+            exit 0
+          fi
+          if [ -n "$(gh pr list --base "$TO" --head "$FROM" --state open --json number -q '.[0].number')" ]; then
+            echo "A PR from $FROM to $TO is already open"
+            exit 0
+          fi
+          gh pr create --base "$TO" --head "$FROM" \
+            --title "promote: Merge latest $FROM changes to $TO" \
+            --body "Opened automatically by the \`promote\` workflow."

@@ -144,6 +144,43 @@ func (s *WidgetsService) ListWidgets(ctx context.Context, opts *ListWidgetsOpts)
 	return &result, nil
 }
 
+// PatchWidget
+func (s *WidgetsService) PatchWidget(ctx context.Context, id string, body *PatchWidgetRequest) (*GetWidgetResponse, error) {
+	pathParams := map[string]string{
+		"id": fmt.Sprintf("%v", id),
+	}
+	reqPath := buildPath("/widgets/{id}", pathParams)
+
+	q := url.Values{}
+	if len(q) > 0 {
+		reqPath = reqPath + "?" + q.Encode()
+	}
+
+	var bodyReader io.Reader
+	if body != nil {
+		bodyBytes, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		bodyReader = bytes.NewReader(bodyBytes)
+	}
+
+	req, err := s.client.newRequest(ctx, "PATCH", reqPath, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	if bodyReader != nil {
+		req.Header.Set("Content-Type", "application/merge-patch+json")
+	}
+
+	var result GetWidgetResponse
+	_, err = s.client.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // WatchWidget
 func (s *WidgetsService) WatchWidget(ctx context.Context, id string) error {
 	pathParams := map[string]string{

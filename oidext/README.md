@@ -71,3 +71,27 @@ if err != nil {
   log.Fatal(err)
 }
 ```
+
+### Single values
+
+A value that is not a struct (an integer, string, enum, ...) is encoded as a
+single extension at the prefix OID itself, rather than at a suffix below it:
+
+```go
+type Tier string
+
+const (
+  TierStandard Tier = "standard"
+  TierPremium  Tier = "premium"
+)
+
+// One extension at 1.3.6.1.4.1.55555.2, holding an ASN.1 string.
+exts, err := oidext.Encode(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 55555, 2}, TierPremium)
+
+// Decoding leaves tier untouched when the extension is absent.
+tier := TierStandard
+err = oidext.Decode(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 55555, 2}, exts, &tier)
+```
+
+Pass `oidext.WithEncodeCritical()` to mark that extension critical.
+

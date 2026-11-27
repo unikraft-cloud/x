@@ -1,16 +1,20 @@
-go 1.27.0
+go 1.27.4
 
 use .
 
 // Common modules.
 // This list is alphabetical and should not be reordered.
 use (
+	./build
+	./buildkit
 	./colors
+	./dockerfile
 	./filters
 	./fingerprint
 	./guesstermwidth
 	./iata
 	./image-spec
+	./integration
 	./io
 	./joinerrgroup
 	./kingkong

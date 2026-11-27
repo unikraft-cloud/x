@@ -28,6 +28,8 @@ const (
 	AnnotationURL                  = "org.unikraft.image.url"
 	AnnotationCreated              = "org.unikraft.image.created"
 	AnnotationDescription          = "org.unikraft.image.description"
+	AnnotationBuildID              = "org.unikraft.build.id"
+	AnnotationBuildURL             = "org.unikraft.build.url"
 	AnnotationKernelPath           = "org.unikraft.kernel.image"
 	AnnotationKernelDbgPath        = "org.unikraft.kernel.imagedbg"
 	AnnotationKernelVersion        = "org.unikraft.kernel.version"

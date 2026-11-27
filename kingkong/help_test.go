@@ -290,3 +290,10 @@ func TestOptionalEnumChoices(t *testing.T) {
 	formatted = ansi.Strip(helpValueFormatter(flagByName("mode").Value))
 	require.Contains(t, formatted, "[default: isolates, choices: isolates, other]")
 }
+
+func TestParseExamples(t *testing.T) {
+	require.Equal(t, []string{"a", "b"}, ParseExamples("a,b"))
+	require.Equal(t, []string{"name=x,y", "z"}, ParseExamples(`name=x\,y,z`))
+	require.Equal(t, []string{"a"}, ParseExamples(" a , "))
+	require.Empty(t, ParseExamples(""))
+}

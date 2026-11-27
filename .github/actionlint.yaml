@@ -1,0 +1,8 @@
+self-hosted-runner:
+  labels:
+  - arc-ubuntu24.04-standard
+paths:
+  .github/workflows/*.yaml:
+    ignore:
+      # Direct runs in x can read any secret, only workflow_call is limited to the declared ones.
+      - 'property "tooling_app_private_key" is not defined'

@@ -8,10 +8,9 @@ package kraftfile
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
-	"syscall"
 )
 
 var ErrNoKraftfile = errors.New("no kraftfile found in directory")
@@ -25,20 +24,23 @@ func ParseFile(path string, opts ...ParseOpt) (*Kraftfile, error) {
 }
 
 func ParseDirectory(path string, opts ...ParseOpt) (*Kraftfile, error) {
-	files, err := os.ReadDir(path)
-	// check if directory is a kraftfile itself
-	if errors.Is(err, syscall.ENOTDIR) {
-		return ParseFile(path, opts...)
-	} else if err != nil {
+	info, err := os.Stat(path)
+	if err != nil {
 		return nil, fmt.Errorf("could not read directory: %w", err)
 	}
-	for _, file := range files {
-		if file.IsDir() {
+	// check if directory is a kraftfile itself
+	if !info.IsDir() {
+		return ParseFile(path, opts...)
+	}
+	for _, name := range DefaultFileNames {
+		file := filepath.Join(path, name)
+		info, err := os.Stat(file)
+		if errors.Is(err, fs.ErrNotExist) || (err == nil && info.IsDir()) {
 			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("could not read file: %w", err)
 		}
-		if slices.Contains(DefaultFileNames, file.Name()) {
-			return ParseFile(filepath.Join(path, file.Name()), opts...)
-		}
+		return ParseFile(file, opts...)
 	}
 	return nil, ErrNoKraftfile
 }

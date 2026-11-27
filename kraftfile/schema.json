@@ -74,6 +74,31 @@
       "additionalProperties": true,
       "type": "object"
     },
+    "Kernel": {
+      "oneOf": [
+        {
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "kconfig": {
+              "$ref": "#/$defs/Map"
+            }
+          },
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
     "Library": {
       "oneOf": [
         {
@@ -185,28 +210,6 @@
         }
       ]
     },
-    "Unikraft": {
-      "oneOf": [
-        {
-          "properties": {
-            "source": {
-              "type": "string"
-            },
-            "version": {
-              "type": "string"
-            },
-            "kconfig": {
-              "$ref": "#/$defs/Map"
-            }
-          },
-          "additionalProperties": true,
-          "type": "object"
-        },
-        {
-          "type": "string"
-        }
-      ]
-    },
     "Volume": {
       "oneOf": [
         {
@@ -299,7 +302,17 @@
         {
           "patternProperties": {
             "^[a-zA-Z0-9._/-]+$": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
             }
           },
           "additionalProperties": false,
@@ -314,8 +327,8 @@
         }
       ]
     },
-    "unikraft": {
-      "$ref": "#/$defs/Unikraft"
+    "kernel": {
+      "$ref": "#/$defs/Kernel"
     },
     "libraries": {
       "additionalProperties": {
@@ -345,6 +358,9 @@
     "specification": {
       "type": "string",
       "pattern": "^v?0\\.7(?:\\.0)?$"
+    },
+    "unikraft": {
+      "$ref": "#/$defs/Kernel"
     }
   },
   "additionalProperties": true,

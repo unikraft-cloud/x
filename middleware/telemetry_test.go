@@ -96,6 +96,64 @@ func TestRequestAttrs(t *testing.T) {
 	}
 }
 
+func TestClientAttrs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, test := range []struct {
+		name    string
+		trusted []string
+		header  http.Header
+		remote  string
+		want    []attribute.KeyValue
+	}{{
+		name:   "direct",
+		header: http.Header{"User-Agent": {"curl/8.0"}},
+		remote: "192.0.2.1:1234",
+		want: []attribute.KeyValue{
+			semconv.ClientAddress("192.0.2.1"),
+			semconv.NetworkPeerAddress("192.0.2.1"),
+			semconv.NetworkPeerPort(1234),
+			semconv.UserAgentOriginal("curl/8.0"),
+		},
+	}, {
+		name:    "trusted proxy",
+		trusted: []string{"10.0.0.0/8"},
+		header:  http.Header{"X-Forwarded-For": {"198.51.100.7, 10.0.0.2"}},
+		remote:  "10.0.0.1:443",
+		want: []attribute.KeyValue{
+			semconv.ClientAddress("198.51.100.7"),
+			semconv.NetworkPeerAddress("10.0.0.1"),
+			semconv.NetworkPeerPort(443),
+		},
+	}, {
+		name:    "untrusted proxy",
+		trusted: []string{},
+		header:  http.Header{"X-Forwarded-For": {"198.51.100.7"}},
+		remote:  "192.0.2.1:1234",
+		want: []attribute.KeyValue{
+			semconv.ClientAddress("192.0.2.1"),
+			semconv.NetworkPeerAddress("192.0.2.1"),
+			semconv.NetworkPeerPort(1234),
+		},
+	}, {
+		name:   "no remote address",
+		remote: "",
+		want:   nil,
+	}} {
+		t.Run(test.name, func(t *testing.T) {
+			c, engine := gin.CreateTestContext(httptest.NewRecorder())
+			if test.trusted != nil {
+				require.NoError(t, engine.SetTrustedProxies(test.trusted))
+			}
+			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+			c.Request.Header = test.header
+			c.Request.RemoteAddr = test.remote
+
+			assert.Equal(t, test.want, clientAttrs(c))
+		})
+	}
+}
+
 func TestRespAttrsUnmatchedRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -123,6 +181,9 @@ func TestTelemetrySpans(t *testing.T) {
 		semconv.URLScheme("http"),
 		semconv.ServerAddress("example.com"),
 		semconv.ServerPort(8080),
+		semconv.ClientAddress("192.0.2.1"),
+		semconv.NetworkPeerAddress("192.0.2.1"),
+		semconv.NetworkPeerPort(1234),
 		semconv.HTTPRoute("/users/:id"),
 		semconv.HTTPResponseStatusCode(http.StatusNoContent),
 	})

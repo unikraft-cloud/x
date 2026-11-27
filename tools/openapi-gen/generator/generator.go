@@ -8,7 +8,7 @@ package generator
 import (
 	"fmt"
 	"io/fs"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 	"text/template"
@@ -26,7 +26,9 @@ type Generator struct {
 	models        []openapi.Model
 }
 
-func NewGenerator(specPath string, vars map[string]string, templateDir string) (*Generator, error) {
+// NewGenerator creates a Generator for the spec at specPath, reading templates
+// from fsys.
+func NewGenerator(specPath string, vars map[string]string, fsys fs.FS) (*Generator, error) {
 	parser, err := openapi.NewParser(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating parser: %w", err)
@@ -43,7 +45,7 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 		models:     parser.ParseModels(),
 	}
 
-	tmpl, templateNames, err := loadTemplates(parser, templateDir, &g.models, &g.vars)
+	tmpl, templateNames, err := loadTemplates(parser, fsys, &g.models, &g.vars)
 	if err != nil {
 		return nil, err
 	}
@@ -51,34 +53,6 @@ func NewGenerator(specPath string, vars map[string]string, templateDir string) (
 	g.templateNames = templateNames
 
 	return g, nil
-}
-
-// FilterByPackage keeps only operations and models whose x-package matches
-// the given package name.
-//
-// Deprecated: x-package is a legacy extension emitted only by our proto-based
-// generation pipeline. Prefer FilterByTag (operations) and FilterByNamespace
-// (models), which work against any OpenAPI document, including specs
-// generated from platform-api's TypeSpec definitions.
-func (g *Generator) FilterByPackage(pkg string) {
-	var filteredOps []openapi.PathOperation
-	for _, op := range g.operations {
-		if op.Operation == nil {
-			continue
-		}
-		if opPkg, _ := op.Operation.Extensions["x-package"].(string); opPkg == pkg {
-			filteredOps = append(filteredOps, op)
-		}
-	}
-	g.operations = filteredOps
-
-	var filteredModels []openapi.Model
-	for _, m := range g.models {
-		if m.Package == pkg {
-			filteredModels = append(filteredModels, m)
-		}
-	}
-	g.models = filteredModels
 }
 
 // FilterByTag keeps only operations carrying at least one of the given tags.
@@ -119,45 +93,67 @@ func (g *Generator) FilterByNamespace(namespaces []string) {
 	g.models = filtered
 }
 
+// ImportNamespace marks every schema declared under namespace as imported
+// from the Go package at importPath. It drops those models, so references to
+// them resolve to that package and the schemas are not generated again here.
+func (g *Generator) ImportNamespace(namespace, importPath string) error {
+	stamped, err := g.parser.SetSchemaImportPath(namespace, importPath)
+	if err != nil {
+		return err
+	}
+	dropped := make(map[string]bool, len(stamped))
+	for _, name := range stamped {
+		dropped[name] = true
+	}
+	var filtered []openapi.Model
+	for _, m := range g.models {
+		if !dropped[m.SchemaName] {
+			filtered = append(filtered, m)
+		}
+	}
+	g.models = filtered
+	return nil
+}
+
 // Flatten rewrites namespaced schema names (e.g. "Instances.Instance") into
 // valid Go identifiers per mode ("strip", "join", or "" for no-op). It runs
 // after any namespace/tag filtering so those filters can match on the original
 // "Namespace.Name" form.
-func (g *Generator) Flatten(mode string) {
-	g.parser.Flatten(g.models, mode)
+func (g *Generator) Flatten(mode string) error {
+	return g.parser.Flatten(g.models, mode)
 }
 
-func loadTemplates(parser *openapi.Parser, templateDir string, models *[]openapi.Model, vars *map[string]string) (*template.Template, []string, error) {
-	if templateDir == "" {
-		return nil, nil, fmt.Errorf("template directory not specified")
-	}
-
-	files, err := findTemplateFiles(templateDir)
+func loadTemplates(parser *openapi.Parser, fsys fs.FS, models *[]openapi.Model, vars *map[string]string) (*template.Template, []string, error) {
+	files, err := findTemplateFiles(fsys)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if len(files) == 0 {
-		return nil, nil, fmt.Errorf("no templates found in %s", templateDir)
+		return nil, nil, fmt.Errorf("no templates found")
 	}
 
 	tmpl := template.New("").Funcs(openapi.Funcs(parser, models, vars))
 
-	if _, err := tmpl.ParseFiles(files...); err != nil {
-		return nil, nil, fmt.Errorf("loading template overrides: %w", err)
-	}
-
 	names := make([]string, 0, len(files))
 	for _, file := range files {
-		names = append(names, filepath.Base(file))
+		data, err := fs.ReadFile(fsys, file)
+		if err != nil {
+			return nil, nil, fmt.Errorf("reading template %s: %w", file, err)
+		}
+		name := path.Base(file)
+		if _, err := tmpl.New(name).Parse(string(data)); err != nil {
+			return nil, nil, fmt.Errorf("loading template overrides: %w", err)
+		}
+		names = append(names, name)
 	}
 
 	return tmpl, names, nil
 }
 
-func findTemplateFiles(templateDir string) ([]string, error) {
+func findTemplateFiles(fsys fs.FS) ([]string, error) {
 	var files []string
-	err := filepath.WalkDir(templateDir, func(path string, entry fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, ".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

@@ -16,9 +16,16 @@ on:
         description: Comma-separated list of module path prefixes for GOPRIVATE and GONOSUMDB
         type: string
         required: false
+      gh_client_id:
+        description: Client ID of a GitHub App to mint a token from, instead of using gh_pat
+        type: string
+        required: false
     secrets:
       gh_pat:
         description: GitHub PAT for accessing private repositories
+        required: false
+      gh_private_key:
+        description: Private key of the GitHub App in gh_client_id
         required: false
 
 
@@ -30,19 +37,16 @@ concurrency:
 jobs:
   go:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        goos:
-          - linux
-          - darwin
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup go
         uses: unikraft-cloud/x/.github/actions/setup-go@prod-staging
         with:
           gh_pat: ${{ secrets.gh_pat }}
+          # Direct runs have no inputs, so they use this repository's App.
+          gh_client_id: ${{ inputs.gh_client_id || vars.TOOLING_APP_CLIENT_ID }}
+          gh_private_key: ${{ secrets.gh_private_key || secrets.TOOLING_APP_PRIVATE_KEY }}
           goprivate: ${{ inputs.goprivate }}
 
       - name: Run checks
@@ -54,6 +58,14 @@ jobs:
         shell: bash
         run: |
           go install github.com/bufbuild/buf/cmd/buf@v1.54.0
+
+      # fsck.erofs checks the EROFS images that the image-spec tests write.
+      - name: Install erofs-utils
+        if: github.repository == 'unikraft-cloud/x'
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq erofs-utils
 
       - name: Run tests
         shell: bash
