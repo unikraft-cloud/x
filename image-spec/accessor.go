@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/containerd/containerd/v2/core/remotes"
@@ -54,7 +55,8 @@ func WithResolver(r remotes.Resolver) AccessOpt {
 	}
 }
 
-// WithHTTPClient sets the client a layout served over HTTP is fetched with.
+// WithHTTPClient sets the client a layout served over HTTP is fetched with. A
+// redirect is only followed under the same host, whatever the client allows.
 func WithHTTPClient(client *http.Client) AccessOpt {
 	return func(so *Accessor) {
 		so.httpClient = client
@@ -81,8 +83,8 @@ func WithRegistryHeaders(headers http.Header) AccessOpt {
 
 // Resolve pins src to what it currently names, asking the remote: a registry
 // for the root its tag names, or an origin serving a layout over HTTP for the
-// URL it redirects a tag to. A local layout or archive has nothing to resolve,
-// and is returned as given.
+// URL it serves it at, after its redirects. A local layout or archive has
+// nothing to resolve, and is returned as given.
 func (accessor *Accessor) Resolve(ctx context.Context, src *Location) (Resolved, error) {
 	switch src.Scheme {
 	case schemes.OCI:
@@ -112,21 +114,17 @@ func (accessor *Accessor) Resolve(ctx context.Context, src *Location) (Resolved,
 	case schemes.HTTPOCI, schemes.HTTPSOCI:
 		requested, err := reference.Parse(src.String())
 		if err != nil {
-			return Resolved{}, fmt.Errorf("parsing image reference %q: %w", src, err)
+			return Resolved{}, fmt.Errorf("parsing image reference %q: %w", reference.StripQuery(src.String()), err)
 		}
-		pinned, err := ResolveTarballRemote(ctx, requested.AsURL(), accessor.httpClient, accessor.registryHeaders)
+		served, err := ResolveTarballRemote(ctx, requested.AsURL(), accessor.httpClient, accessor.registryHeaders)
 		if err != nil {
 			return Resolved{}, err
 		}
-		location := Location{Scheme: src.Scheme, Path: pinned.Host + pinned.Path}
-		res := Resolved{Reference: requested, Location: location}
-		if err := namesDigest(pinned); err == nil {
-			res.ResolvedReference, err = reference.Parse(location.String())
-			if err != nil {
-				return Resolved{}, fmt.Errorf("naming resolved image %q: %w", pinned, err)
-			}
+		resolved, err := reference.FromURL(served)
+		if err != nil {
+			return Resolved{}, fmt.Errorf("naming resolved image %q: %w", reference.StripQuery(served.String()), err)
 		}
-		return res, nil
+		return Resolved{Reference: requested, ResolvedReference: resolved, Location: tarballLocation(served)}, nil
 
 	case schemes.OCILayout, schemes.OCIArchive:
 		return Resolved{Location: *src}, nil
@@ -156,12 +154,12 @@ func (accessor *Accessor) Load(ctx context.Context, res Resolved, platform platf
 		}
 		img, err = LoadRegistryImage(ctx, named, res.Descriptor, accessor.remote, platform)
 	case schemes.HTTPOCI, schemes.HTTPSOCI:
-		var ref reference.Reference
-		ref, err = reference.Parse(res.Location.String())
+		var u *url.URL
+		u, err = tarballURL(res.Location)
 		if err != nil {
-			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
+			return nil, fmt.Errorf("parsing image reference %q: %w", reference.StripQuery(res.Location.String()), err)
 		}
-		img, err = LoadTarballRemote(ctx, ref.AsURL(), res.Descriptor, accessor.httpClient, accessor.registryHeaders, platform)
+		img, err = LoadTarballRemote(ctx, u, res.Descriptor, accessor.httpClient, accessor.registryHeaders, platform)
 	case schemes.OCILayout:
 		path, tag := splitPathTag(res.Location.Path)
 		if res.Descriptor.Digest != "" {
@@ -207,12 +205,12 @@ func (accessor *Accessor) LoadAll(ctx context.Context, res Resolved, platform pl
 		}
 		imgs, err = LoadAllRegistryImages(ctx, named, res.Descriptor, accessor.remote, platform)
 	case schemes.HTTPOCI, schemes.HTTPSOCI:
-		var ref reference.Reference
-		ref, err = reference.Parse(res.Location.String())
+		var u *url.URL
+		u, err = tarballURL(res.Location)
 		if err != nil {
-			return nil, fmt.Errorf("parsing image reference %q: %w", &res.Location, err)
+			return nil, fmt.Errorf("parsing image reference %q: %w", reference.StripQuery(res.Location.String()), err)
 		}
-		imgs, err = LoadAllTarballsRemote(ctx, ref.AsURL(), res.Descriptor, accessor.httpClient, accessor.registryHeaders, platform)
+		imgs, err = LoadAllTarballsRemote(ctx, u, res.Descriptor, accessor.httpClient, accessor.registryHeaders, platform)
 	case schemes.OCILayout:
 		path, tag := splitPathTag(res.Location.Path)
 		if res.Descriptor.Digest != "" {

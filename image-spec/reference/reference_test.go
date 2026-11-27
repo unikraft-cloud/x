@@ -128,6 +128,8 @@ func TestMatches(t *testing.T) {
 		{"same uri", "http+oci://cdn.example.com/me/app/latest", "http+oci://cdn.example.com/me/app/latest", true},
 		{"transport differs", "http+oci://cdn.example.com/me/app/latest", "https+oci://cdn.example.com/me/app/latest", false},
 		{"host differs", "http+oci://cdn.example.com/me/app/latest", "http+oci://other.example.com/me/app/latest", false},
+		{"query differs", "http+oci://cdn.example.com/me/app/latest?v=1", "http+oci://cdn.example.com/me/app/latest?v=2", false},
+		{"same query", "http+oci://cdn.example.com/me/app/latest?v=1", "http+oci://cdn.example.com/me/app/latest?v=1", true},
 		{"a reference does not match a uri", "http+oci://cdn.example.com/me/app/latest", "cdn.example.com/me/app:latest", false},
 		{"a uri does not match a reference", "cdn.example.com/me/app:latest", "http+oci://cdn.example.com/me/app/latest", false},
 		{"exact registry reference", "unikraft.io/official/nginx:latest", "unikraft.io/official/nginx:latest", true},
@@ -158,7 +160,6 @@ func TestWithTagAndWithDigest(t *testing.T) {
 		wantString string
 	}{
 		{"unikraft.io/official/nginx:v1", "unikraft.io/official/nginx:v3@" + testDigest},
-		{"https+oci://example.org/me/app/latest", "https+oci://example.org/me/app/@" + testDigest},
 	} {
 		t.Run(tt.in, func(t *testing.T) {
 			ref, err := reference.Parse(tt.in)
@@ -192,29 +193,24 @@ func TestWithTagAndWithDigest(t *testing.T) {
 	require.ErrorIs(t, err, reference.ErrInvalidReference)
 }
 
-func TestHTTPWithTagAndDigest(t *testing.T) {
-	ref, err := reference.Parse("https+oci://example.org/me/app/latest")
+func TestHTTPHasNoTagOrDigest(t *testing.T) {
+	tagLike, err := reference.Parse("https+oci://example.org/me/app/latest")
 	require.NoError(t, err)
-	ref, err = ref.WithDigest(testDigest)
+	digestLike, err := reference.Parse("https+oci://example.org/me/app/@" + testDigest)
 	require.NoError(t, err)
 
-	require.Equal(t, "https://example.org/me/app/@"+testDigest, ref.AsURL().String())
-	require.Equal(t, "https+oci://example.org/me/app/@"+testDigest, ref.Format(reference.FormatOpts{}))
-	require.Equal(t, "https+oci://example.org/me/app/latest", ref.Format(reference.FormatOpts{OmitDigest: true}))
+	for _, ref := range []reference.Reference{tagLike, digestLike} {
+		require.Empty(t, ref.Tag())
+		require.Empty(t, ref.Digest())
+		require.Equal(t, ref, ref.WithoutTag().WithoutDigest())
+		require.Equal(t, ref.String(), ref.Format(reference.FormatOpts{OmitDigest: true}))
 
-	for _, pattern := range []string{
-		"https+oci://example.org/me/app/latest",
-		"https+oci://example.org/me/app/@" + testDigest,
-	} {
-		p, err := reference.Parse(pattern)
-		require.NoError(t, err)
-		require.True(t, ref.Matches(p), "pattern %q", pattern)
+		_, err := ref.WithTag("v2")
+		require.ErrorIs(t, err, reference.ErrInvalidReference)
+		_, err = ref.WithDigest(testDigest)
+		require.ErrorIs(t, err, reference.ErrInvalidReference)
 	}
-
-	back, err := reference.Parse(ref.String())
-	require.NoError(t, err)
-	require.Empty(t, back.Tag(), "only the digest goes over the wire")
-	require.Equal(t, ref.Digest(), back.Digest())
+	require.False(t, tagLike.Matches(digestLike), "two URLs are two addresses")
 }
 
 func TestWithoutTagAndDigest(t *testing.T) {
@@ -223,21 +219,6 @@ func TestWithoutTagAndDigest(t *testing.T) {
 	require.Equal(t, "unikraft.io/official/nginx@"+testDigest, ref.WithoutTag().String())
 	require.Equal(t, "unikraft.io/official/nginx:v1", ref.WithoutDigest().String())
 	require.Equal(t, "unikraft.io/official/nginx", ref.WithoutTag().WithoutDigest().String())
-
-	http, err := reference.Parse("https+oci://example.org/me/app/latest")
-	require.NoError(t, err)
-	http, err = http.WithDigest(testDigest)
-	require.NoError(t, err)
-	require.Equal(t, "https+oci://example.org/me/app/@"+testDigest, http.WithoutTag().String())
-	require.Equal(t, "https+oci://example.org/me/app/latest", http.WithoutDigest().String())
-
-	trimmed := http.WithoutTag().WithoutDigest()
-	require.Empty(t, trimmed.Tag())
-	require.Equal(t, "https+oci://example.org/me/app/latest", trimmed.String(), "like OCI, no tag means latest")
-	require.Equal(t, "https://example.org/me/app/latest", trimmed.AsURL().String())
-	retagged, err := trimmed.WithTag("v2")
-	require.NoError(t, err)
-	require.Equal(t, "https+oci://example.org/me/app/v2", retagged.String())
 
 	require.True(t, reference.Reference{}.WithoutTag().WithoutDigest().IsZero())
 }
@@ -299,11 +280,11 @@ func TestWithDomain(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, canonical, moved)
 
-	http, err := reference.Parse("https+oci://cdn.example.com/me/app/latest")
+	http, err := reference.Parse("https+oci://cdn.example.com/me/app/latest?v=1")
 	require.NoError(t, err)
 	moved, err = http.WithDomain("OTHER.example.com:443")
 	require.NoError(t, err)
-	require.Equal(t, "https+oci://other.example.com/me/app/latest", moved.String())
+	require.Equal(t, "https+oci://other.example.com/me/app/latest?v=1", moved.String())
 
 	_, err = ref.WithDomain("NOT A HOST")
 	require.ErrorIs(t, err, reference.ErrInvalidReference)
@@ -332,6 +313,7 @@ func TestStringIsAFixedPoint(t *testing.T) {
 		"http+oci://127.0.0.1:8080/me/app/latest",
 		"https+oci://a.b.c.example.com/one/two/three/four/latest",
 		"http+oci://cdn.example.com/me/app/v1.2.3-alpha_4",
+		"https+oci://cdn.example.com/me/app.tar?X-Signature=a%2Fb%3D&expires=1",
 	} {
 		t.Run(in, func(t *testing.T) {
 			ref, err := reference.Parse(in)

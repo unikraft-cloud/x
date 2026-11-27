@@ -6,6 +6,9 @@
 package reference_test
 
 import (
+	"errors"
+	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -101,63 +104,79 @@ func TestParseHTTP(t *testing.T) {
 		domain  string
 		path    string
 		url     string
-		tag     string
-		digest  string
 		wantErr string
 	}{
 		{
-			name:   "tag",
+			name:   "a last segment like a tag",
 			uri:    "https+oci://username.unikraftcdn.com/some/path/to/layout/latest",
 			scheme: schemes.HTTPSOCI,
 			domain: "username.unikraftcdn.com",
-			path:   "some/path/to/layout",
+			path:   "some/path/to/layout/latest",
 			url:    "https://username.unikraftcdn.com/some/path/to/layout/latest",
-			tag:    "latest",
 		},
 		{
-			name:   "digest",
+			name:   "a last segment like a digest",
 			uri:    "https+oci://username.unikraftcdn.com/some/path/to/layout/@" + testDigest,
 			scheme: schemes.HTTPSOCI,
 			domain: "username.unikraftcdn.com",
-			path:   "some/path/to/layout",
+			path:   "some/path/to/layout/@" + testDigest,
 			url:    "https://username.unikraftcdn.com/some/path/to/layout/@" + testDigest,
-			digest: testDigest,
+		},
+		{
+			name:   "a last segment like neither",
+			uri:    "http+oci://example.org/root/nginx/@sha256:nothex",
+			scheme: schemes.HTTPOCI,
+			domain: "example.org",
+			path:   "root/nginx/@sha256:nothex",
+			url:    "http://example.org/root/nginx/@sha256:nothex",
 		},
 		{
 			name:   "host with port",
 			uri:    "http+oci://localhost:8001/root/helloworld/latest",
 			scheme: schemes.HTTPOCI,
 			domain: "localhost:8001",
-			path:   "root/helloworld",
+			path:   "root/helloworld/latest",
 			url:    "http://localhost:8001/root/helloworld/latest",
-			tag:    "latest",
 		},
 		{
 			name:   "multi-label host",
 			uri:    "http+oci://layouts.internal.example.com/test/registry/latest",
 			scheme: schemes.HTTPOCI,
 			domain: "layouts.internal.example.com",
-			path:   "test/registry",
+			path:   "test/registry/latest",
 			url:    "http://layouts.internal.example.com/test/registry/latest",
-			tag:    "latest",
 		},
 		{
 			name:   "host without a dot keeps its default port",
 			uri:    "http+oci://myhost:80/repo/name/latest",
 			scheme: schemes.HTTPOCI,
 			domain: "myhost:80",
-			path:   "repo/name",
+			path:   "repo/name/latest",
 			url:    "http://myhost:80/repo/name/latest",
-			tag:    "latest",
 		},
 		{
 			name:   "localhost without a port",
 			uri:    "http+oci://localhost/repo/name/latest",
 			scheme: schemes.HTTPOCI,
 			domain: "localhost",
-			path:   "repo/name",
+			path:   "repo/name/latest",
 			url:    "http://localhost/repo/name/latest",
-			tag:    "latest",
+		},
+		{
+			name:   "a single segment",
+			uri:    "https+oci://example.org/app.tar",
+			scheme: schemes.HTTPSOCI,
+			domain: "example.org",
+			path:   "app.tar",
+			url:    "https://example.org/app.tar",
+		},
+		{
+			name:   "uppercase path",
+			uri:    "https+oci://example.org/Root/nginx/latest",
+			scheme: schemes.HTTPSOCI,
+			domain: "example.org",
+			path:   "Root/nginx/latest",
+			url:    "https://example.org/Root/nginx/latest",
 		},
 		{
 			name:    "host without a dot or port",
@@ -165,29 +184,19 @@ func TestParseHTTP(t *testing.T) {
 			wantErr: `host "myhost" is not a registry`,
 		},
 		{
-			name:    "digest without an @ prefix",
-			uri:     "https+oci://username.unikraftcdn.com/some/path/to/layout/" + testDigest,
-			wantErr: "invalid tag format",
-		},
-		{
-			name:    "missing repository name",
-			uri:     "http+oci://localhost:8080/" + testDigest,
-			wantErr: "missing a repository name",
-		},
-		{
-			name:    "single repository segment",
-			uri:     "https+oci://example.org/nginx/latest",
-			wantErr: `repository "nginx" must be <namespace>/<name>`,
-		},
-		{
 			name:    "terminating slash",
 			uri:     "https+oci://example.org/root/nginx/",
-			wantErr: "unexpected terminating '/'",
+			wantErr: "path must not end in '/'",
 		},
 		{
 			name:    "no path at all",
 			uri:     "https+oci://example.org",
-			wantErr: "missing a repository and identifier",
+			wantErr: "missing a path",
+		},
+		{
+			name:    "only a slash",
+			uri:     "https+oci://example.org/",
+			wantErr: "missing a path",
 		},
 		{
 			name:    "missing host",
@@ -205,46 +214,44 @@ func TestParseHTTP(t *testing.T) {
 			wantErr: "must not embed credentials",
 		},
 		{
-			name:    "uppercase repository",
-			uri:     "https+oci://example.org/Root/nginx/latest",
-			wantErr: "invalid reference format",
+			name:   "escaped characters",
+			uri:    "https+oci://example.org/root/nginx%2Flatest/@sha256%3Aabc",
+			scheme: schemes.HTTPSOCI,
+			domain: "example.org",
+			path:   "root/nginx%2Flatest/@sha256%3Aabc",
+			url:    "https://example.org/root/nginx%2Flatest/@sha256%3Aabc",
 		},
 		{
-			name:    "malformed digest",
-			uri:     "http+oci://example.org/root/nginx/@sha256:nothex",
-			wantErr: "invalid checksum digest",
-		},
-		{
-			// url.Parse would decode the separator before the identifier is split off.
-			name:    "escaped separator",
-			uri:     "https+oci://example.org/root/nginx%2Flatest",
-			wantErr: "must not percent-encode",
-		},
-		{
-			name:    "escaped digest prefix",
-			uri:     "https+oci://example.org/root/nginx/%40" + testDigest,
-			wantErr: "must not percent-encode",
+			name:   "characters that may be left unescaped",
+			uri:    "https+oci://example.org/t/app(1)!*'[].tar",
+			scheme: schemes.HTTPSOCI,
+			domain: "example.org",
+			path:   "t/app(1)!*'[].tar",
+			url:    "https://example.org/t/app(1)!*'[].tar",
 		},
 		{
 			name:    "empty path segment",
 			uri:     "https+oci://example.org/root//nginx/latest",
-			wantErr: "must not contain empty or relative path segments",
+			wantErr: "empty or relative segments",
 		},
 		{
 			name:    "relative path segment",
 			uri:     "https+oci://example.org/root/../nginx/latest",
-			wantErr: "must not contain empty or relative path segments",
+			wantErr: "empty or relative segments",
 		},
 		{
 			// A bare '?' sets ForceQuery, not RawQuery.
 			name:    "bare query",
 			uri:     "https+oci://example.org/root/nginx/latest?",
-			wantErr: "must not have a query",
+			wantErr: "must not have an empty query",
 		},
 		{
-			name:    "query",
-			uri:     "https+oci://example.org/root/nginx/latest?a=b",
-			wantErr: "must not have a query",
+			name:   "query",
+			uri:    "https+oci://example.org/root/nginx/latest?sig=a%2Fb&x=@1",
+			scheme: schemes.HTTPSOCI,
+			domain: "example.org",
+			path:   "root/nginx/latest",
+			url:    "https://example.org/root/nginx/latest?sig=a%2Fb&x=@1",
 		},
 		{
 			// url.Parse drops a bare '#' entirely.
@@ -274,11 +281,12 @@ func TestParseHTTP(t *testing.T) {
 			require.True(t, ref.Scheme().IsHTTP())
 			require.Equal(t, tt.domain, ref.Domain())
 			require.Equal(t, tt.path, ref.Path())
+			require.Equal(t, tt.domain+"/"+tt.path, ref.Name())
 
 			require.Nil(t, ref.AsNamed())
 			require.Equal(t, tt.url, ref.AsURL().String())
-			require.Equal(t, tt.tag, ref.Tag())
-			require.Equal(t, tt.digest, ref.Digest().String())
+			require.Empty(t, ref.Tag())
+			require.Empty(t, ref.Digest())
 
 			require.Equal(t, tt.uri, ref.String())
 			again, err := reference.Parse(ref.String())
@@ -291,6 +299,52 @@ func TestParseHTTP(t *testing.T) {
 			require.Equal(t, tt.uri, ref.Format(reference.FormatOpts{OmitDigest: true}))
 		})
 	}
+}
+
+func TestFromURL(t *testing.T) {
+	for _, tt := range []struct{ name, url, want string }{
+		{"as Parse takes it", "https://example.org/ns/app/v1?sig=a%2Fb", "https+oci://example.org/ns/app/v1?sig=a%2Fb"},
+		{"a trailing slash", "https://example.org/ns/app/", "https+oci://example.org/ns/app/"},
+		{"an empty segment", "https://example.org/keys//app.tar", "https+oci://example.org/keys//app.tar"},
+		{"an escaped path", "http://example.org/ns/app/@sha256%3Aabc", "http+oci://example.org/ns/app/@sha256%3Aabc"},
+		{"a host that is not a registry", "http://origin/app.tar", "http+oci://origin/app.tar"},
+		{"a unicode host", "https://exämple.org/app.tar", "https+oci://ex%C3%A4mple.org/app.tar"},
+		{"a fragment is dropped", "https://example.org/app.tar#frag", "https+oci://example.org/app.tar"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			u, err := url.Parse(tt.url)
+			require.NoError(t, err)
+			ref, err := reference.FromURL(u)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, ref.String())
+			require.Empty(t, ref.Tag())
+			require.Empty(t, ref.Digest())
+
+			u.Fragment = ""
+			require.Equal(t, u.String(), ref.AsURL().String())
+		})
+	}
+
+	for _, in := range []string{"https://user:pw@example.org/app.tar", "ftp://example.org/app.tar", "https:///app.tar"} {
+		u, err := url.Parse(in)
+		require.NoError(t, err)
+		_, err = reference.FromURL(u)
+		require.ErrorIs(t, err, reference.ErrInvalidReference, in)
+	}
+}
+
+func TestStripQuery(t *testing.T) {
+	require.Equal(t, "https+oci://example.org/app.tar", reference.StripQuery("https+oci://example.org/app.tar?sig=secret"))
+	require.Equal(t, "https+oci://example.org/app.tar", reference.StripQuery("https+oci://example.org/app.tar"))
+
+	_, err := reference.Parse("https+oci://example.org/app.tar?sig=secret#frag")
+	require.ErrorIs(t, err, reference.ErrInvalidReference)
+	require.NotContains(t, err.Error(), "secret")
+
+	ref, err := reference.Parse("https+oci://example.org/app.tar?sig=secret")
+	require.NoError(t, err)
+	_, err = ref.WithTag("v1")
+	require.NotContains(t, err.Error(), "secret")
 }
 
 func TestParseHTTPNormalizesHost(t *testing.T) {
@@ -420,4 +474,20 @@ func TestFromNamedRequiresAQualifiedName(t *testing.T) {
 	ref, err := reference.FromNamed(named)
 	require.NoError(t, err, "localhost is a domain")
 	require.Equal(t, "localhost/me/app", ref.String())
+}
+
+func TestStripQueryError(t *testing.T) {
+	cause := errors.New("cause")
+	for in, want := range map[string]string{
+		`Get "https://origin.test/b?sig=hunter2": dial tcp: refused`:                        `Get "https://origin.test/b": dial tcp: refused`,
+		`failed to parse Location header "/b%zz?sig=hunter2": invalid URL escape "%zz"`:     `failed to parse Location header "/b%zz": invalid URL escape "%zz"`,
+		`resolving https://origin.test/b?sig=hunter2&x=1 failed`:                            `resolving https://origin.test/b failed`,
+		`what happened? nothing with a/b`:                                                   `what happened? nothing with a/b`,
+		`failed to parse Location header "/b%zz?sig=\"hunter2\"": invalid URL escape "%zz"`: `failed to parse Location header "/b%zz": invalid URL escape "%zz"`,
+		`failed to parse Location header "/b%zz?sig=hunter 2": invalid URL escape "%zz"`:    `failed to parse Location header "/b%zz": invalid URL escape "%zz"`,
+	} {
+		err := reference.StripQueryError(fmt.Errorf("%s: %w", in, cause))
+		require.Equal(t, want+": cause", err.Error())
+		require.ErrorIs(t, err, cause)
+	}
 }
