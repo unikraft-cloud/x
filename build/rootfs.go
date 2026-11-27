@@ -50,6 +50,11 @@ import (
 func applyConfigOverrides(base ocispec.ImageConfig, opts BuildOpts) ocispec.ImageConfig {
 	cfg := base
 	if opts.Cmd != nil {
+		// The cmd of a Kraftfile is the whole command line, so no Entrypoint of the base comes before it.
+		// An empty cmd runs the Entrypoint of the base without arguments, as an empty CMD of Docker does.
+		if len(opts.Cmd) > 0 {
+			cfg.Entrypoint = nil
+		}
 		cfg.Cmd = opts.Cmd
 	}
 	if opts.Env != nil {
